@@ -2,11 +2,54 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>弹壳公会远征统计</title>
-<meta http-equiv="refresh" content="0;url=https://record-cameron-counts-turning.trycloudflare.com">
-<script>location.replace("https://record-cameron-counts-turning.trycloudflare.com");</script>
+<style>
+  body { font-family: system-ui, -apple-system, "Microsoft YaHei", sans-serif; text-align: center; margin-top: 80px; color: #333; }
+  a { color: #b8860b; }
+  #list { margin-top: 24px; font-size: 15px; line-height: 2; }
+</style>
 </head>
 <body>
-<p style="text-align:center;margin-top:100px;font-size:16px;">正在跳转...<br><a href="https://record-cameron-counts-turning.trycloudflare.com">如未跳转请点击这里</a></p>
+<p id="tip">正在连接服务器...</p>
+<div id="list" style="display:none;">
+  <p>如果长时间没有跳转，请点下面任意一个地址：</p>
+  <div id="links"></div>
+</div>
+<script>
+// 依次探测可用入口，选第一个能连上的跳转（主入口优先，其次备用隧道）
+var CANDIDATES = [
+  "https://chenyl.free.idcfengye.com",
+  "https://48954262.r39.cpolar.top",
+  "https://answered-tracker-structural-acceptance.trycloudflare.com"
+];
+// 主入口 HTTPS 不通时的兜底（HTTP 版本，放在最后直接跳转）
+var FALLBACK = "http://chenyl.free.idcfengye.com";
+
+function probe(url) {
+  return new Promise(function (resolve) {
+    var done = false;
+    var timer = setTimeout(function () { if (!done) { done = true; resolve(false); } }, 4000);
+    fetch(url + "/api/config", { mode: "no-cors", cache: "no-store" })
+      .then(function () { if (!done) { done = true; clearTimeout(timer); resolve(true); } })
+      .catch(function () { if (!done) { done = true; clearTimeout(timer); resolve(false); } });
+  });
+}
+
+(async function () {
+  var links = document.getElementById("links");
+  CANDIDATES.concat([FALLBACK]).forEach(function (u) {
+    var a = document.createElement("a");
+    a.href = u; a.textContent = u; a.style.display = "block";
+    links.appendChild(a);
+  });
+  document.getElementById("list").style.display = "block";
+  for (var i = 0; i < CANDIDATES.length; i++) {
+    if (await probe(CANDIDATES[i])) { location.replace(CANDIDATES[i]); return; }
+  }
+  // 备用都连不上时用主入口 HTTP 兜底
+  location.replace(FALLBACK);
+})();
+</script>
 </body>
 </html>
