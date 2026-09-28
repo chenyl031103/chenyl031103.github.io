@@ -3,52 +3,60 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <title>弹壳公会远征统计</title>
 <style>
-  body { font-family: system-ui, -apple-system, "Microsoft YaHei", sans-serif; text-align: center; margin-top: 80px; color: #333; }
-  a { color: #b8860b; }
+  body { font-family: system-ui, -apple-system, "Microsoft YaHei", sans-serif; text-align: center; margin-top: 80px; color: #333; padding: 0 16px; }
+  a { color: #b8860b; word-break: break-all; }
   #list { margin-top: 24px; font-size: 15px; line-height: 2; }
 </style>
 </head>
 <body>
-<p id="tip">正在连接服务器...</p>
+<p id="tip">正在连接服务器，请稍候...</p>
 <div id="list" style="display:none;">
-  <p>如果长时间没有跳转，请点下面任意一个地址：</p>
+  <p>如果 5 秒内没有自动跳转，请点下面任意一个地址：</p>
   <div id="links"></div>
 </div>
 <script>
-// 依次探测可用入口，选第一个能连上的跳转（主入口优先，其次备用隧道）
+// 同时探测所有 HTTPS 入口，谁先连上就跳谁；全部失败则用主入口 HTTP 兜底
 var CANDIDATES = [
   "https://chenyl.free.idcfengye.com",
-  "https://48954262.r39.cpolar.top",
+  "https://4cb3fee3.r39.cpolar.top",
   "https://answered-tracker-structural-acceptance.trycloudflare.com"
 ];
-// 主入口 HTTPS 不通时的兜底（HTTP 版本，放在最后直接跳转）
 var FALLBACK = "http://chenyl.free.idcfengye.com";
+var jumped = false;
+
+function go(url) {
+  if (jumped) return;
+  jumped = true;
+  location.replace(url);
+}
 
 function probe(url) {
   return new Promise(function (resolve) {
-    var done = false;
-    var timer = setTimeout(function () { if (!done) { done = true; resolve(false); } }, 4000);
+    var timer = setTimeout(function () { resolve(null); }, 3000);
     fetch(url + "/api/config", { mode: "no-cors", cache: "no-store" })
-      .then(function () { if (!done) { done = true; clearTimeout(timer); resolve(true); } })
-      .catch(function () { if (!done) { done = true; clearTimeout(timer); resolve(false); } });
+      .then(function () { clearTimeout(timer); resolve(url); })
+      .catch(function () { clearTimeout(timer); resolve(null); });
   });
 }
 
-(async function () {
+(function () {
   var links = document.getElementById("links");
   CANDIDATES.concat([FALLBACK]).forEach(function (u) {
     var a = document.createElement("a");
     a.href = u; a.textContent = u; a.style.display = "block";
     links.appendChild(a);
   });
-  document.getElementById("list").style.display = "block";
-  for (var i = 0; i < CANDIDATES.length; i++) {
-    if (await probe(CANDIDATES[i])) { location.replace(CANDIDATES[i]); return; }
-  }
-  // 备用都连不上时用主入口 HTTP 兜底
-  location.replace(FALLBACK);
+  setTimeout(function () { document.getElementById("list").style.display = "block"; }, 5000);
+  setTimeout(function () { go(FALLBACK); }, 8000);
+
+  Promise.all(CANDIDATES.map(probe)).then(function (results) {
+    var alive = results.filter(Boolean);
+    if (alive.length > 0) { go(alive[0]); }
+    // 都探测失败时，交给上面的 8 秒兜底跳转到主入口
+  });
 })();
 </script>
 </body>
