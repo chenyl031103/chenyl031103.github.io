@@ -1,11 +1,11 @@
 /* =====================================================================
    潮汐秘境 · 残局分析器（界面层）
-   棋盘状态：-1 未翻开 / 0-8 已翻开数字 / 'G' 宝钻 / 'X' × 标记
+   棋盘状态：-1 未翻开 / 0-8 已翻开数字 / 'G' 钻石 / 'X' × 标记
    ===================================================================== */
 (() => {
   'use strict';
 
-  // 各尺寸的宝钻总数由活动固定，不可更改
+  // 各尺寸的钻石总数由活动固定，不可更改
   const GEM_TOTAL = { 8: 20, 10: 30, 12: 45 };
   const OCR_ENABLED = window.TIDAL_OCR !== false;   // 静态托管版把 window.TIDAL_OCR 设为 false
 
@@ -286,7 +286,7 @@
       cells: S.grid,
       gemTotal: Number.isFinite(S.gemTotal) ? S.gemTotal : null,
     };
-    // 主结论：把玩家的 × 当作「确定没有宝钻」一起推理
+    // 主结论：把玩家的 × 当作「确定没有钻石」一起推理
     const res = window.TidalSolver.solve(Object.assign({}, base, { trustMarks: true }));
     // 再算一遍「不信任 ×」，用来发现标错的 × 和数字证明不了的 ×
     S.resultNoMarks = window.TidalSolver.solve(Object.assign({}, base, { trustMarks: false }));
@@ -309,8 +309,8 @@
 
   function describeConflict(x) {
     return x.tooMany
-      ? `显示数字 ${x.clue}，但周围已经翻出 ${x.gems} 颗宝钻`
-      : `显示数字 ${x.clue}，需要 ${x.want} 颗宝钻，却只剩 ${x.hidden} 格没翻开`;
+      ? `显示数字 ${x.clue}，但周围已经翻出 ${x.gems} 颗钻石`
+      : `显示数字 ${x.clue}，需要 ${x.want} 颗钻石，却只剩 ${x.hidden} 格没翻开`;
   }
 
   /** 一行建议条（始终显示在棋盘下方） */
@@ -319,7 +319,7 @@
     if (S.filledCount === 0) return { kind: '', text: '先把残局填进来，或点右上角「载入示例」看效果。' };
     if (c.hiddenCells === 0) return { kind: '', text: '棋盘已填满，没有未翻开的格子了。' };
     const pick = res.pick;
-    if (!pick) return { kind: '', text: '还没有数字线索：先把已翻开的格子和宝钻填进来。' };
+    if (!pick) return { kind: '', text: '还没有数字线索：先把已翻开的格子和钻石填进来。' };
     if (pick.type === 'gem') {
       return { kind: 'gem', text: `先点开 ${coord(pick.r, pick.c)} —— 必定是钻石（${pick.why || '由数字推出'}）` };
     }
@@ -329,7 +329,7 @@
     const hi = pick, lo = pick.alt;
     return {
       kind: 'warn',
-      text: `推不出确定格子：想赌分翻 ${coord(hi.r, hi.c)}（含宝钻 ${Math.round(hi.p * 100)}%），想探线索翻 ${lo ? coord(lo.r, lo.c) + '（' + Math.round(lo.p * 100) + '%）' : '—'}`,
+      text: `推不出确定格子：想赌分翻 ${coord(hi.r, hi.c)}（含钻石 ${Math.round(hi.p * 100)}%），想探线索翻 ${lo ? coord(lo.r, lo.c) + '（' + Math.round(lo.p * 100) + '%）' : '—'}`,
     };
   }
 
@@ -352,9 +352,9 @@
     const errText = marksAtFault
       ? (res.conflicts.length
           ? `${res.conflicts.length} 处矛盾：多半有 × 标错了（详见使用说明）`
-          : '宝钻总数对不上：多半有 × 标错了（详见使用说明）')
+          : '钻石总数对不上：多半有 × 标错了（详见使用说明）')
       : (res.impossible
-          ? '盘面与宝钻总数矛盾'
+          ? '盘面与钻石总数矛盾'
           : (res.conflicts.length ? `${res.conflicts.length} 处数字对不上（详见使用说明）` : ''));
     el.vbErrWrap.hidden = !errText;
     el.vbErr.textContent = errText || '';
@@ -362,8 +362,8 @@
     /* 明细：全部收进「使用说明」 */
     let html = '';
     html += `<ul class="meta-list">
-      <li><span>本图宝钻总数</span><b>${c.gemTotal == null ? '未填' : c.gemTotal}</b></li>
-      <li><span>已确认宝钻</span><b>${c.knownGems} 颗</b></li>
+      <li><span>本图钻石总数</span><b>${c.gemTotal == null ? '未填' : c.gemTotal}</b></li>
+      <li><span>已确认钻石</span><b>${c.knownGems} 颗</b></li>
       <li><span>还需找出</span><b>${c.remainingGems == null ? '—' : c.remainingGems + ' 颗'}</b></li>
       <li><span>必定是钻石</span><b>${c.certainGems} 处</b></li>
       <li><span>必定不是钻石</span><b>${c.certainSafe} 处</b></li>
@@ -377,7 +377,7 @@
     if (c.certainSafe) html += `<div class="block-title">必定不是钻石（可以标 ×）</div>${coordChips(res.certainSafe, 'c-safe', 20)}`;
     if (res.undecided.length) {
       const lo = res.undecided[0], hi = res.undecided[res.undecided.length - 1];
-      html += `<div class="advice-why" style="margin-top:10px">待定格含宝钻概率区间 ${Math.round(lo.p * 100)}% ~ ${Math.round(hi.p * 100)}%${res.approx ? '（其中有过大的分组，已按估算处理）' : ''}</div>`;
+      html += `<div class="advice-why" style="margin-top:10px">待定格含钻石概率区间 ${Math.round(lo.p * 100)}% ~ ${Math.round(hi.p * 100)}%${res.approx ? '（其中有过大的分组，已按估算处理）' : ''}</div>`;
     }
 
     /* 盘面自检 */
@@ -390,17 +390,17 @@
         <div style="margin-top:9px">${coordChips(res.conflicts, 'c-warn', 12)}</div>
         <div class="advice-why" style="margin-top:9px">${res.conflicts.slice(0, 5).map((x) => '· ' + coord(x.r, x.c) + ' ' + describeConflict(x)).join('<br>')}</div>`;
     } else {
-      html += `<p class="card-desc">✔ 已填的 <b>${nCells}</b> 个数字格全部符合「<b>数字 = 周围 8 格的宝钻数</b>」，这个盘面可以放心用。</p>`;
+      html += `<p class="card-desc">✔ 已填的 <b>${nCells}</b> 个数字格全部符合「<b>数字 = 周围 8 格的钻石数</b>」，这个盘面可以放心用。</p>`;
     }
     if (res.impossible) {
-      html += `<p class="advice-why" style="margin-top:9px;color:var(--warn-ink)">当前盘面与「宝钻总数 ${c.gemTotal}」无法同时成立：可能某格填错了，或总数不对。</p>`;
+      html += `<p class="advice-why" style="margin-top:9px;color:var(--warn-ink)">当前盘面与「钻石总数 ${c.gemTotal}」无法同时成立：可能某格填错了，或总数不对。</p>`;
     }
 
     /* × 标记检查 */
     html += `<div class="block-title">你的 × 标记检查</div>`;
     const noM = S.resultNoMarks;
     if (!res.markedX.some((v) => v)) {
-      html += `<p class="card-desc">棋盘上还没有 × 标记。按游戏玩法，单击标 × 就是「这格确定没有宝钻」，工具会把它当作可靠信息一起推理。</p>`;
+      html += `<p class="card-desc">棋盘上还没有 × 标记。按游戏玩法，单击标 × 就是「这格确定没有钻石」，工具会把它当作可靠信息一起推理。</p>`;
     } else {
       let m = '';
       // ① 标错的：信任 × 会出现矛盾，而不信任就没有 → 说明 × 里有错的
@@ -408,7 +408,7 @@
       if (badByMarks) {
         m += `<div class="advice-lead"><span class="tag tag-warn">有 × 标错了</span></div>
               <div class="advice-why" style="margin:6px 0 8px">
-              你的 × 已被当成「确定没有宝钻」参与推理；但如果因此出现下面这些矛盾，说明<span style="color:var(--warn-ink)">其中至少有一个 × 标错了</span>：
+              你的 × 已被当成「确定没有钻石」参与推理；但如果因此出现下面这些矛盾，说明<span style="color:var(--warn-ink)">其中至少有一个 × 标错了</span>：
               </div>${coordChips(res.conflicts, 'c-warn', 10)}`;
       }
       // ② 数字证明不了的 ×（不信任时仍是候选）——标错了结论就会偏
@@ -451,11 +451,11 @@
   /* ---------- 双击翻开：选择这一格翻出来是什么 ---------- */
   /**
    * 这一格周围可能出现的数字范围。
-   * 数字 = 周围 8 格里宝钻的总数（含已经翻出来的），所以：
-   *   下限 = 周围已经翻出的宝钻数（这些一定算数）
-   *   上限 = 周围还可能藏宝钻的格数 = 周围格数 − 已确定不可能是宝钻的格数
-   *          （已确定不是宝钻的：打了 × 的格、已经翻开是数字的格）
-   * 例：8 个邻居里有 2 个标了 ×、1 个已经是宝钻 → 只能填 1~6
+   * 数字 = 周围 8 格里钻石的总数（含已经翻出来的），所以：
+   *   下限 = 周围已经翻出的钻石数（这些一定算数）
+   *   上限 = 周围还可能藏钻石的格数 = 周围格数 − 已确定不可能是钻石的格数
+   *          （已确定不是钻石的：打了 × 的格、已经翻开是数字的格）
+   * 例：8 个邻居里有 2 个标了 ×、1 个已经是钻石 → 只能填 1~6
    */
   function revealRange(r, c) {
     let known = 0, blocked = 0, total = 0;
@@ -466,9 +466,9 @@
         if (rr < 0 || cc < 0 || rr >= S.rows || cc >= S.cols) continue;
         total++;
         const v = S.grid[rr][cc];
-        if (v === 'G') known++;                                        // 已翻出的宝钻：一定算进数字
-        else if (v === 'X') blocked++;                                  // 标了 ×：确定没有宝钻
-        else if (typeof v === 'number' && v >= 0) blocked++;            // 已翻开的数字格：不可能是宝钻
+        if (v === 'G') known++;                                        // 已翻出的钻石：一定算进数字
+        else if (v === 'X') blocked++;                                  // 标了 ×：确定没有钻石
+        else if (typeof v === 'number' && v >= 0) blocked++;            // 已翻开的数字格：不可能是钻石
       }
     }
     return { min: known, max: Math.max(known, total - blocked), total, known, blocked };
@@ -483,12 +483,12 @@
     for (let v = rng.min; v <= rng.max; v++) {
       btns.push('<button class="rb-btn' + (v === 0 ? ' rb-zero' : '') + '" data-val="' + v + '" type="button">' + (v === 0 ? '空白 0' : v) + '</button>');
     }
-    btns.push('<button class="rb-btn rb-gem" data-val="G" type="button"><svg class="ico"><use href="#ico-gem"/></svg>宝钻</button>');
+    btns.push('<button class="rb-btn rb-gem" data-val="G" type="button"><svg class="ico"><use href="#ico-gem"/></svg>钻石</button>');
     el.rbValues.innerHTML = btns.join('');
 
     const parts = [];
     if (rng.total < 8) parts.push(`周围只有 ${rng.total} 格`);
-    if (rng.known) parts.push(`${rng.known} 颗已是宝钻`);
+    if (rng.known) parts.push(`${rng.known} 颗已是钻石`);
     if (rng.blocked) parts.push(`${rng.blocked} 格已排除`);
     el.rbHint.textContent = parts.length
       ? `（${parts.join(' · ')}）只能填 ${rng.min}~${rng.max}`
@@ -799,7 +799,7 @@
       for (const i of [...open]) for (const j of nbrs(i)) if (!mine[j] && !open.has(j)) add.push(j);
       for (const j of add) open.add(j);
     }
-    // 模拟「已经翻出来几颗宝钻」：挑几颗紧挨着已开区域的宝钻
+    // 模拟「已经翻出来几颗钻石」：挑几颗紧挨着已开区域的钻石
     const gemAdj = new Set();
     for (const i of [...open]) for (const j of nbrs(i)) if (mine[j] && !open.has(j)) gemAdj.add(j);
     for (const j of [...gemAdj].slice(0, 3)) open.add(j);
@@ -870,26 +870,26 @@
           <h4>怎么填</h4>
           <ul>
             <li><b>单击格子</b>＝标上 / 取消 <b>×</b> 标记（和游戏里单击一样，不消耗探索券）。</li>
-            <li><b>双击格子</b>＝相当于「翻开」：底部弹出取值栏，选这格翻出来是 <b>空白 0 / 数字 / 宝钻</b>。
-              可选数字按<b>当前位置实际可能的值</b>给：角上周围只有 3 格就只给 0~3；如果周围已经有 × 标记或已翻出的宝钻，
-              范围会跟着收窄（例：8 个邻居里有 2 格标了 ×、1 颗已经是宝钻 → 只能填 <b>1~6</b>：
-              下限是那颗已翻出的宝钻，上限是「剩下 5 格全是宝钻」）。填不出不可能的值，也就不会触发自检报错。</li>
+            <li><b>双击格子</b>＝相当于「翻开」：底部弹出取值栏，选这格翻出来是 <b>空白 0 / 数字 / 钻石</b>。
+              可选数字按<b>当前位置实际可能的值</b>给：角上周围只有 3 格就只给 0~3；如果周围已经有 × 标记或已翻出的钻石，
+              范围会跟着收窄（例：8 个邻居里有 2 格标了 ×、1 颗已经是钻石 → 只能填 <b>1~6</b>：
+              下限是那颗已翻出的钻石，上限是「剩下 5 格全是钻石」）。填不出不可能的值，也就不会触发自检报错。</li>
             <li><b>右键格子</b>＝清除，恢复成「未翻开」；按住左键拖动可连续涂。</li>
             <li>笔刷那排用于连续涂：想批量填数字就先点「3」，再逐个点格子；默认笔刷是 <b>× 标记</b>。
               数字笔刷是 <b>0~8</b>（数字最多就是 8，因为一格最多只有 8 个邻居）。</li>
             <li>填错了就点棋盘下方的<b>「撤销上一步」</b>（或按 <b>Ctrl+Z</b>）退回上一处改动。
               一次拖动连涂、一次双击翻开、一次「把可确认的格标上 ×」都各算一步。</li>
             <li><b>「清空棋盘」</b>也在棋盘下方，清空后同样可以撤销，不怕点错。</li>
-            <li>键盘：<b>0~8</b> 选数字笔刷，<b>G</b> 宝钻，<b>X</b> 标记，<b>E</b> 清除，<b>Ctrl+Z</b> 撤销。</li>
-            <li>顶部「本图固定宝钻」按尺寸固定（8×8 为 20、10×10 为 30、12×12 为 45），不可更改。</li>
+            <li>键盘：<b>0~8</b> 选数字笔刷，<b>G</b> 钻石，<b>X</b> 标记，<b>E</b> 清除，<b>Ctrl+Z</b> 撤销。</li>
+            <li>顶部「本图固定钻石」按尺寸固定（8×8 为 20、10×10 为 30、12×12 为 45），不可更改。</li>
           </ul>
         </section>
         <section>
           <h4>推理是怎么做的</h4>
           <ul>
-            <li>格子上的数字＝<b>周围 8 格里有几颗宝钻</b>。点开是 <b>3</b>，就是它周围那 9 格里一共藏着 3 颗宝钻。</li>
-            <li>于是：<b>把这 3 颗都翻出来之后</b>，那一圈里剩下没翻的格子就<b>确定没有宝钻</b>，可以单击标上 ×。</li>
-            <li>反过来，如果某个数字周围剩下的格数<b>正好等于</b>还缺的宝钻数，那些格子就<b>全是宝钻</b>，可以直接去翻。</li>
+            <li>格子上的数字＝<b>周围 8 格里有几颗钻石</b>。点开是 <b>3</b>，就是它周围那 9 格里一共藏着 3 颗钻石。</li>
+            <li>于是：<b>把这 3 颗都翻出来之后</b>，那一圈里剩下没翻的格子就<b>确定没有钻石</b>，可以单击标上 ×。</li>
+            <li>反过来，如果某个数字周围剩下的格数<b>正好等于</b>还缺的钻石数，那些格子就<b>全是钻石</b>，可以直接去翻。</li>
             <li>此外还会做两格数字叠加推算；都推不出来时，才按所有合法摆法给出概率。</li>
           </ul>
         </section>
@@ -897,11 +897,11 @@
           <h4>棋盘上的标记怎么读</h4>
           <ul>
             <li><b>绿色 √</b>（绿底白勾）＝<b>必定是钻石</b>，放心去翻，直接得分。</li>
-            <li><b>黑色 ×</b>＝<b>必定不是宝钻</b>（安全格），可以放心；也可以点「把可确认的格标上 ×」一键标完。</li>
-            <li><b>虚框 %</b>＝解不唯一时按所有合法摆法统计出的含宝钻概率，只是参考。</li>
+            <li><b>黑色 ×</b>＝<b>必定不是钻石</b>（安全格），可以放心；也可以点「把可确认的格标上 ×」一键标完。</li>
+            <li><b>虚框 %</b>＝解不唯一时按所有合法摆法统计出的含钻石概率，只是参考。</li>
             <li><b>左上角橙色三角</b>＝推荐先点的格子（棋盘下方那行字也会写是哪一格）。</li>
-            <li>标了 <b>×</b> 的格子＝你已确认它没有宝钻，就不再重复显示 ✓；<b>只有标错时</b>才会亮红框 <b>!</b> 提醒。</li>
-            <li>推理只使用<b>数字</b>和<b>宝钻总数</b>；你标的 × 不参与推理，但会用来自动检查标错的地方。</li>
+            <li>标了 <b>×</b> 的格子＝你已确认它没有钻石，就不再重复显示 ✓；<b>只有标错时</b>才会亮红框 <b>!</b> 提醒。</li>
+            <li>推理只使用<b>数字</b>和<b>钻石总数</b>；你标的 × 不参与推理，但会用来自动检查标错的地方。</li>
           </ul>
         </section>
         <section>
@@ -1192,7 +1192,7 @@
       mark();   // 整次识别算一步：识别错了可以一键退回识别前的盘面
       S.rows = rows; S.cols = cols;
       el.sizeSeg.querySelectorAll('.seg-btn').forEach((b) => b.classList.toggle('is-on', Number(b.dataset.size) === rows));
-      S.gemTotal = GEM_TOTAL[rows];      // 宝钻总数由尺寸固定
+      S.gemTotal = GEM_TOTAL[rows];      // 钻石总数由尺寸固定
       el.gemTotalText.textContent = S.gemTotal;
 
       S.grid = newGrid(rows, cols);

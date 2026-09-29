@@ -4,10 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>《弹壳特攻队》-潮汐秘境计算器</title>
-<meta name="description" content="《弹壳特攻队》潮汐秘境计算器：把当前棋盘的数字、宝钻、× 标记填进来，自动推出哪些格子必定是钻石、哪些必定不是钻石、下一步先点哪里。支持上传截图自动识别。">
+<meta name="description" content="《弹壳特攻队》潮汐秘境计算器：把当前棋盘的数字、钻石、× 标记填进来，自动推出哪些格子必定是钻石、哪些必定不是钻石、下一步先点哪里。支持上传截图自动识别。">
 <meta name="theme-color" content="#0f1923">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext y='25' font-size='25'%3E%F0%9F%92%8E%3C/text%3E%3C/svg%3E">
-<link rel="stylesheet" href="style.css?vmum7wb0x">
+<link rel="stylesheet" href="style.css?vmum7wv3d">
 <script>var t=localStorage.getItem('theme')||'light';document.documentElement.setAttribute('data-theme',t);</script>
 </head>
 <body>
@@ -48,7 +48,7 @@
     <span class="brand-mark" aria-hidden="true">💎</span>
     <span class="brand-text">
       <strong>潮汐秘境计算器</strong>
-      <small>填好残局 → 棋盘上直接标出哪格是宝钻、哪格可以标 ×</small>
+      <small>填好残局 → 棋盘上直接标出哪格是钻石、哪格可以标 ×</small>
     </span>
   </div>
   <nav class="topbar-nav">
@@ -73,7 +73,7 @@
         <button class="seg-btn" data-size="10" type="button">10×10</button>
         <button class="seg-btn" data-size="12" type="button">12×12</button>
       </div>
-      <span class="map-chip map-chip-quiet">本图固定宝钻 <b id="gem-total-text">20</b> 颗</span>
+      <span class="map-chip map-chip-quiet">本图固定钻石 <b id="gem-total-text">20</b> 颗</span>
       <span class="map-chip map-chip-quiet">已填 <b id="filled-count">0</b> / <b id="cell-total">64</b> 格</span>
     </div>
 
@@ -97,7 +97,7 @@
         <button class="brush brush-num" data-brush="8" type="button">8</button>
       </span>
       <button class="brush brush-gem" data-brush="G" type="button">
-        <svg class="ico"><use href="#ico-gem"/></svg>宝钻
+        <svg class="ico"><use href="#ico-gem"/></svg>钻石
       </button>
       <span class="palette-tip">双击格子＝翻开并选值 · 右键清除 · 可按住拖动连涂</span>
     </div>
@@ -143,7 +143,7 @@
 
 <script>window.TIDAL_OCR = false;/* 静态托管版由构建脚本改成 false */</script>
 <script>window.TIDAL_OCR_URL = 'http://chenyl.free.idcfengye.com/';/* 静态版构建时填入「带截图识别的网址」 */</script>
-<script src="solver-core.js?vmum7wb0x"></script>
-<script src="solver.js?vmum7wb0x"></script>
+<script src="solver-core.js?vmum7wv3d"></script>
+<script src="solver.js?vmum7wv3d"></script>
 </body>
 </html>

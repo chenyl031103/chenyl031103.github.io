@@ -1,10 +1,10 @@
 /* =====================================================================
    潮汐秘境 · 残局求解核心
-   输入：一张残局（每格：未翻开 / 已翻开数字 0-8 / 宝钻 / × 标记）+ 该地图宝钻总数
-   输出：必定是钻石的格子、必定安全的格子、无法确定格子的含宝钻概率、下一步建议
+   输入：一张残局（每格：未翻开 / 已翻开数字 0-8 / 钻石 / × 标记）+ 该地图钻石总数
+   输出：必定是钻石的格子、必定安全的格子、无法确定格子的含钻石概率、下一步建议
         以及与玩家 × 标记的矛盾之处
 
-   规则要点（与活动一致）：数字 = 周围 8 格中的钻石数量；宝钻就是雷。
+   规则要点（与活动一致）：数字 = 周围 8 格中的钻石数量；钻石就是雷。
    求解只用「数字」这一硬约束；玩家的 × 标记仅用于事后比对，不参与推理。
    ===================================================================== */
 (function (root, factory) {
@@ -77,7 +77,7 @@
     const conflicts = [];
     const conflictKeys = new Set();
     const steps = [];
-    // 是否把玩家的 × 标记当作「确定没有宝钻」参与推理（默认当作依据）
+    // 是否把玩家的 × 标记当作「确定没有钻石」参与推理（默认当作依据）
     const trustMarks = input.trustMarks !== false;
 
     const rc = (i) => `第${((i / cols) | 0) + 1}行第${(i % cols) + 1}列`;
@@ -86,7 +86,7 @@
       for (let i = 0; i < total; i++) {
         if (markedX[i]) {
           knownSafe[i] = 1;
-          reason[i] = '你标的 ×（当作确定没有宝钻）';
+          reason[i] = '你标的 ×（当作确定没有钻石）';
         }
       }
     }
@@ -129,7 +129,7 @@
 
         for (const k of cs) {
           if (k.over) {
-            const msg = `${rc(k.at)} 的数字 ${clue[k.at]} 与周围已知宝钻/未翻开格数量矛盾`;
+            const msg = `${rc(k.at)} 的数字 ${clue[k.at]} 与周围已知钻石/未翻开格数量矛盾`;
             if (!errors.includes(msg)) errors.push(msg);
             continue;
           }
@@ -139,7 +139,7 @@
             for (const j of k.hidden) {
               if (!knownSafe[j]) {
                 knownSafe[j] = 1;
-                reason[j] = `${rc(k.at)} 的数字 ${clue[k.at]}：周围 ${want} 颗钻石已经全部找到 → 这里没有宝钻`;
+                reason[j] = `${rc(k.at)} 的数字 ${clue[k.at]}：周围 ${want} 颗钻石已经全部找到 → 这里没有钻石`;
                 changed = true;
               }
             }
@@ -176,7 +176,7 @@
               for (const j of diff) {
                 if (!knownSafe[j]) {
                   knownSafe[j] = 1;
-                  reason[j] = `${rc(A.at)} 与 ${rc(B.at)} 两个数字叠加推算 → 这里没有宝钻`;
+                  reason[j] = `${rc(A.at)} 与 ${rc(B.at)} 两个数字叠加推算 → 这里没有钻石`;
                   changed = true;
                 }
               }
@@ -360,8 +360,8 @@
       for (let i = 0; i < total; i++) {
         const p = res.probs[i];
         if (p == null) continue;
-        if (p >= 1 - 1e-9 && !knownGem[i]) { knownGem[i] = 1; reason[i] = reason[i] || '结合地图宝钻总数推出必然是钻石'; promoted = true; }
-        else if (p <= 1e-9 && !knownSafe[i]) { knownSafe[i] = 1; reason[i] = reason[i] || '结合地图宝钻总数推出必然没钻石'; promoted = true; }
+        if (p >= 1 - 1e-9 && !knownGem[i]) { knownGem[i] = 1; reason[i] = reason[i] || '结合地图钻石总数推出必然是钻石'; promoted = true; }
+        else if (p <= 1e-9 && !knownSafe[i]) { knownSafe[i] = 1; reason[i] = reason[i] || '结合地图钻石总数推出必然没钻石'; promoted = true; }
       }
       if (promoted) { deduce(); res = analyze(); }
     }
@@ -370,7 +370,7 @@
     /* ---------- 4. 与玩家 × 标记比对 ---------- */
     const markWrong = [];      // × 标了，但推出来是钻石
     const markRisky = [];      // × 标了，但完全没有依据（概率不低）
-    const gemWrong = [];       // 标了宝钻，但推出必然安全
+    const gemWrong = [];       // 标了钻石，但推出必然安全
     for (let i = 0; i < total; i++) {
       if (markedX[i]) {
         if (knownGem[i]) markWrong.push({ r: (i / cols) | 0, c: i % cols, i });
@@ -378,7 +378,7 @@
       }
       if (givenGem[i] && knownSafe[i]) gemWrong.push({ r: (i / cols) | 0, c: i % cols, i });
     }
-    // × 标记之间/与已知宝钻的硬矛盾
+    // × 标记之间/与已知钻石的硬矛盾
     const contradict = [];
     for (let i = 0; i < total; i++) {
       if (markedX[i] && knownGem[i]) contradict.push(rc(i));
