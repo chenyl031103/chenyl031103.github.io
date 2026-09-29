@@ -101,13 +101,14 @@
     gemTotal: GEM_TOTAL[8],
     grid: [],
     nodes: [],
-    brush: 'X',           // 默认笔刷 = × 标记，单击即标 ×（与游戏一致）
+    brush: 'select',      // 默认笔刷 = 选中（单击只选中，不改内容）
     aiCells: new Set(),   // 截图识别填进来的格子，需人工核对
     unsure: new Set(),    // 识图模型自己没把握的格子
     result: null,
     detailHtml: '',       // 明细，供「使用说明」展示
     painting: null,
     awaiting: -1,         // 正在等待选择「翻开值」的格子
+    cursor: -1,           // 当前选中的格子（键盘输入的目标）
     lastTap: { i: -1, t: 0 },
     pressBackup: null,    // 记录按下前的值，供双击时回滚
     history: [],          // 撤销栈：每项是「那一步之前」的盘面快照
@@ -259,6 +260,7 @@
             badge = p >= 0.995 ? '≈1' : p <= 0.005 ? '≈0' : Math.round(p * 100) + '%';
           }
           if (res.pick && res.pick.i === i) cls += ' pick';
+          if (S.cursor === i) cls += ' cursor';
         }
 
         if (node.className !== cls) node.className = cls;
@@ -484,6 +486,8 @@
       btns.push('<button class="rb-btn' + (v === 0 ? ' rb-zero' : '') + '" data-val="' + v + '" type="button">' + (v === 0 ? '空白 0' : v) + '</button>');
     }
     btns.push('<button class="rb-btn rb-gem" data-val="G" type="button"><svg class="ico"><use href="#ico-gem"/></svg>钻石</button>');
+    btns.push('<button class="rb-btn" data-val="X" type="button">× 标记</button>');
+    btns.push('<button class="rb-btn rb-zero" data-val="CLEAR" type="button">清除</button>');
     el.rbValues.innerHTML = btns.join('');
 
     const parts = [];
@@ -603,22 +607,22 @@
       const c = +node.dataset.c;
       const now = Date.now();
 
-      // 右键 = 清除
+      // 右键 = 快速标记 / 取消钻石
       if (e.button === 2) {
-        S.painting = 'erase';
-        mark();
-        applyBrush(node, 'erase');
+        S.painting = null;
         if (S.awaiting === i) closeRevealBar();
+        mark();
+        S.grid[r][c] = S.grid[r][c] === 'G' ? -1 : 'G';
+        S.aiCells.delete(i);
+        S.unsure.delete(i);
+        S.cursor = i;
+        paint();
+        analyze();
+        settle();
         return;
       }
 
-      // 取值栏正等着这一格：后续按下（双击序列的第二次）忽略，
-      // 否则会把刚撤销掉的 × 又补回来
-      if (S.awaiting === i) return;
-      if (S.awaiting >= 0) closeRevealBar();   // 点了别的格子，收起取值栏
-
-      // 双击 = 翻开。不用原生 dblclick：pointerdown 里若调 preventDefault，
-      // 浏览器会连带取消合成的 dblclick，双击就永远收不到。
+      // 双击 = 打开取值栏（鼠标 / 手机的输入方式）
       if (S.lastTap.i === i && now - S.lastTap.t < DOUBLE_MS) {
         S.lastTap = { i: -1, t: 0 };
         S.painting = null;
@@ -632,6 +636,14 @@
       }
 
       S.lastTap = { i, t: now };
+      // 单击 = 选中这一格（键盘 0-8 / Enter / X / Delete 都作用在它上面）
+      S.cursor = i;
+      if (S.brush === 'select') {
+        S.painting = null;
+        paint();
+        return;
+      }
+      // 选了具体笔刷时：顺带连续涂（方便批量填）
       S.pressBackup = { i, prev: S.grid[r][c] };
       S.painting = 'paint';
       mark();
@@ -712,14 +724,49 @@
     });
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') { closeRevealBar(); closeModal(); }
-      if (e.target && /INPUT|TEXTAREA/.test(e.target.tagName)) return;
+      if (e.target && /INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) return;
       if (!el.modal.hidden) return;
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); undo(); return; }
-      const k = e.key.toLowerCase();
-      if (k >= '0' && k <= '8') selectBrush(k);
-      else if (k === 'g') selectBrush('G');
-      else if (k === 'x') selectBrush('X');
-      else if (k === 'e' || k === 'delete' || k === 'backspace') selectBrush('hide');
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+
+      const cols = S.cols, rows = S.rows;
+      const setCell = (v) => {
+        if (S.cursor < 0) { toast('先用鼠标点一个格子选中它', 'warn'); return; }
+        const r = (S.cursor / cols) | 0, c = S.cursor % cols;
+        mark();
+        S.grid[r][c] = v;
+        S.aiCells.delete(S.cursor);
+        S.unsure.delete(S.cursor);
+        paint();
+        analyze();
+        settle();
+      };
+
+      // 方向键：移动选中的格子
+      if (e.key === 'ArrowUp' || e.key === 'ArrowDown' || e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+        e.preventDefault();
+        if (S.cursor < 0) { S.cursor = Math.floor(rows / 2) * cols + Math.floor(cols / 2); }
+        else {
+          const r = (S.cursor / cols) | 0, c = S.cursor % cols;
+          let nr = r, nc = c;
+          if (e.key === 'ArrowUp') nr = r - 1;
+          if (e.key === 'ArrowDown') nr = r + 1;
+          if (e.key === 'ArrowLeft') nc = c - 1;
+          if (e.key === 'ArrowRight') nc = c + 1;
+          nr = Math.max(0, Math.min(rows - 1, nr));
+          nc = Math.max(0, Math.min(cols - 1, nc));
+          S.cursor = nr * cols + nc;
+        }
+        paint();
+        try { S.nodes[S.cursor].focus({ preventScroll: true }); } catch (err) {}
+        return;
+      }
+
+      const k = e.key;
+      if (k >= '0' && k <= '8') { e.preventDefault(); setCell(Number(k)); return; }
+      if (k === 'Enter') { e.preventDefault(); setCell('G'); return; }
+      if (k === 'x' || k === 'X') { e.preventDefault(); setCell('X'); return; }
+      if (k === 'Delete' || k === 'Backspace') { e.preventDefault(); setCell(-1); return; }
     });
 
     let rz = null;
@@ -869,7 +916,9 @@
         <section>
           <h4>怎么填</h4>
           <ul>
-            <li><b>单击格子</b>＝标上 / 取消 <b>×</b> 标记（和游戏里单击一样，不消耗探索券）。</li>
+            <li><b>单击格子</b>＝选中这一格（键盘输入都作用在它上面），不会改动内容。</li>
+            <li>选中后：<b>0~8</b> 填数字，<b>Enter</b> 标记钻石，<b>X</b> 标记 ×，<b>Delete</b> 恢复未翻开；<b>方向键</b>移动选中的格子。</li>
+            <li><b>右键格子</b>＝快速标记 / 取消钻石；<b>双击</b>＝弹出取值栏（手机用这个）。</li>
             <li><b>双击格子</b>＝相当于「翻开」：底部弹出取值栏，选这格翻出来是 <b>空白 0 / 数字 / 钻石</b>。
               可选数字按<b>当前位置实际可能的值</b>给：角上周围只有 3 格就只给 0~3；如果周围已经有 × 标记或已翻出的钻石，
               范围会跟着收窄（例：8 个邻居里有 2 格标了 ×、1 颗已经是钻石 → 只能填 <b>1~6</b>：
@@ -880,7 +929,7 @@
             <li>填错了就点棋盘下方的<b>「撤销上一步」</b>（或按 <b>Ctrl+Z</b>）退回上一处改动。
               一次拖动连涂、一次双击翻开、一次「把可确认的格标上 ×」都各算一步。</li>
             <li><b>「清空棋盘」</b>也在棋盘下方，清空后同样可以撤销，不怕点错。</li>
-            <li>键盘：<b>0~8</b> 选数字笔刷，<b>G</b> 钻石，<b>X</b> 标记，<b>E</b> 清除，<b>Ctrl+Z</b> 撤销。</li>
+            <li>笔刷那排：默认是<b>选中</b>（单击只选中）；想连续涂相同的值时，先点「3」或「钻石」等笔刷，再逐个点格子。<b>Ctrl+Z</b> 撤销。</li>
             <li>顶部「本图固定钻石」按尺寸固定（8×8 为 20、10×10 为 30、12×12 为 45），不可更改。</li>
           </ul>
         </section>

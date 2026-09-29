@@ -342,23 +342,9 @@ main {
 .cell.say-safe[data-badge]::after { background: var(--success); color: var(--ink-on-safe); }
 .cell.say-prob[data-badge]::after { background: var(--badge-prob-bg); color: var(--badge-prob-ink); }
 
-/* 推荐先点的格子：不画框，用外发光 + 左上角橙色三角标出来 */
-.cell.pick {
-  z-index: 4;
-  box-shadow: 0 0 0 2px rgba(240, 144, 64, 0.55), 0 0 16px rgba(240, 144, 64, 0.55);
-}
-/* 推荐格左上角加个橙色三角，一眼能认出来 */
-.cell.pick::before {
-  content: "";
-  position: absolute;
-  top: 0; left: 0;
-  width: 0; height: 0;
-  border-top: calc(var(--cell) * 0.4) solid var(--accent2);
-  border-right: calc(var(--cell) * 0.4) solid transparent;
-  border-radius: 0;
-  background: none;
-  opacity: 1;
-}
+/* （推荐高亮已按需求去掉，改由下方建议条文字指明） */
+.cell.pick { }
+
 
 /* 正在等待选择「翻开值」的格子 */
 /* 正在取值的那一格：不画框，用发光提示 */
@@ -764,11 +750,15 @@ main {
   place-items: center;
   width: 78%;
   height: 78%;
+  font-size: calc(var(--font) * 1.05);
   font-weight: 900;
   line-height: 1;
-  color: #9aa6b2;            /* 灰色 = 工具推导的提示，等你自己点一下才算确认 */
+  border-radius: 50%;          /* 和 √ 一样用圆圈包起来 */
+  background: #98a3ae;         /* 灰色 = 工具推导的提示，你自己点一下才算确认 */
+  color: #fff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.22);
 }
-[data-theme="dark"] .cell .v-safe { color: #7d8b99; }
+[data-theme="dark"] .cell .v-safe { background: #6b7885; color: #fff; }
 /* 小格子上字小一点，别撑破 */
 .cell .v-gem, .cell .v-safe { font-size: clamp(11px, calc(var(--font) * 1.15), 30px); }
 
@@ -786,3 +776,9 @@ main {
 }
 .vb-sign-gem { background: var(--success); color: #fff; }
 .vb-sign-safe { color: #9aa6b2; font-size: 15px; }
+
+/* ---------- 23. 选中的格子（键盘输入目标）：发光，不画框 ---------- */
+.cell.cursor {
+  z-index: 5;
+  box-shadow: 0 0 0 2px rgba(58, 214, 200, 0.75), 0 0 16px rgba(58, 214, 200, 0.55);
+}
