@@ -7,7 +7,7 @@
 <meta name="description" content="《弹壳特攻队》潮汐秘境计算器：把当前棋盘的数字、钻石、× 标记填进来，自动推出哪些格子必定是钻石、哪些必定不是钻石、下一步先点哪里。支持上传截图自动识别。">
 <meta name="theme-color" content="#0f1923">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext y='25' font-size='25'%3E%F0%9F%92%8E%3C/text%3E%3C/svg%3E">
-<link rel="stylesheet" href="style.css?vmumr6d0y">
+<link rel="stylesheet" href="style.css?vmumrdpay">
 <script>var t=localStorage.getItem('theme')||'light';document.documentElement.setAttribute('data-theme',t);</script>
 </head>
 <body>
@@ -116,11 +116,12 @@
     </p>
 
     <div class="game-bar" id="game-bar" hidden>
+      <span class="gb gb-title" id="gb-title"></span>
       <span class="gb gb-hint" id="gb-hint"></span>
+      <span class="gb gb-strong" id="gb-left-wrap">剩余 <b id="gb-left">0</b> 颗雷</span>
       <span class="gb" id="gb-gem-wrap" hidden>已找到钻石 <b id="gb-found">0</b> / <b id="gb-total">45</b></span>
       <span class="gb" id="gb-open-wrap" hidden>已翻开 <b id="gb-open">0</b> / <b id="gb-open-total">0</b> 格</span>
-      <span class="gb" id="gb-flag-wrap" hidden>旗子 <b id="gb-flags">0</b> / <b id="gb-mines">10</b> 颗雷</span>
-      <span class="gb" id="gb-time-wrap" hidden>用时 <b id="gb-time">0:00</b></span>
+      <span class="gb gb-time" id="gb-time-wrap" hidden>⏱ <b id="gb-time">0:00</b></span>
       <span class="gb" id="gb-marks-wrap" hidden>× 标记 <b id="gb-marks">0</b></span>
       <span class="gb gb-err" id="gb-wrong-wrap" hidden>其中标错 <b id="gb-wrong">0</b> 个</span>
       <span class="gb-actions">
@@ -161,7 +162,7 @@
 
 <script>window.TIDAL_OCR = false;/* 静态托管版由构建脚本改成 false */</script>
 <script>window.TIDAL_OCR_URL = 'http://chenyl.free.idcfengye.com/';/* 静态版构建时填入「带截图识别的网址」 */</script>
-<script src="solver-core.js?vmumr6d0y"></script>
-<script src="solver.js?vmumr6d0y"></script>
+<script src="solver-core.js?vmumrdpay"></script>
+<script src="solver.js?vmumrdpay"></script>
 </body>
 </html>

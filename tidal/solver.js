@@ -650,9 +650,9 @@
           // 不撤的话双击永远翻不开（潮汐秘境同样需要，保持行为一致）
           if (S.markFromTap === i) {
             const g = S.game;
-            if (g && g.marks.has(i)) {
+            if (g && g.marks[i]) {
               if (g.kind !== 'mine' && g.mine && g.mine[i]) g.wrong--;
-              g.marks.delete(i);
+              delete g.marks[i];
             }
             S.markFromTap = -1;
             renderGame();
@@ -1059,6 +1059,7 @@
 
   const gameFlagCount = (g) => Object.keys(g.marks).filter((k) => g.marks[k] === 'flag').length;
 
+  /** 状态栏：玩法标题 + 剩余雷数（或已找到钻石）+ 已翻开 + 计时 */
   function updateGameBar() {
     const bar = $('#game-bar');
     if (bar) bar.hidden = !S.game;
@@ -1067,21 +1068,27 @@
     if (!g) { stopGameClock(); return; }
     const isMine = g.kind === 'mine';
     const show = (id, on) => { const node = $(id); if (node) node.hidden = !on; };
-    show('#gb-gem-wrap', !isMine);
-    show('#gb-open-wrap', true);
-    show('#gb-flag-wrap', isMine);
-    show('#gb-time-wrap', isMine);
-    show('#gb-marks-wrap', !isMine);
-    show('#gb-wrong-wrap', !isMine && g.wrong > 0);
+    const title = $('#gb-title');
+    if (title) {
+      title.textContent = isMine
+        ? `扫雷 · ${g.name} ${g.rows}×${g.cols} · 共 ${g.count} 颗雷`
+        : `潮汐秘境 · ${g.rows}×${g.cols} · 共 ${g.gems} 颗钻石（不限次数）`;
+    }
     const hint = $('#gb-hint');
     if (hint) hint.textContent = isMine
       ? '单击翻开 · 右键或长按循环标记 🚩/❓ · 双击数字格快速翻开周围 · 第一次点击保证安全'
       : '双击翻开（不限次数）· 单击标 × 做记号 · 数字 = 周围 8 格的钻石数';
+    show('#gb-left-wrap', isMine);
+    show('#gb-gem-wrap', !isMine);
+    show('#gb-open-wrap', true);
+    show('#gb-time-wrap', isMine);
+    show('#gb-marks-wrap', !isMine);
+    show('#gb-wrong-wrap', !isMine && g.wrong > 0);
     $('#gb-open').textContent = g.opened.size;
     $('#gb-open-total').textContent = isMine ? g.rows * g.cols - g.count : g.rows * g.cols;
     if (isMine) {
-      $('#gb-flags').textContent = gameFlagCount(g);
-      $('#gb-mines').textContent = g.count;
+      // 剩余雷数 = 总雷数 − 已插旗数（问号不算）
+      $('#gb-left').textContent = g.count - gameFlagCount(g);
       $('#gb-time').textContent = fmtClock(g.t0 ? (Date.now() - g.t0) / 1000 : 0);
     } else {
       $('#gb-found').textContent = g.found.size;

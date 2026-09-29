@@ -861,7 +861,17 @@ body.is-mine-game .cell.is-open.n6 { color: #008080; }
 body.is-mine-game .cell.is-open.n7 { color: #000000; }
 body.is-mine-game .cell.is-open.n8 { color: #808080; }
 body.is-mine-game .cell.is-flag,
-body.is-mine-game .cell.is-question { background: #c6c6c6; }
+body.is-mine-game .cell.is-question,
+body.is-mine-game .cell.is-bomb { background: #c6c6c6; color: #111; }
 body.is-mine-game .cell.is-bomb { background: #e8bcbc; }
 /* 立体凸起本身就表示"没翻开"，不用再画 ■ */
 body.is-mine-game .cell.is-blank .v-blank { display: none; }
+
+/* 游戏状态栏：玩法标题（难度/地图） */
+.game-bar .gb-title {
+  flex-basis: 100%; color: var(--text); font-weight: 700; font-size: 0.92rem;
+  padding-bottom: 6px; border-bottom: 1px dashed var(--line); margin-bottom: 2px;
+}
+.game-bar .gb-time b { font-variant-numeric: tabular-nums; }
+/* 游戏模式下把计算器的地图/尺寸那条藏起来（用状态栏里的玩法信息代替） */
+body.is-game .map-bar { display: none; }
