@@ -48,6 +48,8 @@
   function renderSiteLinks() {
     const box = document.getElementById('site-links');
     if (!box) return;
+    // 静态版不显示这条：带识别的两个网址改由右上角「截图识别」按钮的弹窗列出
+    if (!OCR_ENABLED) { box.hidden = true; return; }
     const short = (u) => u.replace(/^https?:\/\//, '').replace(/\/+$/, '');
     let note, list;
     if (OCR_ENABLED) {
@@ -907,7 +909,7 @@
   function openHelp() {
     const ocrNote = OCR_ENABLED
       ? ''
-      : '<section><h4>这个版本没有截图识别</h4><p>静态托管版没有后端，所以不提供截图识别；手动填写可以用全部功能。要用截图识别，就用页面最上方「相关网址」里那条带识别的地址。</p></section>';
+      : '<section><h4>这个版本没有截图识别</h4><p>静态托管版没有后端，所以不提供截图识别；手动填写可以用全部功能。想用截图识别，点右上角的<b>「截图识别」</b>按钮，里面有两个带识别功能的网址。</p></section>';
     openModal(`
       <div class="modal-head">
         <h3>使用说明</h3>
@@ -1005,13 +1007,19 @@
 
   function openShotModal() {
     if (!OCR_ENABLED) {
+      const svc = OCR_SERVICE || OCR_FALLBACK;
       openModal(`
         <div class="modal-head"><h3>截图识别</h3>
           <button class="modal-close" data-close type="button">✕</button></div>
-        <div class="rules"><section>
-          <p>这是<b>静态托管版</b>：没有后端，所以不提供截图识别。<br>
-             手动填写同样可以用全部求解功能（单击标 ×、双击选数字、下方直接给结论）。</p>
-        </section></div>`);
+        <div class="rules">
+          <section>
+            <p>当前打开的是<b>静态版</b>（放在静态空间里，没有后端），所以这一版不带截图识别。</p>
+            <p>想用截图识别，点下面任一地址过去 —— 那边是<b>服务器版</b>，功能完全一样，还多一个截图识别：</p>
+            <p style="margin-top:12px"><a class="btn" href="${svc}" target="_blank" rel="noopener">${svc}</a></p>
+            <p style="margin-top:8px"><a class="btn" href="${GATEWAY_URL}" target="_blank" rel="noopener">${GATEWAY_URL}（总入口，自动跳转）</a></p>
+            <p class="card-foot">这两个地址需要那台服务器开着；服务器关了也能用当前这个静态版手动填写。</p>
+          </section>
+        </div>`);
       return;
     }
     openModal(`
@@ -1283,10 +1291,6 @@
   function init() {
     initTheme();
     // 静态托管版：隐藏截图识别入口；两种版本都在页脚上方列出对应网址
-    if (!OCR_ENABLED) {
-      const b0 = document.querySelector('#btn-shot-open');
-      if (b0) b0.hidden = true;
-    }
     renderSiteLinks();
     S.grid = newGrid(S.rows, S.cols);
     el.gemTotalText.textContent = S.gemTotal;
