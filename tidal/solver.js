@@ -1172,7 +1172,9 @@
       g.opened.add(i);
       toast(`找到 1 颗钻石！已找到 ${g.found.size}/${g.gems}`, 'gold');
     } else {
-      floodOpen(g, i);
+      // 潮汐秘境不是扫雷：双击只翻开这一格，不做 0 区域的连锁展开
+      //（真实玩法里每翻一格就是一次探索，不会连带翻开一片）
+      g.opened.add(i);
     }
     renderGame();
     if (g.found.size >= g.gems) { g.over = 'shown'; return endGame(true); }
