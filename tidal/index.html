@@ -7,7 +7,7 @@
 <meta name="description" content="《弹壳特攻队》潮汐秘境计算器：把当前棋盘的数字、钻石、× 标记填进来，自动推出哪些格子必定是钻石、哪些必定不是钻石、下一步先点哪里。支持上传截图自动识别。">
 <meta name="theme-color" content="#0f1923">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext y='25' font-size='25'%3E%F0%9F%92%8E%3C/text%3E%3C/svg%3E">
-<link rel="stylesheet" href="style.css?vmum94onk">
+<link rel="stylesheet" href="style.css?vmumq0zle">
 <script>var t=localStorage.getItem('theme')||'light';document.documentElement.setAttribute('data-theme',t);</script>
 </head>
 <body>
@@ -56,7 +56,7 @@
       <svg class="ico"><use href="#ico-image"/></svg>截图识别
     </button>
     <button class="ghost-btn" id="btn-help" type="button">使用说明</button>
-    <button class="ghost-btn" id="btn-sample" type="button">载入示例</button>
+    <button class="ghost-btn" id="btn-sample" type="button" title="随机生成一局，像玩游戏一样体验潮汐秘境">随机玩一盘</button>
     <button class="ghost-btn" id="theme-toggle" type="button" title="切换深色/浅色">🌙</button>
   </nav>
 </header>
@@ -112,8 +112,20 @@
     </div>
 
     <p class="advice" id="advice">
-      <svg class="ico"><use href="#ico-aim"/></svg><span id="advice-text">先把残局填进来，或点右上角「载入示例」看效果。</span>
+      <svg class="ico"><use href="#ico-aim"/></svg><span id="advice-text">先把残局填进来，或点右上角「随机玩一盘」体验一下。</span>
     </p>
+
+    <div class="game-bar" id="game-bar" hidden>
+      <span class="gb gb-hint">双击格子探索（每次消耗 1 次机会，翻到钻石算收获）· 单击标 × 做记号</span>
+      <span class="gb gb-strong">剩余探索 <b id="gb-left">5</b> 次</span>
+      <span class="gb">已找到钻石 <b id="gb-found">0</b> / <b id="gb-total">45</b></span>
+      <span class="gb">× 标记 <b id="gb-marks">0</b></span>
+      <span class="gb gb-err" id="gb-wrong-wrap" hidden>其中标错 <b id="gb-wrong">0</b> 个</span>
+      <span class="gb-actions">
+        <button class="ghost-btn sm" id="btn-game-analyze" type="button" title="结束这局，把当前盘面交给计算器分析">用工具分析这盘</button>
+        <button class="ghost-btn sm" id="btn-game-restart" type="button">重开一局</button>
+      </span>
+    </div>
 
     <div class="verdict-bar">
       <span class="vb vb-gem"><i class="vb-sign vb-sign-gem">✓</i>必定是钻石 <b id="vb-gem">0</b></span>
@@ -146,7 +158,7 @@
 
 <script>window.TIDAL_OCR = false;/* 静态托管版由构建脚本改成 false */</script>
 <script>window.TIDAL_OCR_URL = 'http://chenyl.free.idcfengye.com/';/* 静态版构建时填入「带截图识别的网址」 */</script>
-<script src="solver-core.js?vmum94onk"></script>
-<script src="solver.js?vmum94onk"></script>
+<script src="solver-core.js?vmumq0zle"></script>
+<script src="solver.js?vmumq0zle"></script>
 </body>
 </html>

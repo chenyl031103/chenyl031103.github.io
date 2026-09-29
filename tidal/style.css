@@ -799,3 +799,20 @@ main {
 }
 .lg-dot-gem { background: var(--success); }
 .lg-dot-safe { background: #98a3ae; }
+
+/* ---------- 随机玩一盘：游戏状态栏 ---------- */
+.game-bar {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px;
+  margin: 10px 0 0; padding: 10px 12px;
+  border: 1px solid var(--line); border-radius: 10px;
+  background: var(--panel); font-size: 0.86rem; color: var(--text-muted);
+}
+.game-bar .gb b { color: var(--accent); font-weight: 700; }
+.game-bar .gb-strong { color: var(--text); font-weight: 600; }
+.game-bar .gb-err b { color: var(--danger, #d9534f); }
+.game-bar .gb-hint { flex-basis: 100%; font-size: 0.8rem; opacity: 0.85; }
+.game-bar .gb-actions { margin-left: auto; display: flex; gap: 8px; }
+
+/* 游戏模式下不显示分析结论与取值条（避免直接看到答案） */
+body.is-game .verdict-bar,
+body.is-game .palette { display: none !important; }

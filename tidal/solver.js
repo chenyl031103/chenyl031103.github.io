@@ -284,6 +284,8 @@
 
   /* ---------- 分析 ---------- */
   function analyze() {
+    // 游戏模式下不显示工具结论（不然等于直接给答案）
+    if (S.game) { updateGameBar(); return; }
     const base = {
       rows: S.rows,
       cols: S.cols,
@@ -320,7 +322,7 @@
   /** 一行建议条（始终显示在棋盘下方） */
   function adviceLine(res) {
     const c = res.counts;
-    if (S.filledCount === 0) return { kind: '', text: '先把残局填进来，或点右上角「载入示例」看效果。' };
+    if (S.filledCount === 0) return { kind: '', text: '先把残局填进来，或点右上角「随机玩一盘」体验一下。' };
     if (c.hiddenCells === 0) return { kind: '', text: '棋盘已填满，没有未翻开的格子了。' };
     const pick = res.pick;
     if (!pick) return { kind: '', text: '还没有数字线索：先把已翻开的格子和钻石填进来。' };
@@ -609,6 +611,19 @@
       const c = +node.dataset.c;
       const now = Date.now();
 
+      // 游戏模式：单击标 ×，双击（第二下）探索一格
+      if (S.game) {
+        if (e.button === 2) { gameToggleMark(i); return; }
+        if (S.lastTap.i === i && now - S.lastTap.t < DOUBLE_MS) {
+          S.lastTap = { i: -1, t: 0 };
+          gameReveal(i);
+          return;
+        }
+        S.lastTap = { i, t: now };
+        gameToggleMark(i);
+        return;
+      }
+
       // 右键 = 快速标记 / 取消钻石
       if (e.button === 2) {
         S.painting = null;
@@ -722,22 +737,29 @@
     $('#btn-help').addEventListener('click', openHelp);
     $('#btn-shot-open').addEventListener('click', openShotModal);
     $('#btn-clear').addEventListener('click', () => {
+      if (S.game) { S.game = null; updateGameBar(); }
       mark();
       clearAll();
       toast(settle() ? '已清空棋盘 · 可撤销' : '棋盘本来就是空的');
     });
     $('#btn-undo').addEventListener('click', undo);
-    $('#btn-sample').addEventListener('click', loadSample);
+    $('#btn-sample').addEventListener('click', startGame);
+    $('#btn-game-analyze').addEventListener('click', () => exitGame(true));
+    $('#btn-game-restart').addEventListener('click', startGame);
 
     el.modal.addEventListener('click', (e) => {
       if (e.target.closest('[data-close]')) closeModal();
+      if (e.target.closest('#btn-game-use')) { closeModal(); exitGame(true); }
+      if (e.target.closest('#btn-game-again')) { closeModal(); startGame(); }
+      if (e.target.closest('#btn-game-exit')) { closeModal(); exitGame(false); }
     });
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') { closeRevealBar(); closeModal(); }
       if (e.target && /INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) return;
       if (!el.modal.hidden) return;
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); undo(); return; }
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); if (!S.game) undo(); return; }
       if (e.ctrlKey || e.metaKey || e.altKey) return;
+      if (S.game) return;                 // 游戏模式下不响应填值快捷键
 
       const cols = S.cols, rows = S.rows;
       const setCell = (v) => {
@@ -795,6 +817,7 @@
 
   /* ---------- 尺寸 / 清空 / 示例 ---------- */
   function setSize(n) {
+    if (S.game) { S.game = null; updateGameBar(); }
     if (![8, 10, 12].includes(n)) return;
     S.rows = n;
     S.cols = n;
@@ -816,69 +839,170 @@
   }
 
   /* ---------- 示例残局（真实摆法，结论可直接对照） ---------- */
-  function loadSample() {
-    const n = S.rows;
+  /* ---------- 随机玩一盘：像玩游戏一样体验潮汐秘境 ----------
+     规则照活动来：每局 5 次探索机会（对应每期 5 张探索券），
+     双击 = 探索一格（消耗 1 次，翻到钻石算收获），单击 = 标 × 做记号（不消耗）。 */
+  const GAME_TRIES = 5;
+
+  function newGameBoard(n, gems) {
     const total = n * n;
-    const gems = S.gemTotal == null ? GEM_TOTAL[n] : S.gemTotal;
     const idx = [];
     for (let i = 0; i < total; i++) idx.push(i);
     for (let i = total - 1; i > 0; i--) { const k = (Math.random() * (i + 1)) | 0; const t = idx[i]; idx[i] = idx[k]; idx[k] = t; }
     const mine = new Uint8Array(total);
     for (let i = 0; i < Math.min(gems, total); i++) mine[idx[i]] = 1;
-
     const nbrs = (i) => {
       const r = (i / n) | 0, c = i % n, out = [];
       for (let rr = Math.max(0, r - 1); rr <= Math.min(n - 1, r + 1); rr++)
-        for (let cc = Math.max(0, c - 1); cc <= Math.min(n - 1, c + 1); cc++) {
-          const j = rr * n + cc; if (j !== i) out.push(j);
-        }
+        for (let cc = Math.max(0, c - 1); cc <= Math.min(n - 1, c + 1); cc++) { const j = rr * n + cc; if (j !== i) out.push(j); }
       return out;
     };
     const adj = new Uint8Array(total);
     for (let i = 0; i < total; i++) if (!mine[i]) adj[i] = nbrs(i).filter((j) => mine[j]).length;
+    return { n, total, mine, adj, nbrs, gems };
+  }
 
-    // 找几个 0 格展开（模拟开局），再铺两轮让残局更有内容
-    const open = new Set();
+  function startGame() {
+    const n = S.rows;
+    const gems = GEM_TOTAL[n] || S.gemTotal || 0;
+    const b = newGameBoard(n, gems);
+    // 开局先翻开一片区域（模拟真实残局），否则玩家无从下手
+    const opened = new Set();
     let seeds = 0;
-    for (let i = 0; i < total && seeds < 3; i++) {
-      if (mine[i] || adj[i] !== 0) continue;
+    for (let i = 0; i < b.total && seeds < 3; i++) {
+      if (b.mine[i] || b.adj[i] !== 0) continue;
       seeds++;
       const stack = [i];
       while (stack.length) {
         const v = stack.pop();
-        if (open.has(v)) continue;
-        open.add(v);
-        if (adj[v] === 0) for (const j of nbrs(v)) if (!mine[j] && !open.has(j)) stack.push(j);
+        if (opened.has(v)) continue;
+        opened.add(v);
+        if (b.adj[v] === 0) for (const j of b.nbrs(v)) if (!b.mine[j] && !opened.has(j)) stack.push(j);
       }
     }
-    for (let round = 0; round < 2; round++) {
-      const add = [];
-      for (const i of [...open]) for (const j of nbrs(i)) if (!mine[j] && !open.has(j)) add.push(j);
-      for (const j of add) open.add(j);
-    }
-    // 模拟「已经翻出来几颗钻石」：挑几颗紧挨着已开区域的钻石
-    const gemAdj = new Set();
-    for (const i of [...open]) for (const j of nbrs(i)) if (mine[j] && !open.has(j)) gemAdj.add(j);
-    for (const j of [...gemAdj].slice(0, 3)) open.add(j);
-    if (!open.size) open.add(0);
+    if (!opened.size) for (let i = 0; i < b.total; i++) if (!b.mine[i]) { opened.add(i); break; }
+    S.game = {
+      n, mine: b.mine, adj: b.adj, nbrs: b.nbrs, gems,
+      opened, found: new Set(), marks: new Set(), wrong: 0, left: GAME_TRIES, over: false, steps: 0,
+    };
+    S.cursor = -1;
+    clearPick();
+    renderGame();
+    toast(`新的一局：${n}×${n}，共 ${gems} 颗钻石 · 你有 ${GAME_TRIES} 次探索机会`, 'gold');
+  }
 
-    const grid = newGrid(n, n);
-    for (let r = 0; r < n; r++) {
-      for (let c = 0; c < n; c++) {
-        const i = r * n + c;
-        if (open.has(i)) grid[r][c] = mine[i] ? 'G' : adj[i];
-      }
+  function renderGame() {
+    const g = S.game;
+    if (!g) return;
+    const grid = newGrid(g.n, g.n);
+    for (let i = 0; i < g.n * g.n; i++) {
+      const r = (i / g.n) | 0, c = i % g.n;
+      if (g.opened.has(i)) grid[r][c] = g.mine[i] ? 'G' : g.adj[i];
+      else if (g.marks.has(i)) grid[r][c] = 'X';
     }
-    // × 标在推导出来的「必定不是钻石」格上，让示例本身自洽
-    const probe = window.TidalSolver.solve({ rows: n, cols: n, cells: grid, gemTotal: gems });
-    for (const p of probe.certainSafe.slice(0, 3)) grid[p.r][p.c] = 'X';
-
-    mark();
     S.grid = grid;
     S.aiCells.clear();
-    analyze();
-    settle();
-    toast('已载入示例残局，可对照右侧结论', 'gold');
+    S.unsure.clear();
+    document.body.classList.add('is-game');
+    paint();
+    updateGameBar();
+    setAdvice('双击格子探索（每次消耗 1 次机会）· 单击标 × 做记号 · 数字 = 周围 8 格里有几颗钻石');
+  }
+
+  function setAdvice(text) {
+    const node = $('#advice-text');
+    if (node) node.textContent = text;
+  }
+
+  function updateGameBar() {
+    const bar = $('#game-bar');
+    if (bar) bar.hidden = !S.game;
+    document.body.classList.toggle('is-game', !!S.game);
+    const g = S.game;
+    if (!g) return;
+    $('#gb-left').textContent = g.left;
+    $('#gb-found').textContent = g.found.size;
+    $('#gb-total').textContent = g.gems;
+    $('#gb-marks').textContent = g.marks.size;
+    const wrap = $('#gb-wrong-wrap');
+    if (wrap) wrap.hidden = !g.wrong;
+    const wv = $('#gb-wrong');
+    if (wv) wv.textContent = g.wrong;
+  }
+
+  function gameReveal(i) {
+    const g = S.game;
+    if (!g || g.over || g.left <= 0 || g.opened.has(i)) return;
+    g.left--;
+    g.steps++;
+    if (g.marks.has(i)) { if (g.mine[i]) g.wrong--; g.marks.delete(i); }
+    if (g.mine[i]) {
+      g.found.add(i);
+      g.opened.add(i);
+      toast(`找到 1 颗钻石！已找到 ${g.found.size}/${g.gems}`, 'gold');
+    } else {
+      const stack = [i];
+      while (stack.length) {
+        const v = stack.pop();
+        if (g.opened.has(v) || g.mine[v]) continue;
+        g.opened.add(v);
+        if (g.marks.has(v)) g.marks.delete(v);
+        if (g.adj[v] === 0) for (const j of g.nbrs(v)) if (!g.opened.has(j)) stack.push(j);
+      }
+    }
+    renderGame();
+    if (g.found.size >= g.gems) return endGame(true);
+    if (g.left <= 0) return endGame(false);
+  }
+
+  function gameToggleMark(i) {
+    const g = S.game;
+    if (!g || g.over || g.opened.has(i)) return;
+    if (g.marks.has(i)) { if (g.mine[i]) g.wrong--; g.marks.delete(i); }
+    else { g.marks.add(i); if (g.mine[i]) g.wrong++; }
+    renderGame();
+  }
+
+  function endGame(win) {
+    const g = S.game;
+    if (!g || g.over === 'done') return;
+    g.over = 'done';
+    updateGameBar();
+    const got = g.found.size;
+    const rate = g.steps ? Math.round((got / g.steps) * 100) : 0;
+    openModal(`
+      <div class="modal-head">
+        <h3>${win ? '全找出来了！' : '探索次数用完了'}</h3>
+        <button class="modal-close" data-close type="button">✕</button>
+      </div>
+      <div class="rules">
+        <section>
+          <p>本局 ${g.n}×${g.n}，共 ${g.gems} 颗钻石。你用了 ${g.steps} 次探索，<b>找到 ${got} 颗</b>${g.wrong ? `，其中有 ${g.wrong} 个 × 标在了钻石上（标错了）` : ''}。</p>
+          <p>${win ? '一颗不落，厉害。' : got >= 3 ? '按活动规则，找到 3 颗以上就能上榜了。' : '活动规则是最少找到 3 颗才能上榜，再来一局？'}</p>
+          <p>想知道"剩下一颗在哪"，可以点下面的按钮：把现在这个盘面交给计算器，它会算出还有哪些格子必定是钻石。</p>
+        </section>
+      </div>
+      <div class="modal-actions">
+        <button class="ghost-btn" id="btn-game-use" type="button">用工具分析这盘</button>
+        <button class="ghost-btn sm" id="btn-game-again" type="button">再来一局</button>
+        <button class="ghost-btn sm" id="btn-game-exit" type="button">回到计算器</button>
+      </div>`);
+  }
+
+  function exitGame(keepBoard) {
+    if (!S.game) return;
+    S.game = null;
+    updateGameBar();
+    if (keepBoard) {
+      setAdvice('已把游戏盘面交给计算器：下面就是它算出来的结论');
+      analyze();
+      settle();
+      toast('已把当前盘面交给计算器，右侧/下方就是结论', 'gold');
+    } else {
+      mark();
+      clearAll();
+      settle();
+    }
   }
 
   /* ---------- 主题：与统计中心共用 localStorage 的 theme 键 ---------- */
@@ -960,26 +1084,32 @@
   function startImportClock(sizeLabel) {
     const t0 = Date.now();
     clearInterval(S.importTimer);
-    setImportStatus(`识别中… 已用 0s（按 ${sizeLabel} 识别，通常 1~2 分钟，可以先去忙别的）`, 'busy');
+    S.ocrStage = '';      // 服务端报告的当前进度（例如"正在改用备选模型…"）
+    const line = (s) => `识别中… 已用 ${s}s`
+      + (S.ocrStage ? ` · ${S.ocrStage}` : `（按 ${sizeLabel} 识别，通常十几秒，忙的时候要一分钟）`);
+    setImportStatus(line(0), 'busy');
     S.importTimer = setInterval(() => {
-      const s = Math.round((Date.now() - t0) / 1000);
-      setImportStatus(`识别中… 已用 ${s}s（按 ${sizeLabel} 识别，通常 1~2 分钟）`, 'busy');
+      setImportStatus(line(Math.round((Date.now() - t0) / 1000)), 'busy');
     }, 1000);
   }
   function stopImportClock() { clearInterval(S.importTimer); S.importTimer = null; }
 
-  /** 图片压缩：只在超大时才缩（实测压到 1400 会让识别明显变差，所以门槛放很高） */
-  function shrinkImage(file, maxSide) {
+  /**
+   * 图片压缩：按【宽度】上限缩放。
+   * 实测（12×12 截图，1200×2670 原图 1.4MB）：直接传原图时快时慢（6~46 秒），
+   * 压到 1000px 宽（约 340KB）后稳定在 10~11 秒，读数完全一致 —— 所以按宽度压。
+   * 已经是窄图（例如只截了棋盘的 900×900）就原样上传，不再缩。
+   */
+  function shrinkImage(file, maxWidth) {
     return new Promise((resolve) => {
       try {
         const url = URL.createObjectURL(file);
         const img = new Image();
         img.onload = () => {
           try {
-            const long = Math.max(img.width, img.height);
-            if (long <= maxSide) { resolve({ blob: file, url, note: `${img.width}×${img.height}` }); return; }
-            const k = maxSide / long;
-            const w = Math.round(img.width * k), h = Math.round(img.height * k);
+            if (img.width <= maxWidth) { resolve({ blob: file, url, note: `${img.width}×${img.height}` }); return; }
+            const k = maxWidth / img.width;
+            const w = maxWidth, h = Math.round(img.height * k);
             const cv = document.createElement('canvas');
             cv.width = w; cv.height = h;
             const cx = cv.getContext('2d');
@@ -990,7 +1120,7 @@
               if (!blob) { resolve({ blob: file, url, note: `${img.width}×${img.height}` }); return; }
               URL.revokeObjectURL(url);
               resolve({ blob, url: URL.createObjectURL(blob), note: `${img.width}×${img.height} → ${w}×${h}` });
-            }, 'image/jpeg', 0.92);
+            }, 'image/jpeg', 0.85);
           } catch (e) { resolve({ blob: file, url, note: '' }); }
         };
         img.onerror = () => resolve({ blob: file, url, note: '' });
@@ -1157,7 +1287,7 @@
     if (S.importTimer) { toast('正在识别中，等它完成或点「取消识别」', 'warn'); return; }
     if (!/^image\//.test(file.type || '')) { setImportStatus('这个文件不是图片', 'err'); return; }
     S.ocrCanceled = false;
-    const shrunk = await shrinkImage(file, 2600);
+    const shrunk = await shrinkImage(file, 1000);   // 宽度上限：实测 1000px 最稳（见函数注释）
     S.ocrBlob = shrunk.blob;
 
     const row = $('#pick-row');
@@ -1203,7 +1333,10 @@
         if (r2.status === 404) throw new Error('识别任务已失效（服务可能重启过），请重新识别');
         const j = await r2.json().catch(() => null);
         if (!j) continue;
-        if (j.status === 'running') continue;
+        if (j.status === 'running') {
+          if (j.stage && j.stage !== S.ocrStage) S.ocrStage = j.stage;   // 让用户看到服务端在做什么
+          continue;
+        }
         if (!j.ok || j.status === 'error') throw new Error(j.error || '识别失败');
         data = j.data;
         break;
@@ -1250,7 +1383,26 @@
       const unsureN = S.unsure.size;
       // 尺寸选错时，模型会照着错尺寸硬编，结果通常自相矛盾 —— 这里直接提醒
       const bad = (S.result && S.result.conflicts) ? S.result.conflicts.length : 0;
-      if (bad) {
+      // 几乎没读出东西：弱模型会把整张盘面都当成空格，这种"成功"必须拦住
+      let filledN = 0;
+      for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) if (S.grid[r][c] !== -1) filledN++;
+      const cov = (typeof data.coverage === 'number') ? data.coverage : null;
+      const weak = filledN === 0 || data.thin === true || filledN < Math.max(6, Math.round(rows * rows * 0.05)) || (cov != null && cov < 0.6);
+      if (weak) {
+        setImportStatus('识别完成，但几乎没有读出内容，请重试或手工填写。', 'err');
+        openModal(`
+          <div class="modal-head">
+            <h3>这次没读出内容</h3>
+            <button class="modal-close" data-close type="button">✕</button>
+          </div>
+          <div class="rules">
+            <section>
+              <p>${rows}×${rows} 一共 ${rows * cols} 格，这次只读出 <b>${filledN}</b> 个已翻开的格子${cov != null ? `（模型逐格只报回 ${data.reported}/${data.total} 格）` : ''}。</p>
+              <p>说明识图服务没看清盘面，把大部分格子当成空的了。常见原因是图片太小太糊，或者换了不擅长看密集小字的识图模型。</p>
+              <p>建议：<b>用清晰的整屏截图重试</b>；还是不行就对照截图手工填写 —— 手工填的盘面分析结果一样准确。</p>
+            </section>
+          </div>`);
+      } else if (bad) {
         const sizeLabel = rows + '×' + rows;
         setImportStatus(`识别完成，但有 ${bad} 处数字自相矛盾 —— 多半是地图尺寸选错了，请核对后重新识别。`, 'err');
         openModal(`
@@ -1266,7 +1418,12 @@
                  具体位置在「使用说明 → 当前分析 → 盘面自检」里列着。</p>
             </section>
           </div>`);
+      } else if (data.badRows > 0) {
+        // 个别行读不准：那几行已留空并整行标红，提示用户手动补，别让他以为是空的
+        setImportStatus(`识别完成，但有 ${data.badRows} 行没读准 —— 已留空并标红，请对照截图把那几行补上。`, 'err');
+        toast(`识别完成：${data.badRows} 行没读准，红框那一行请手动补`, 'warn');
       } else {
+        if (data.note) setImportStatus(data.note, '');
         toast(unsureN ? `识别完成，${unsureN} 处红框请重点核对` : '识别完成，请核对带红框的格子', 'gold');
       }
     } catch (err) {
