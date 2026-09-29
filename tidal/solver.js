@@ -255,12 +255,16 @@
 
   /* ---------- 分析 ---------- */
   function analyze() {
-    const res = window.TidalSolver.solve({
+    const base = {
       rows: S.rows,
       cols: S.cols,
       cells: S.grid,
       gemTotal: Number.isFinite(S.gemTotal) ? S.gemTotal : null,
-    });
+    };
+    // 主结论：把玩家的 × 当作「确定没有宝钻」一起推理
+    const res = window.TidalSolver.solve(Object.assign({}, base, { trustMarks: true }));
+    // 再算一遍「不信任 ×」，用来发现标错的 × 和数字证明不了的 ×
+    S.resultNoMarks = window.TidalSolver.solve(Object.assign({}, base, { trustMarks: false }));
     S.result = res;
     paint();
     renderPanels(res);
@@ -317,9 +321,16 @@
     el.advice.className = 'advice' + (adv.kind ? ' is-' + adv.kind : '');
 
     /* 错误提示 */
-    const errText = res.impossible
-      ? '盘面与宝钻总数矛盾'
-      : (res.conflicts.length ? `${res.conflicts.length} 处数字对不上（详见使用说明）` : '');
+    // × 被当成依据后，矛盾多半来自标错的 ×（不信任 × 就没有矛盾）
+    const noMarks = S.resultNoMarks;
+    const marksAtFault = (res.conflicts.length > 0 || res.impossible) && noMarks && !noMarks.conflicts.length && !noMarks.impossible;
+    const errText = marksAtFault
+      ? (res.conflicts.length
+          ? `${res.conflicts.length} 处矛盾：多半有 × 标错了（详见使用说明）`
+          : '宝钻总数对不上：多半有 × 标错了（详见使用说明）')
+      : (res.impossible
+          ? '盘面与宝钻总数矛盾'
+          : (res.conflicts.length ? `${res.conflicts.length} 处数字对不上（详见使用说明）` : ''));
     el.vbErrWrap.hidden = !errText;
     el.vbErr.textContent = errText || '';
 
@@ -362,20 +373,34 @@
 
     /* × 标记检查 */
     html += `<div class="block-title">你的 × 标记检查</div>`;
+    const noM = S.resultNoMarks;
     if (!res.markedX.some((v) => v)) {
-      html += `<p class="card-desc">棋盘上还没有 × 标记。标 × 是记录「这格没宝钻」，它不参与推理，只用来核对。</p>`;
+      html += `<p class="card-desc">棋盘上还没有 × 标记。按游戏玩法，单击标 × 就是「这格确定没有宝钻」，工具会把它当作可靠信息一起推理。</p>`;
     } else {
       let m = '';
-      if (res.markWrong.length) {
-        m += `<div class="advice-lead"><span class="tag tag-warn">有 ${res.markWrong.length} 处标错了</span></div>
-              <div class="advice-why" style="margin:6px 0 8px">这些格子按推导必定是宝钻，却被标成了 ×：</div>
-              ${coordChips(res.markWrong, 'c-warn', 12)}`;
+      // ① 标错的：信任 × 会出现矛盾，而不信任就没有 → 说明 × 里有错的
+      const badByMarks = (res.conflicts.length > 0 || res.impossible) && noM && !noM.conflicts.length && !noM.impossible;
+      if (badByMarks) {
+        m += `<div class="advice-lead"><span class="tag tag-warn">有 × 标错了</span></div>
+              <div class="advice-why" style="margin:6px 0 8px">
+              你的 × 已被当成「确定没有宝钻」参与推理；但如果因此出现下面这些矛盾，说明<span style="color:var(--warn-ink)">其中至少有一个 × 标错了</span>：
+              </div>${coordChips(res.conflicts, 'c-warn', 10)}`;
       }
-      if (res.markRisky.length) {
-        m += `<div class="block-title">这些 × 没有依据支持（含宝钻概率不低）</div>${coordChips(res.markRisky, 'c-gem', 12, true)}`;
+      // ② 数字证明不了的 ×（不信任时仍是候选）——标错了结论就会偏
+      const unsupported = [];
+      if (noM) {
+        for (let i = 0; i < S.total; i++) {
+          if (!res.markedX[i]) continue;
+          if (!noM.knownSafe[i] && !noM.knownGem[i]) {
+            unsupported.push({ r: (i / S.cols) | 0, c: i % S.cols, i, p: noM.probs ? noM.probs[i] : null });
+          }
+        }
       }
-      if (!res.markWrong.length && !res.markRisky.length) {
-        m += `<p class="card-desc">✔ 所有 × 标记都与推导一致，没有发现问题。</p>`;
+      if (unsupported.length) {
+        m += `<div class="block-title">这些 × 数字证明不了（如果标错了，结论会跟着偏）</div>${coordChips(unsupported, 'c-gem', 12, true)}`;
+      }
+      if (!badByMarks && !unsupported.length) {
+        m += `<p class="card-desc">✔ 所有 × 标记都被数字证实了，可以放心用。</p>`;
       }
       html += m;
     }

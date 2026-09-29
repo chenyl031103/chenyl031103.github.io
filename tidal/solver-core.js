@@ -77,8 +77,19 @@
     const conflicts = [];
     const conflictKeys = new Set();
     const steps = [];
+    // 是否把玩家的 × 标记当作「确定没有宝钻」参与推理（默认当作依据）
+    const trustMarks = input.trustMarks !== false;
 
     const rc = (i) => `第${((i / cols) | 0) + 1}行第${(i % cols) + 1}列`;
+
+    if (trustMarks) {
+      for (let i = 0; i < total; i++) {
+        if (markedX[i]) {
+          knownSafe[i] = 1;
+          reason[i] = '你标的 ×（当作确定没有宝钻）';
+        }
+      }
+    }
 
     function buildConstraints() {
       const list = [];
