@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>《弹壳特攻队》-潮汐秘境计算器</title>
+<meta name="description" content="《弹壳特攻队》潮汐秘境计算器：把当前棋盘的数字、宝钻、× 标记填进来，自动推出哪些格子必定是宝钻、哪些必定安全、下一步先点哪里。支持上传截图自动识别。">
+<meta name="theme-color" content="#0f1923">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext y='25' font-size='25'%3E%F0%9F%92%8E%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="style.css">
+<script>var t=localStorage.getItem('theme')||'light';document.documentElement.setAttribute('data-theme',t);</script>
+</head>
+<body>
+
+<svg class="sprite" aria-hidden="true" focusable="false">
+  <defs>
+    <symbol id="ico-gem" viewBox="0 0 24 24">
+      <path d="M6.6 3.2h10.8L21.4 9 12 21.2 2.6 9z" fill="currentColor"/>
+      <path d="M6.6 3.2 8.6 9h6.8l2-5.8z" fill="#5a3d05" fill-opacity=".28"/>
+      <path d="M8.6 9 12 21.2 15.4 9z" fill="#ffffff" fill-opacity=".3"/>
+    </symbol>
+    <symbol id="ico-x" viewBox="0 0 24 24">
+      <path d="M5.8 5.8 18.2 18.2M18.2 5.8 5.8 18.2" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round"/>
+    </symbol>
+    <symbol id="ico-check" viewBox="0 0 24 24">
+      <path d="M4.5 12.8l4.8 4.8L19.6 7.2" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+    </symbol>
+    <symbol id="ico-warn" viewBox="0 0 24 24">
+      <path d="M12 3.4 22 20.4H2z" fill="currentColor"/>
+      <path d="M12 9.4v5" stroke="#0f1923" stroke-width="2.1" stroke-linecap="round"/>
+      <circle cx="12" cy="17.4" r="1.2" fill="#0f1923"/>
+    </symbol>
+    <symbol id="ico-aim" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="8.6" fill="none" stroke="currentColor" stroke-width="2"/>
+      <circle cx="12" cy="12" r="2.6" fill="currentColor"/>
+      <path d="M12 1.4v4M12 18.6v4M1.4 12h4M18.6 12h4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+    </symbol>
+    <symbol id="ico-image" viewBox="0 0 24 24">
+      <rect x="2.6" y="4.6" width="18.8" height="14.8" rx="2.4" fill="none" stroke="currentColor" stroke-width="1.9"/>
+      <circle cx="8.6" cy="10" r="1.9" fill="currentColor"/>
+      <path d="M3.4 17.4l4.8-5 3.4 3.6 3.2-3 5.8 4.8" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/>
+    </symbol>
+  </defs>
+</svg>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-mark" aria-hidden="true">💎</span>
+    <span class="brand-text">
+      <strong>潮汐秘境计算器</strong>
+      <small>填好残局 → 棋盘上直接标出哪格是宝钻、哪格可以标 ×</small>
+    </span>
+  </div>
+  <nav class="topbar-nav">
+    <button class="ghost-btn" id="btn-shot-open" type="button">
+      <svg class="ico"><use href="#ico-image"/></svg>截图识别
+    </button>
+    <button class="ghost-btn" id="btn-help" type="button">使用说明</button>
+    <button class="ghost-btn" id="btn-sample" type="button">载入示例</button>
+    <button class="ghost-btn" id="btn-clear" type="button">清空</button>
+    <button class="ghost-btn" id="theme-toggle" type="button" title="切换深色/浅色">🌙</button>
+  </nav>
+</header>
+
+<main>
+  <section class="stage">
+
+    <div class="map-bar">
+      <span class="map-chip">地图尺寸</span>
+      <div class="seg seg-sm" id="size-seg" role="tablist" aria-label="地图尺寸">
+        <button class="seg-btn is-on" data-size="8" type="button">8×8</button>
+        <button class="seg-btn" data-size="10" type="button">10×10</button>
+        <button class="seg-btn" data-size="12" type="button">12×12</button>
+      </div>
+      <span class="map-chip map-chip-quiet">本图固定宝钻 <b id="gem-total-text">20</b> 颗</span>
+      <span class="map-chip map-chip-quiet">已填 <b id="filled-count">0</b> / <b id="cell-total">64</b> 格</span>
+    </div>
+
+    <div class="palette" id="palette">
+      <span class="palette-label">单击涂</span>
+      <button class="brush is-on brush-x" data-brush="X" type="button" title="单击格子标上 / 取消 ×（与游戏一致）">
+        <svg class="ico"><use href="#ico-x"/></svg>× 标记
+      </button>
+      <button class="brush" data-brush="hide" type="button" title="单击格子清除">
+        <span class="brush-face brush-empty"></span>清除
+      </button>
+      <span class="brush-group" id="brush-nums">
+        <button class="brush brush-num" data-brush="0" type="button" title="已翻开的空白格">0</button>
+        <button class="brush brush-num" data-brush="1" type="button">1</button>
+        <button class="brush brush-num" data-brush="2" type="button">2</button>
+        <button class="brush brush-num" data-brush="3" type="button">3</button>
+        <button class="brush brush-num" data-brush="4" type="button">4</button>
+        <button class="brush brush-num" data-brush="5" type="button">5</button>
+        <button class="brush brush-num" data-brush="6" type="button">6</button>
+      </span>
+      <button class="brush brush-gem" data-brush="G" type="button">
+        <svg class="ico"><use href="#ico-gem"/></svg>宝钻
+      </button>
+      <span class="palette-tip">双击格子＝翻开并选值 · 右键清除 · 可按住拖动连涂</span>
+    </div>
+
+    <div class="board-shell">
+      <div class="board-scroll" id="board-scroll">
+        <div class="board" id="board" role="grid" aria-label="残局棋盘"></div>
+      </div>
+    </div>
+
+    <p class="advice" id="advice">
+      <svg class="ico"><use href="#ico-aim"/></svg><span id="advice-text">先把残局填进来，或点右上角「载入示例」看效果。</span>
+    </p>
+
+    <div class="verdict-bar">
+      <span class="vb vb-gem"><svg class="ico"><use href="#ico-gem"/></svg>必定是宝钻 <b id="vb-gem">0</b></span>
+      <span class="vb vb-safe"><svg class="ico"><use href="#ico-check"/></svg>必定安全 <b id="vb-safe">0</b></span>
+      <span class="vb vb-unknown">待定 <b id="vb-unknown">0</b></span>
+      <button class="ghost-btn sm" id="btn-mark-safe" type="button" disabled>把可确认的格标上 ×</button>
+      <span class="vb vb-err" id="vb-err-wrap" hidden><svg class="ico"><use href="#ico-warn"/></svg><b id="vb-err"></b></span>
+    </div>
+
+  </section>
+  <footer class="footer">《弹壳特攻队》潮汐秘境计算器小工具 · 海出品</footer>
+</main>
+
+<div class="reveal-bar" id="reveal-bar" hidden>
+  <span class="rb-label">翻开的 <b id="rb-target">—</b> 是：</span>
+  <span class="rb-values" id="rb-values"></span>
+  <span class="rb-hint" id="rb-hint"></span>
+  <button class="rb-btn rb-cancel" data-rb="cancel" type="button">取消</button>
+</div>
+
+<div class="modal" id="modal" hidden>
+  <div class="modal-mask" data-close></div>
+  <div class="modal-box" id="modal-box" role="dialog" aria-modal="true"></div>
+</div>
+<div class="toasts" id="toasts"></div>
+
+<script>window.TIDAL_OCR = false;/* 静态托管版由构建脚本改成 false */</script>
+<script src="solver-core.js"></script>
+<script src="solver.js"></script>
+</body>
+</html>
