@@ -52,6 +52,7 @@
     </span>
   </div>
   <nav class="topbar-nav">
+    <a class="ghost-btn" id="btn-ocr-version" href="" target="_blank" rel="noopener" hidden>💎 去用截图识别版</a>
     <button class="ghost-btn" id="btn-shot-open" type="button">
       <svg class="ico"><use href="#ico-image"/></svg>截图识别
     </button>
@@ -140,6 +141,7 @@
 <div class="toasts" id="toasts"></div>
 
 <script>window.TIDAL_OCR = false;/* 静态托管版由构建脚本改成 false */</script>
+<script>window.TIDAL_OCR_URL = 'http://chenyl.free.idcfengye.com/tidal/';/* 静态版构建时填入「带截图识别的网址」 */</script>
 <script src="solver-core.js"></script>
 <script src="solver.js"></script>
 </body>

@@ -805,7 +805,7 @@
         </section>
         <section>
           <h4>截图识别</h4>
-          ${OCR_ENABLED ? '' : '<p>当前是<b>静态托管版</b>，没有后端，不提供截图识别；手动填写可以用全部求解功能。</p>'}
+          ${OCR_ENABLED ? '' : '<p>当前是<b>静态托管版</b>，没有后端，不提供截图识别；手动填写可以用全部求解功能。需要用截图识别就点顶部的「💎 去用截图识别版」。</p>'}
           <ul>
             <li>点顶部<b>「截图识别」</b>上传游戏截图，识别后自动填进棋盘，识别出来的格子会打<b>金色虚框</b>。</li>
             <li><b>要等 1~2 分钟</b>（识图模型逐格辨认比较慢），弹窗里会显示已用秒数。</li>
@@ -1151,10 +1151,15 @@
   /* ---------- 启动 ---------- */
   function init() {
     initTheme();
-    // 静态托管版：隐藏截图识别入口
+    // 静态托管版：隐藏截图识别入口，改成指向「带截图识别的网址」
     if (!OCR_ENABLED) {
-      const b0 = $('#btn-shot-open');
+      const b0 = document.querySelector('#btn-shot-open');
       if (b0) b0.hidden = true;
+      const link = document.querySelector('#btn-ocr-version');
+      if (link && window.TIDAL_OCR_URL) {
+        link.href = window.TIDAL_OCR_URL;
+        link.hidden = false;
+      }
     }
     S.grid = newGrid(S.rows, S.cols);
     el.gemTotalText.textContent = S.gemTotal;
