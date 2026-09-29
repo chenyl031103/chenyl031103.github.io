@@ -8,6 +8,33 @@
   // 各尺寸的宝钻总数由活动固定，不可更改
   const GEM_TOTAL = { 8: 20, 10: 30, 12: 45 };
   const OCR_ENABLED = window.TIDAL_OCR !== false;   // 静态托管版把 window.TIDAL_OCR 设为 false
+
+  /* 静态版：「去用截图识别版」指向的地址（构建时写入）。
+     隧道地址会变，所以支持用 ?ocr=新地址 覆盖，存本地，改地址不必重新上传。 */
+  const OCR_URL_KEY = 'tidal_ocr_url';
+
+  function resolveOcrService() {
+    const clean = (u) => (u ? u.replace(/\/+$/, '') + '/' : '');
+    let saved = '';
+    try { saved = localStorage.getItem(OCR_URL_KEY) || ''; } catch (e) {}
+    try {
+      const params = new URLSearchParams(location.search);
+      if (params.has('ocr')) {
+        const raw = (params.get('ocr') || '').trim();
+        if (raw) {
+          saved = /^https?:\/\//i.test(raw) ? raw : 'https://' + raw;
+          try { localStorage.setItem(OCR_URL_KEY, saved); } catch (e) {}
+        } else {
+          saved = '';   // ?ocr= 留空 = 清除覆盖，回到构建时写入的地址
+          try { localStorage.removeItem(OCR_URL_KEY); } catch (e) {}
+        }
+      }
+    } catch (e) {}
+    const built = typeof window.TIDAL_OCR_URL === 'string' ? window.TIDAL_OCR_URL.trim() : '';
+    return clean(saved || built);
+  }
+
+  const OCR_SERVICE = resolveOcrService();
   const DOUBLE_MS = 340;   // 两次按下间隔小于此值算「双击翻开」
 
   const $ = (s) => document.querySelector(s);
@@ -805,7 +832,9 @@
         </section>
         <section>
           <h4>截图识别</h4>
-          ${OCR_ENABLED ? '' : '<p>当前是<b>静态托管版</b>，没有后端，不提供截图识别；手动填写可以用全部求解功能。需要用截图识别就点顶部的「💎 去用截图识别版」。</p>'}
+          ${OCR_ENABLED ? '' : (OCR_SERVICE
+            ? '<p>当前是<b>静态托管版</b>，没有后端，不提供截图识别；手动填写可以用全部求解功能。需要用截图识别就点顶部的「💎 去用截图识别版」。</p>'
+            : '<p>当前是<b>静态托管版</b>，没有后端，不提供截图识别；手动填写可以用全部求解功能。</p>')}
           <ul>
             <li>点顶部<b>「截图识别」</b>上传游戏截图，识别后自动填进棋盘，识别出来的格子会打<b>金色虚框</b>。</li>
             <li><b>要等 1~2 分钟</b>（识图模型逐格辨认比较慢），弹窗里会显示已用秒数。</li>
@@ -1156,8 +1185,9 @@
       const b0 = document.querySelector('#btn-shot-open');
       if (b0) b0.hidden = true;
       const link = document.querySelector('#btn-ocr-version');
-      if (link && window.TIDAL_OCR_URL) {
-        link.href = window.TIDAL_OCR_URL;
+      if (link && OCR_SERVICE) {
+        link.href = OCR_SERVICE;
+        link.title = '静态版没有识图后端，去服务版用（需要那台服务器在线）\n' + OCR_SERVICE;
         link.hidden = false;
       }
     }
