@@ -835,3 +835,33 @@ body.light .cell.is-blank .v-blank { color: #b9c2cc; }
 .cell.is-question { font-size: clamp(11px, calc(var(--font) * 1.05), 26px); line-height: 1; }
 /* 扫雷的地图没有"固定钻石数"，那格藏起来 */
 body.is-mine-game .map-chip-gem { display: none; }
+
+/* ---------- 扫雷：经典外观（未翻开 = 米色立体凸起按钮，翻开 = 平的 + 经典数字配色） ---------- */
+body.is-mine-game .board-shell { background: #bdbdbd; border-color: #8f8f8f; }
+body.is-mine-game .board-scroll { padding: 10px; }
+body.is-mine-game .board { gap: 2px; background: #bdbdbd; }
+body.is-mine-game .cell {
+  border-radius: 0;
+  background: #c6c6c6;
+  border: 2px solid;
+  border-color: #f4f4f4 #898989 #898989 #f4f4f4;
+  color: transparent;
+}
+body.is-mine-game .cell:hover { border-color: #f4f4f4 #898989 #898989 #f4f4f4; }
+body.is-mine-game .cell.is-open {
+  background: #d6d6d6;
+  border: 1px solid #a8a8a8;
+}
+body.is-mine-game .cell.is-open.n1 { color: #0000ff; }
+body.is-mine-game .cell.is-open.n2 { color: #008000; }
+body.is-mine-game .cell.is-open.n3 { color: #ff0000; }
+body.is-mine-game .cell.is-open.n4 { color: #000080; }
+body.is-mine-game .cell.is-open.n5 { color: #800000; }
+body.is-mine-game .cell.is-open.n6 { color: #008080; }
+body.is-mine-game .cell.is-open.n7 { color: #000000; }
+body.is-mine-game .cell.is-open.n8 { color: #808080; }
+body.is-mine-game .cell.is-flag,
+body.is-mine-game .cell.is-question { background: #c6c6c6; }
+body.is-mine-game .cell.is-bomb { background: #e8bcbc; }
+/* 立体凸起本身就表示"没翻开"，不用再画 ■ */
+body.is-mine-game .cell.is-blank .v-blank { display: none; }
