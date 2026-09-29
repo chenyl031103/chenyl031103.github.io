@@ -361,7 +361,8 @@ main {
 }
 
 /* 正在等待选择「翻开值」的格子 */
-.cell.awaiting { outline: 3px solid var(--accent); outline-offset: -2px; z-index: 3; }
+/* 正在取值的那一格：不画框，用发光提示 */
+.cell.awaiting { z-index: 5; box-shadow: 0 0 0 2px rgba(58, 214, 200, 0.6), 0 0 16px rgba(58, 214, 200, 0.55); }
 
 /* ---------- 8. 翻开取值条（浮在底部，不占文档流，避免把结论条挤出屏幕） ---------- */
 .reveal-bar {
@@ -763,13 +764,25 @@ main {
   place-items: center;
   width: 78%;
   height: 78%;
-  font-size: calc(var(--font) * 1.2);
   font-weight: 900;
   line-height: 1;
-  border-radius: 8px;
-  color: var(--tile-open-ink);
-  background: rgba(0, 0, 0, 0.14);
+  color: #9aa6b2;            /* 灰色 = 工具推导的提示，等你自己点一下才算确认 */
 }
-[data-theme="dark"] .cell .v-safe { color: #0d1b26; background: rgba(255, 255, 255, 0.14); }
+[data-theme="dark"] .cell .v-safe { color: #7d8b99; }
 /* 小格子上字小一点，别撑破 */
 .cell .v-gem, .cell .v-safe { font-size: clamp(11px, calc(var(--font) * 1.15), 30px); }
+
+/* ---------- 22. 结论条里的小符号（绿√ / 灰×，和棋盘一致） ---------- */
+.vb-sign {
+  display: inline-grid;
+  place-items: center;
+  width: 17px; height: 17px;
+  flex: none;
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 900;
+  line-height: 1;
+  border-radius: 50%;
+}
+.vb-sign-gem { background: var(--success); color: #fff; }
+.vb-sign-safe { color: #9aa6b2; font-size: 15px; }

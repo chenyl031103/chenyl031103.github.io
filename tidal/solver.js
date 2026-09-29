@@ -239,7 +239,7 @@
         if (S.unsure.has(i)) cls += ' is-unsure';
         if (S.awaiting === i) cls += ' awaiting';
 
-        // 结论用「符号」表达，不再画框：绿 √ = 必定是宝钻，黑 × = 必定不是宝钻
+        // 结论用「符号」表达，不再画框：绿 √ = 必定是钻石，黑 × = 必定不是钻石（灰色 × 是工具推导的提示）
         let badge = '';
         let content = null;   // 覆盖格子内容（隐藏格才用）
         if (res) {
@@ -321,10 +321,10 @@
     const pick = res.pick;
     if (!pick) return { kind: '', text: '还没有数字线索：先把已翻开的格子和宝钻填进来。' };
     if (pick.type === 'gem') {
-      return { kind: 'gem', text: `先点开 ${coord(pick.r, pick.c)} —— 必定是宝钻（${pick.why || '由数字推出'}）` };
+      return { kind: 'gem', text: `先点开 ${coord(pick.r, pick.c)} —— 必定是钻石（${pick.why || '由数字推出'}）` };
     }
     if (pick.type === 'safe') {
-      return { kind: 'safe', text: `没有能确定的宝钻；先翻开 ${coord(pick.r, pick.c)}（必定安全，可扩开线索）—— ${pick.why || '由数字推出'}` };
+      return { kind: 'safe', text: `没有能确定的钻石；先翻开 ${coord(pick.r, pick.c)}（必定不是钻石，可扩开线索）—— ${pick.why || '由数字推出'}` };
     }
     const hi = pick, lo = pick.alt;
     return {
@@ -365,16 +365,16 @@
       <li><span>本图宝钻总数</span><b>${c.gemTotal == null ? '未填' : c.gemTotal}</b></li>
       <li><span>已确认宝钻</span><b>${c.knownGems} 颗</b></li>
       <li><span>还需找出</span><b>${c.remainingGems == null ? '—' : c.remainingGems + ' 颗'}</b></li>
-      <li><span>必定是宝钻</span><b>${c.certainGems} 处</b></li>
-      <li><span>必定安全</span><b>${c.certainSafe} 处</b></li>
+      <li><span>必定是钻石</span><b>${c.certainGems} 处</b></li>
+      <li><span>必定不是钻石</span><b>${c.certainSafe} 处</b></li>
       <li><span>无法确定</span><b>${c.undecided} 格</b></li>
       <li><span>未翻开总计</span><b>${c.hiddenCells} 格</b></li>
     </ul>`;
 
     html += `<div class="block-title">下一步</div><p class="card-desc">${adv.text}</p>`;
 
-    if (c.certainGems) html += `<div class="block-title">必定是宝钻（去翻这些）</div>${coordChips(res.certainGems, 'c-gem', 20)}`;
-    if (c.certainSafe) html += `<div class="block-title">必定安全（可以标 ×）</div>${coordChips(res.certainSafe, 'c-safe', 20)}`;
+    if (c.certainGems) html += `<div class="block-title">必定是钻石（绿 √，去翻这些）</div>${coordChips(res.certainGems, 'c-gem', 20)}`;
+    if (c.certainSafe) html += `<div class="block-title">必定不是钻石（可以标 ×）</div>${coordChips(res.certainSafe, 'c-safe', 20)}`;
     if (res.undecided.length) {
       const lo = res.undecided[0], hi = res.undecided[res.undecided.length - 1];
       html += `<div class="advice-why" style="margin-top:10px">待定格含宝钻概率区间 ${Math.round(lo.p * 100)}% ~ ${Math.round(hi.p * 100)}%${res.approx ? '（其中有过大的分组，已按估算处理）' : ''}</div>`;
@@ -680,7 +680,7 @@
       setSize(Number(b.dataset.size));
     });
 
-    // 一键把推导出的必定安全格标上 ×
+    // 一键把推导出的「必定不是钻石」格标上 ×
     el.btnMarkSafe.addEventListener('click', () => {
       const res = S.result;
       if (!res || !res.certainSafe.length) return;
@@ -812,7 +812,7 @@
         if (open.has(i)) grid[r][c] = mine[i] ? 'G' : adj[i];
       }
     }
-    // × 标在推导出来的「必定安全」格上，让示例本身自洽
+    // × 标在推导出来的「必定不是钻石」格上，让示例本身自洽
     const probe = window.TidalSolver.solve({ rows: n, cols: n, cells: grid, gemTotal: gems });
     for (const p of probe.certainSafe.slice(0, 3)) grid[p.r][p.c] = 'X';
 
@@ -863,7 +863,7 @@
         <section>
           <h4>它做什么</h4>
           <p>把游戏里当前棋盘的样子<b>照原样填进来</b>，它会用扫雷的逻辑算出现在
-             <b>哪些格子必定是宝钻</b>、<b>哪些格子必定没有宝钻</b>、<b>下一步先点哪里</b>，
+             <b>哪些格子必定是钻石</b>、<b>哪些格子必定不是钻石</b>、<b>下一步先点哪里</b>，
              结果直接标在棋盘上。</p>
         </section>
         <section>
@@ -896,7 +896,7 @@
         <section>
           <h4>棋盘上的标记怎么读</h4>
           <ul>
-            <li><b>绿色 √</b>＝<b>必定是宝钻</b>，放心去翻，直接得分。</li>
+            <li><b>绿色 √</b>（绿底白勾）＝<b>必定是钻石</b>，放心去翻，直接得分。</li>
             <li><b>黑色 ×</b>＝<b>必定不是宝钻</b>（安全格），可以放心；也可以点「把可确认的格标上 ×」一键标完。</li>
             <li><b>虚框 %</b>＝解不唯一时按所有合法摆法统计出的含宝钻概率，只是参考。</li>
             <li><b>左上角橙色三角</b>＝推荐先点的格子（棋盘下方那行字也会写是哪一格）。</li>
