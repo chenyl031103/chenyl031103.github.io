@@ -1041,8 +1041,10 @@
         const i = r * g.cols + c;
         if (g.opened.has(i)) grid[r][c] = (g.mine && g.mine[i]) ? gemChar : (g.adj ? g.adj[i] : -1);
         else if (g.revealAll && g.mine && g.mine[i]) grid[r][c] = gemChar;
-        else if (g.marks[i] === 'flag') grid[r][c] = 'F';
-        else if (g.marks[i] === 'question') grid[r][c] = 'Q';
+        else if (g.marks[i]) {
+          // 两套玩法的标记图标不一样：扫雷是 🚩/❓，潮汐秘境是 ×（"这里没有钻石"）
+          grid[r][c] = isMineMode ? (g.marks[i] === 'question' ? 'Q' : 'F') : 'X';
+        }
         else if (isMineMode) grid[r][c] = 'H';    // 扫雷：没翻开的格子显示 ■
       }
     }
