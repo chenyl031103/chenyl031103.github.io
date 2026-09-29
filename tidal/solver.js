@@ -1067,7 +1067,13 @@
     if (bar) bar.hidden = !S.game;
     document.body.classList.toggle('is-game', !!S.game);
     const g = S.game;
-    if (!g) { stopGameClock(); return; }
+    if (!g) {
+      stopGameClock();
+      const banner0 = $('#game-banner');
+      if (banner0) banner0.hidden = true;
+      if (BASE_TITLE) document.title = BASE_TITLE;
+      return;
+    }
     const isMine = g.kind === 'mine';
     const show = (id, on) => { const node = $(id); if (node) node.hidden = !on; };
     const title = $('#gb-title');
@@ -1076,6 +1082,18 @@
         ? `扫雷 · ${g.name} ${g.rows}×${g.cols} · 共 ${g.count} 颗雷`
         : `潮汐秘境 · ${g.rows}×${g.cols} · 共 ${g.gems} 颗钻石（不限次数）`;
     }
+    // 棋盘正上方的「正在玩」横幅 + 浏览器标签标题，让人一眼知道在玩哪个
+    const banner = $('#game-banner');
+    if (banner) {
+      banner.hidden = false;
+      $('#game-banner-name').textContent = isMine
+        ? `🚩 正在玩：扫雷（${g.name} ${g.rows}×${g.cols}）`
+        : `💎 正在玩：潮汐秘境（${g.rows}×${g.cols}）`;
+      $('#game-banner-sub').textContent = isMine
+        ? `${g.count} 颗雷 · 单击翻开、右键或长按插旗、双击数字格快速翻开周围`
+        : `${g.gems} 颗钻石 · 双击翻开一格、单击标 × 做记号，数字 = 周围钻石数`;
+    }
+    document.title = isMine ? `扫雷 · ${g.name}（${g.rows}×${g.cols}）— 潮汐秘境计算器` : `潮汐秘境 ${g.rows}×${g.cols} — 潮汐秘境计算器`;
     const hint = $('#gb-hint');
     if (hint) hint.textContent = isMine
       ? '单击翻开 · 右键或长按循环标记 🚩/❓ · 双击数字格快速翻开周围 · 第一次点击保证安全'
@@ -1671,7 +1689,10 @@
   }
 
   /* ---------- 启动 ---------- */
+  let BASE_TITLE = '';
+
   function init() {
+    BASE_TITLE = document.title;
     initTheme();
     // 静态托管版：隐藏截图识别入口；两种版本都在页脚上方列出对应网址
     renderSiteLinks();
