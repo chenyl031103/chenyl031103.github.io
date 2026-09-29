@@ -51,6 +51,8 @@
     awaiting: -1,         // 正在等待选择「翻开值」的格子
     lastTap: { i: -1, t: 0 },
     pressBackup: null,    // 记录按下前的值，供双击时回滚
+    history: [],          // 撤销栈：每项是「那一步之前」的盘面快照
+    histBase: null,       // 本次操作开始前的快照，抬手时才入栈（拖动连涂算一步）
     importTimer: null,
     importPreviewUrl: null,
     ocrBlob: null,        // 待识别的图片
@@ -203,6 +205,7 @@
     S.result = res;
     paint();
     renderPanels(res);
+    updateUndoBtn();
   }
 
   function coordChips(list, cls, limit, withProb) {
@@ -397,11 +400,88 @@
     const i = S.awaiting;
     if (i < 0) return;
     const r = (i / S.cols) | 0, c = i % S.cols;
+    mark();                       // 双击翻开这整段算一步（起点＝第一次按下之前）
     S.grid[r][c] = v;
     S.aiCells.delete(i);
     S.unsure.delete(i);
     closeRevealBar();
     analyze();
+    settle();
+  }
+
+  /* ---------- 撤销：记录「每一步之前」的盘面 ----------
+     一次操作 = 一次按下到抬手（拖动连涂整体算一步）；
+     双击翻开则从第一次按下算到选完取值，中间那次 × 的反复不留撤销位。 */
+  const HIST_MAX = 200;   // 一局残局也就几十步，够用
+
+  function snap() {
+    return {
+      rows: S.rows,
+      cols: S.cols,
+      gemTotal: S.gemTotal,
+      grid: S.grid.map((row) => row.slice()),
+      ai: Array.from(S.aiCells),
+      unsure: Array.from(S.unsure),
+    };
+  }
+
+  function sameSnap(a, b) {
+    if (!a || !b) return false;
+    if (a.rows !== b.rows || a.cols !== b.cols) return false;
+    for (let r = 0; r < a.grid.length; r++) {
+      if (a.grid[r].length !== b.grid[r].length) return false;
+      for (let c = 0; c < a.grid[r].length; c++) if (a.grid[r][c] !== b.grid[r][c]) return false;
+    }
+    return a.ai.length === b.ai.length && a.unsure.length === b.unsure.length;
+  }
+
+  // 操作开始前调用；同一次操作里重复调用只记第一张快照
+  function mark() { if (!S.histBase) S.histBase = snap(); }
+
+  // 操作结束时调用。真改动了盘面才占一个撤销位；返回是否入栈
+  function settle() {
+    if (!S.histBase) return false;
+    const base = S.histBase;
+    S.histBase = null;
+    if (sameSnap(base, snap())) return false;                 // 这一步没改动
+    const top = S.history[S.history.length - 1];
+    if (top && sameSnap(top, base)) return false;             // 与上一步起点相同，去重
+    S.history.push(base);
+    if (S.history.length > HIST_MAX) S.history.shift();
+    updateUndoBtn();
+    return true;
+  }
+
+  // 双击把第一次按下的改动抵消掉之后调用：那一步已经不存在了，别留撤销位
+  function dropNoopTop() {
+    const top = S.history[S.history.length - 1];
+    if (top && sameSnap(top, snap())) { S.history.pop(); updateUndoBtn(); }
+  }
+
+  function resetHistory() { S.history.length = 0; S.histBase = null; updateUndoBtn(); }
+
+  function updateUndoBtn() {
+    const b = $('#btn-undo');
+    if (b) b.disabled = !S.history.length;
+  }
+
+  function undo() {
+    // 取值栏开着：这一步还没定下来，先当「取消这次翻开」
+    if (S.awaiting >= 0) { closeRevealBar(); return true; }
+    settle();
+    if (!S.history.length) { toast('没有可撤销的操作'); updateUndoBtn(); return false; }
+    const s = S.history.pop();
+    S.rows = s.rows; S.cols = s.cols;
+    S.gemTotal = s.gemTotal;
+    if (el.gemTotalText) el.gemTotalText.textContent = S.gemTotal;
+    if (el.sizeSeg) el.sizeSeg.querySelectorAll('.seg-btn').forEach((b) => b.classList.toggle('is-on', Number(b.dataset.size) === S.rows));
+    S.grid = s.grid.map((row) => row.slice());
+    S.aiCells = new Set(s.ai);
+    S.unsure = new Set(s.unsure);
+    buildBoard();
+    analyze();
+    toast('已撤销上一步');
+    return true;
   }
 
   /* ---------- 事件绑定 ---------- */
@@ -417,6 +497,7 @@
       // 右键 = 清除
       if (e.button === 2) {
         S.painting = 'erase';
+        mark();
         applyBrush(node, 'erase');
         if (S.awaiting === i) closeRevealBar();
         return;
@@ -435,6 +516,7 @@
         if (S.pressBackup && S.pressBackup.i === i) {
           S.grid[r][c] = S.pressBackup.prev;   // 撤销第一次按下的改动
           S.pressBackup = null;
+          dropNoopTop();                       // 那一步随之作废，不留撤销位
         }
         openRevealBar(i);
         return;
@@ -443,6 +525,7 @@
       S.lastTap = { i, t: now };
       S.pressBackup = { i, prev: S.grid[r][c] };
       S.painting = 'paint';
+      mark();
       applyBrush(node, 'paint');
     });
 
@@ -451,15 +534,15 @@
       const node = e.target.closest('.cell');
       if (node) applyBrush(node, S.painting);
     });
-    window.addEventListener('pointerup', () => { S.painting = null; });
-    window.addEventListener('blur', () => { S.painting = null; });
+    window.addEventListener('pointerup', () => { S.painting = null; settle(); });
+    window.addEventListener('blur', () => { S.painting = null; settle(); });
     el.board.addEventListener('contextmenu', (e) => e.preventDefault());
 
     // 键盘操作（按钮 Enter/Space 触发 click，detail === 0）
     el.board.addEventListener('click', (e) => {
       if (e.detail !== 0) return;
       const node = e.target.closest('.cell');
-      if (node) applyBrush(node, 'paint');
+      if (node) { mark(); applyBrush(node, 'paint'); settle(); }
     });
 
     // 取值条
@@ -492,6 +575,7 @@
     el.btnMarkSafe.addEventListener('click', () => {
       const res = S.result;
       if (!res || !res.certainSafe.length) return;
+      mark();
       let n = 0;
       for (const cd of res.certainSafe) {
         if (S.grid[cd.r][cd.c] !== 'X') { S.grid[cd.r][cd.c] = 'X'; n++; }
@@ -499,13 +583,19 @@
         S.aiCells.delete(cd.i);
       }
       analyze();
+      settle();
       toast(`已标上 ${n} 个 ×`, 'gold');
     });
 
     // 顶栏
     $('#btn-help').addEventListener('click', openHelp);
     $('#btn-shot-open').addEventListener('click', openShotModal);
-    $('#btn-clear').addEventListener('click', () => { clearAll(); toast('已清空棋盘'); });
+    $('#btn-clear').addEventListener('click', () => {
+      mark();
+      clearAll();
+      toast(settle() ? '已清空棋盘 · 可撤销' : '棋盘本来就是空的');
+    });
+    $('#btn-undo').addEventListener('click', undo);
     $('#btn-sample').addEventListener('click', loadSample);
 
     el.modal.addEventListener('click', (e) => {
@@ -515,6 +605,7 @@
       if (e.key === 'Escape') { closeRevealBar(); closeModal(); }
       if (e.target && /INPUT|TEXTAREA/.test(e.target.tagName)) return;
       if (!el.modal.hidden) return;
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); undo(); return; }
       const k = e.key.toLowerCase();
       if (k >= '0' && k <= '8') selectBrush(k);
       else if (k === 'g') selectBrush('G');
@@ -544,6 +635,7 @@
     S.gemTotal = GEM_TOTAL[n];
     el.gemTotalText.textContent = S.gemTotal;
     el.sizeSeg.querySelectorAll('.seg-btn').forEach((b) => b.classList.toggle('is-on', Number(b.dataset.size) === n));
+    resetHistory();   // 换了尺寸，旧盘面的撤销记录对不上行列，直接丢掉
     clearAll();
   }
 
@@ -615,9 +707,11 @@
     const probe = window.TidalSolver.solve({ rows: n, cols: n, cells: grid, gemTotal: gems });
     for (const p of probe.certainSafe.slice(0, 3)) grid[p.r][p.c] = 'X';
 
+    mark();
     S.grid = grid;
     S.aiCells.clear();
     analyze();
+    settle();
     toast('已载入示例残局，可对照右侧结论', 'gold');
   }
 
@@ -672,8 +766,12 @@
               范围会跟着收窄（例：8 个邻居里有 2 格标了 ×、1 颗已经是宝钻 → 只能填 <b>1~6</b>：
               下限是那颗已翻出的宝钻，上限是「剩下 5 格全是宝钻」）。填不出不可能的值，也就不会触发自检报错。</li>
             <li><b>右键格子</b>＝清除，恢复成「未翻开」；按住左键拖动可连续涂。</li>
-            <li>笔刷那排用于连续涂：想批量填数字就先点「3」，再逐个点格子；默认笔刷是 <b>× 标记</b>。</li>
-            <li>键盘：<b>0~8</b> 选数字笔刷，<b>G</b> 宝钻，<b>X</b> 标记，<b>E</b> 清除。</li>
+            <li>笔刷那排用于连续涂：想批量填数字就先点「3」，再逐个点格子；默认笔刷是 <b>× 标记</b>。
+              数字笔刷是 <b>0~8</b>（数字最多就是 8，因为一格最多只有 8 个邻居）。</li>
+            <li>填错了就点棋盘下方的<b>「撤销上一步」</b>（或按 <b>Ctrl+Z</b>）退回上一处改动。
+              一次拖动连涂、一次双击翻开、一次「把可确认的格标上 ×」都各算一步。</li>
+            <li><b>「清空棋盘」</b>也在棋盘下方，清空后同样可以撤销，不怕点错。</li>
+            <li>键盘：<b>0~8</b> 选数字笔刷，<b>G</b> 宝钻，<b>X</b> 标记，<b>E</b> 清除，<b>Ctrl+Z</b> 撤销。</li>
             <li>顶部「本图固定宝钻」按尺寸固定（8×8 为 20、10×10 为 30、12×12 为 45），不可更改。</li>
           </ul>
         </section>
@@ -980,6 +1078,7 @@
         throw new Error(`识别出来是 ${rows}×${cols}，和你选的 ${size}×${size} 不一致 —— 请核对后重选尺寸再识别`);
       }
 
+      mark();   // 整次识别算一步：识别错了可以一键退回识别前的盘面
       S.rows = rows; S.cols = cols;
       el.sizeSeg.querySelectorAll('.seg-btn').forEach((b) => b.classList.toggle('is-on', Number(b.dataset.size) === rows));
       S.gemTotal = GEM_TOTAL[rows];      // 宝钻总数由尺寸固定
@@ -1005,6 +1104,7 @@
       }
       buildBoard();
       analyze();
+      settle();
       stopImportClock();
       clearPick();
       closeModal();

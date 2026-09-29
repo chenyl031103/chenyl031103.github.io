@@ -195,7 +195,7 @@ main {
   border-radius: var(--radius);
 }
 .palette-label { font-size: 0.8rem; color: var(--text-muted); margin-right: 2px; }
-.brush-group { display: flex; gap: 4px; }
+.brush-group { display: flex; gap: 4px; flex-wrap: wrap; }
 .brush {
   display: inline-flex;
   align-items: center;
@@ -413,6 +413,10 @@ main {
 .vb-err { margin-left: auto; color: var(--danger); }
 .vb-err b { color: var(--danger); font-size: 0.85rem; }
 .verdict-bar .ghost-btn.sm { margin-left: 8px; padding: 6px 12px; font-size: 0.8rem; }
+/* 撤销 / 清空：放在棋盘正下方，点击区域比顶栏那种小按钮大一圈 */
+.vb-actions { margin-left: auto; display: inline-flex; align-items: center; gap: 8px; }
+.vb-actions .ghost-btn { padding: 9px 16px; font-size: 0.88rem; min-height: 38px; }
+.ghost-btn.is-danger:hover { border-color: var(--danger); color: var(--danger); }
 
 /* ---------- 10. 说明区文字 ---------- */
 .card-desc { font-size: 0.85rem; color: var(--text-secondary); line-height: 1.75; }
