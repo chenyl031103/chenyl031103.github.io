@@ -782,3 +782,20 @@ main {
   z-index: 5;
   box-shadow: 0 0 0 2px rgba(58, 214, 200, 0.75), 0 0 16px rgba(58, 214, 200, 0.55);
 }
+
+/* ---------- 24. 说明弹窗里的小符号 ---------- */
+.lg-dot {
+  display: inline-grid;
+  place-items: center;
+  width: 20px; height: 20px;
+  margin-right: 7px;
+  flex: none;
+  font-size: 12px;
+  font-weight: 900;
+  line-height: 1;
+  border-radius: 50%;
+  color: #fff;
+  vertical-align: -4px;
+}
+.lg-dot-gem { background: var(--success); }
+.lg-dot-safe { background: #98a3ae; }
