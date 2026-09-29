@@ -613,14 +613,26 @@
 
       // 游戏模式：单击标 ×，双击（第二下）探索一格
       if (S.game) {
-        if (e.button === 2) { gameToggleMark(i); return; }
+        if (e.button === 2) { gameMark(i); return; }
         if (S.lastTap.i === i && now - S.lastTap.t < DOUBLE_MS) {
           S.lastTap = { i: -1, t: 0 };
+          // 第一下顺手加上的记号要撤掉：扫雷里插了旗的格子是不能翻开的，
+          // 不撤的话双击永远翻不开（潮汐秘境同样需要，保持行为一致）
+          if (S.markFromTap === i) {
+            const g = S.game;
+            if (g && g.marks.has(i)) {
+              if (g.kind !== 'mine' && g.mine && g.mine[i]) g.wrong--;
+              g.marks.delete(i);
+            }
+            S.markFromTap = -1;
+            renderGame();
+          }
           gameReveal(i);
           return;
         }
         S.lastTap = { i, t: now };
-        gameToggleMark(i);
+        gameMark(i);
+        S.markFromTap = i;
         return;
       }
 
@@ -743,15 +755,18 @@
       toast(settle() ? '已清空棋盘 · 可撤销' : '棋盘本来就是空的');
     });
     $('#btn-undo').addEventListener('click', undo);
-    $('#btn-sample').addEventListener('click', startGame);
+    $('#btn-sample').addEventListener('click', openGameChooser);
     $('#btn-game-analyze').addEventListener('click', () => exitGame(true));
-    $('#btn-game-restart').addEventListener('click', startGame);
+    $('#btn-game-restart').addEventListener('click', () => startGame(S.game ? S.game.kind : 'tidal'));
+    $('#btn-game-switch').addEventListener('click', openGameChooser);
 
     el.modal.addEventListener('click', (e) => {
       if (e.target.closest('[data-close]')) closeModal();
+      if (e.target.closest('#btn-play-tidal')) { startGame('tidal'); return; }
+      if (e.target.closest('#btn-play-mine')) { startGame('mine'); return; }
       if (e.target.closest('#btn-game-use')) { closeModal(); exitGame(true); }
-      if (e.target.closest('#btn-game-again')) { closeModal(); startGame(); }
-      if (e.target.closest('#btn-game-exit')) { closeModal(); exitGame(false); }
+      if (e.target.closest('#btn-game-again')) { closeModal(); startGame(S.game ? S.game.kind : 'tidal'); }
+      if (e.target.closest('#btn-game-other')) { openGameChooser(); }
     });
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') { closeRevealBar(); closeModal(); }
@@ -839,56 +854,115 @@
   }
 
   /* ---------- 示例残局（真实摆法，结论可直接对照） ---------- */
-  /* ---------- 随机玩一盘：像玩游戏一样体验潮汐秘境 ----------
-     规则照活动来：每局 5 次探索机会（对应每期 5 张探索券），
-     双击 = 探索一格（消耗 1 次，翻到钻石算收获），单击 = 标 × 做记号（不消耗）。 */
-  const GAME_TRIES = 5;
+  /* ---------- 游戏模式：潮汐秘境 / 扫雷 ----------
+     · 潮汐秘境：不限次数（跟计算器一样随便翻）。双击翻开、单击标 ×，把盘面里的钻石全找出来。
+     · 扫雷：大众那款。双击翻开、单击插旗，第一次点击保证安全，翻开所有非雷格即通关。 */
+  const MINE_COUNT = { 8: 8, 10: 12, 12: 18 };   // 经典难度比例（约 12.5%）
 
-  function newGameBoard(n, gems) {
-    const total = n * n;
-    const idx = [];
-    for (let i = 0; i < total; i++) idx.push(i);
-    for (let i = total - 1; i > 0; i--) { const k = (Math.random() * (i + 1)) | 0; const t = idx[i]; idx[i] = idx[k]; idx[k] = t; }
-    const mine = new Uint8Array(total);
-    for (let i = 0; i < Math.min(gems, total); i++) mine[idx[i]] = 1;
-    const nbrs = (i) => {
-      const r = (i / n) | 0, c = i % n, out = [];
-      for (let rr = Math.max(0, r - 1); rr <= Math.min(n - 1, r + 1); rr++)
-        for (let cc = Math.max(0, c - 1); cc <= Math.min(n - 1, c + 1); cc++) { const j = rr * n + cc; if (j !== i) out.push(j); }
-      return out;
-    };
-    const adj = new Uint8Array(total);
-    for (let i = 0; i < total; i++) if (!mine[i]) adj[i] = nbrs(i).filter((j) => mine[j]).length;
-    return { n, total, mine, adj, nbrs, gems };
+  function openGameChooser() {
+    openModal(`
+      <div class="modal-head">
+        <h3>游戏模式</h3>
+        <button class="modal-close" data-close type="button">✕</button>
+      </div>
+      <div class="rules">
+        <section>
+          <p><b>潮汐秘境</b>：不限次数、随便翻。双击格子翻开，单击标 × 做记号，把钻石全找出来。</p>
+          <p><b>扫雷</b>：大众那款。双击翻开、单击插旗，第一次点击保证安全，翻开所有不是雷的格子就通关。</p>
+          <p>两种玩法随时都能点<b>「用工具分析这盘」</b>，把当前盘面交给计算器算 —— 这正是平时用它的方式。</p>
+        </section>
+      </div>
+      <div class="modal-actions">
+        <button class="ghost-btn" id="btn-play-tidal" type="button">💎 潮汐秘境</button>
+        <button class="ghost-btn" id="btn-play-mine" type="button">🚩 扫雷</button>
+      </div>`);
   }
 
-  function startGame() {
+  const nbrsOf = (n, i) => {
+    const r = (i / n) | 0, c = i % n, out = [];
+    for (let rr = Math.max(0, r - 1); rr <= Math.min(n - 1, r + 1); rr++)
+      for (let cc = Math.max(0, c - 1); cc <= Math.min(n - 1, c + 1); cc++) { const j = rr * n + cc; if (j !== i) out.push(j); }
+    return out;
+  };
+
+  function makeBoard(n, count, forbidden) {
+    const total = n * n;
+    const pool = [];
+    for (let i = 0; i < total; i++) if (!forbidden || !forbidden.has(i)) pool.push(i);
+    for (let i = pool.length - 1; i > 0; i--) { const k = (Math.random() * (i + 1)) | 0; const t = pool[i]; pool[i] = pool[k]; pool[k] = t; }
+    const mine = new Uint8Array(total);
+    for (let i = 0; i < Math.min(count, pool.length); i++) mine[pool[i]] = 1;
+    const nbrs = (i) => nbrsOf(n, i);
+    const adj = new Uint8Array(total);
+    for (let i = 0; i < total; i++) if (!mine[i]) adj[i] = nbrs(i).filter((j) => mine[j]).length;
+    return { n, total, mine, adj, nbrs };
+  }
+
+  function startGame(kind) {
+    if (!kind) kind = 'tidal';
+    closeModal();
     const n = S.rows;
-    const gems = GEM_TOTAL[n] || S.gemTotal || 0;
-    const b = newGameBoard(n, gems);
-    // 开局先翻开一片区域（模拟真实残局），否则玩家无从下手
-    const opened = new Set();
-    let seeds = 0;
-    for (let i = 0; i < b.total && seeds < 3; i++) {
-      if (b.mine[i] || b.adj[i] !== 0) continue;
-      seeds++;
-      const stack = [i];
-      while (stack.length) {
-        const v = stack.pop();
-        if (opened.has(v)) continue;
-        opened.add(v);
-        if (b.adj[v] === 0) for (const j of b.nbrs(v)) if (!b.mine[j] && !opened.has(j)) stack.push(j);
+    const common = { kind, n, opened: new Set(), marks: new Set(), over: false, revealAll: false, t0: 0, wrong: 0 };
+    if (kind === 'mine') {
+      // 扫雷：雷在第一次点击时才布置（保证第一步安全）
+      S.game = Object.assign(common, { count: MINE_COUNT[n] || 10, mine: null, adj: null, nbrs: null });
+    } else {
+      const gems = GEM_TOTAL[n] || S.gemTotal || 0;
+      const b = makeBoard(n, gems);
+      // 开局先翻开一片（模拟真实残局），否则玩家无从下手
+      const opened = new Set();
+      let seeds = 0;
+      for (let i = 0; i < b.total && seeds < 3; i++) {
+        if (b.mine[i] || b.adj[i] !== 0) continue;
+        seeds++;
+        const stack = [i];
+        while (stack.length) {
+          const v = stack.pop();
+          if (opened.has(v)) continue;
+          opened.add(v);
+          if (b.adj[v] === 0) for (const j of b.nbrs(v)) if (!b.mine[j] && !opened.has(j)) stack.push(j);
+        }
       }
+      if (!opened.size) for (let i = 0; i < b.total; i++) if (!b.mine[i]) { opened.add(i); break; }
+      S.game = Object.assign(common, { gems, mine: b.mine, adj: b.adj, nbrs: b.nbrs, found: new Set(), opened });
     }
-    if (!opened.size) for (let i = 0; i < b.total; i++) if (!b.mine[i]) { opened.add(i); break; }
-    S.game = {
-      n, mine: b.mine, adj: b.adj, nbrs: b.nbrs, gems,
-      opened, found: new Set(), marks: new Set(), wrong: 0, left: GAME_TRIES, over: false, steps: 0,
-    };
     S.cursor = -1;
     clearPick();
+    stopGameClock();
     renderGame();
-    toast(`新的一局：${n}×${n}，共 ${gems} 颗钻石 · 你有 ${GAME_TRIES} 次探索机会`, 'gold');
+    toast(kind === 'mine'
+      ? `扫雷 ${n}×${n}：${S.game.count} 颗雷 · 双击翻开、单击插旗，第一次点击保证安全`
+      : `潮汐秘境 ${n}×${n}：${S.game.gems} 颗钻石 · 不限次数，双击翻开、单击标 ×`, 'gold');
+  }
+
+  const fmtClock = (sec) => {
+    const m = Math.floor(sec / 60), s2 = Math.floor(sec % 60);
+    return m + ':' + String(s2).padStart(2, '0');
+  };
+
+  function startGameClock() {
+    stopGameClock();
+    S.gameTimer = setInterval(() => {
+      const el2 = $('#gb-time');
+      if (el2 && S.game && S.game.t0) el2.textContent = fmtClock((Date.now() - S.game.t0) / 1000);
+    }, 1000);
+  }
+  function stopGameClock() { clearInterval(S.gameTimer); S.gameTimer = null; }
+
+  function floodOpen(g, i) {
+    const stack = [i];
+    while (stack.length) {
+      const v = stack.pop();
+      if (g.opened.has(v) || g.mine[v]) continue;
+      g.opened.add(v);
+      if (g.marks.has(v)) g.marks.delete(v);
+      if (g.adj[v] === 0) for (const j of g.nbrs(v)) if (!g.opened.has(j)) stack.push(j);
+    }
+  }
+
+  function setAdvice(text) {
+    const node = $('#advice-text');
+    if (node) node.textContent = text;
   }
 
   function renderGame() {
@@ -897,7 +971,8 @@
     const grid = newGrid(g.n, g.n);
     for (let i = 0; i < g.n * g.n; i++) {
       const r = (i / g.n) | 0, c = i % g.n;
-      if (g.opened.has(i)) grid[r][c] = g.mine[i] ? 'G' : g.adj[i];
+      if (g.opened.has(i)) grid[r][c] = (g.mine && g.mine[i]) ? 'G' : (g.adj ? g.adj[i] : -1);
+      else if (g.revealAll && g.mine && g.mine[i]) grid[r][c] = 'G';
       else if (g.marks.has(i)) grid[r][c] = 'X';
     }
     S.grid = grid;
@@ -906,12 +981,9 @@
     document.body.classList.add('is-game');
     paint();
     updateGameBar();
-    setAdvice('双击格子探索（每次消耗 1 次机会）· 单击标 × 做记号 · 数字 = 周围 8 格里有几颗钻石');
-  }
-
-  function setAdvice(text) {
-    const node = $('#advice-text');
-    if (node) node.textContent = text;
+    setAdvice(g.kind === 'mine'
+      ? '双击翻开 · 单击插旗（×）· 数字 = 周围 8 格的雷数 · 第一次点击保证安全'
+      : '双击翻开（不限次数）· 单击标 × 做记号 · 数字 = 周围 8 格的钻石数');
   }
 
   function updateGameBar() {
@@ -919,85 +991,124 @@
     if (bar) bar.hidden = !S.game;
     document.body.classList.toggle('is-game', !!S.game);
     const g = S.game;
-    if (!g) return;
-    $('#gb-left').textContent = g.left;
-    $('#gb-found').textContent = g.found.size;
-    $('#gb-total').textContent = g.gems;
-    $('#gb-marks').textContent = g.marks.size;
-    const wrap = $('#gb-wrong-wrap');
-    if (wrap) wrap.hidden = !g.wrong;
-    const wv = $('#gb-wrong');
-    if (wv) wv.textContent = g.wrong;
+    if (!g) { stopGameClock(); return; }
+    const isMine = g.kind === 'mine';
+    const show = (id, on) => { const node = $(id); if (node) node.hidden = !on; };
+    show('#gb-gem-wrap', !isMine);
+    show('#gb-open-wrap', true);
+    show('#gb-flag-wrap', isMine);
+    show('#gb-time-wrap', isMine);
+    show('#gb-marks-wrap', !isMine);
+    show('#gb-wrong-wrap', !isMine && g.wrong > 0);
+    const hint = $('#gb-hint');
+    if (hint) hint.textContent = isMine
+      ? '双击翻开 · 单击插旗 · 数字 = 周围 8 格的雷数 · 第一次点击保证安全'
+      : '双击翻开（不限次数）· 单击标 × 做记号 · 数字 = 周围 8 格的钻石数';
+    const total = g.n * g.n;
+    $('#gb-open').textContent = g.opened.size;
+    $('#gb-open-total').textContent = isMine ? total - g.count : total;
+    if (isMine) {
+      $('#gb-flags').textContent = g.marks.size;
+      $('#gb-mines').textContent = g.count;
+      $('#gb-time').textContent = fmtClock(g.t0 ? (Date.now() - g.t0) / 1000 : 0);
+    } else {
+      $('#gb-found').textContent = g.found.size;
+      $('#gb-total').textContent = g.gems;
+      $('#gb-marks').textContent = g.marks.size;
+      $('#gb-wrong').textContent = g.wrong || 0;
+    }
+  }
+
+  function gameMark(i) {
+    const g = S.game;
+    if (!g || g.over || g.opened.has(i)) return;
+    if (g.marks.has(i)) {
+      if (g.kind !== 'mine' && g.mine && g.mine[i]) g.wrong--;
+      g.marks.delete(i);
+    } else {
+      g.marks.add(i);
+      if (g.kind !== 'mine' && g.mine && g.mine[i]) g.wrong++;
+    }
+    renderGame();
   }
 
   function gameReveal(i) {
     const g = S.game;
-    if (!g || g.over || g.left <= 0 || g.opened.has(i)) return;
-    g.left--;
-    g.steps++;
+    if (!g || g.over || g.opened.has(i)) return;
+    if (g.kind === 'mine') {
+      if (g.marks.has(i)) return;                  // 插了旗的格子先取消旗子（经典习惯）
+      if (!g.mine) {                               // 第一次点击：这一格和周围 8 格不放雷
+        const forbid = new Set([i, ...nbrsOf(g.n, i)]);
+        const b = makeBoard(g.n, g.count, forbid);
+        g.mine = b.mine; g.adj = b.adj; g.nbrs = b.nbrs;
+        g.t0 = Date.now();
+        startGameClock();
+      }
+      if (g.mine[i]) {
+        g.opened.add(i);
+        g.revealAll = true;
+        g.over = 'shown';
+        stopGameClock();
+        renderGame();
+        return endGame(false);
+      }
+      floodOpen(g, i);
+      renderGame();
+      if (g.opened.size >= g.n * g.n - g.count) { g.over = 'shown'; stopGameClock(); return endGame(true); }
+      return;
+    }
+    // 潮汐秘境：翻开就是探索，翻到钻石算找到
     if (g.marks.has(i)) { if (g.mine[i]) g.wrong--; g.marks.delete(i); }
     if (g.mine[i]) {
       g.found.add(i);
       g.opened.add(i);
       toast(`找到 1 颗钻石！已找到 ${g.found.size}/${g.gems}`, 'gold');
     } else {
-      const stack = [i];
-      while (stack.length) {
-        const v = stack.pop();
-        if (g.opened.has(v) || g.mine[v]) continue;
-        g.opened.add(v);
-        if (g.marks.has(v)) g.marks.delete(v);
-        if (g.adj[v] === 0) for (const j of g.nbrs(v)) if (!g.opened.has(j)) stack.push(j);
-      }
+      floodOpen(g, i);
     }
     renderGame();
-    if (g.found.size >= g.gems) return endGame(true);
-    if (g.left <= 0) return endGame(false);
-  }
-
-  function gameToggleMark(i) {
-    const g = S.game;
-    if (!g || g.over || g.opened.has(i)) return;
-    if (g.marks.has(i)) { if (g.mine[i]) g.wrong--; g.marks.delete(i); }
-    else { g.marks.add(i); if (g.mine[i]) g.wrong++; }
-    renderGame();
+    if (g.found.size >= g.gems) { g.over = 'shown'; return endGame(true); }
   }
 
   function endGame(win) {
     const g = S.game;
-    if (!g || g.over === 'done') return;
-    g.over = 'done';
-    updateGameBar();
-    const got = g.found.size;
-    const rate = g.steps ? Math.round((got / g.steps) * 100) : 0;
+    if (!g) return;
+    const isMine = g.kind === 'mine';
+    const secs = g.t0 ? Math.round((Date.now() - g.t0) / 1000) : 0;
+    const title = isMine ? (win ? '通关了！' : '踩到雷了') : '钻石全找出来了！';
+    const lines = isMine
+      ? [`本局 ${g.n}×${g.n}，${g.count} 颗雷。用时 <b>${fmtClock(secs)}</b>，翻开 <b>${g.opened.size}</b> 格，插旗 <b>${g.marks.size}</b> 个。`,
+         win ? '全部安全格都翻开了，漂亮。' : '踩到的那颗雷已经露出来了，其他雷也一并显示，可以对照看看哪里判断错了。']
+      : [`本局 ${g.n}×${g.n}，共 ${g.gems} 颗钻石。一共翻开 <b>${g.opened.size}</b> 格，钻石全找齐了。`,
+         g.wrong ? `中间有 ${g.wrong} 个 × 标在了钻石上（标错了）。` : '而且一个 × 都没标错。'];
     openModal(`
       <div class="modal-head">
-        <h3>${win ? '全找出来了！' : '探索次数用完了'}</h3>
+        <h3>${title}</h3>
         <button class="modal-close" data-close type="button">✕</button>
       </div>
       <div class="rules">
         <section>
-          <p>本局 ${g.n}×${g.n}，共 ${g.gems} 颗钻石。你用了 ${g.steps} 次探索，<b>找到 ${got} 颗</b>${g.wrong ? `，其中有 ${g.wrong} 个 × 标在了钻石上（标错了）` : ''}。</p>
-          <p>${win ? '一颗不落，厉害。' : got >= 3 ? '按活动规则，找到 3 颗以上就能上榜了。' : '活动规则是最少找到 3 颗才能上榜，再来一局？'}</p>
-          <p>想知道"剩下一颗在哪"，可以点下面的按钮：把现在这个盘面交给计算器，它会算出还有哪些格子必定是钻石。</p>
+          <p>${lines[0]}</p>
+          <p>${lines[1]}</p>
         </section>
       </div>
       <div class="modal-actions">
         <button class="ghost-btn" id="btn-game-use" type="button">用工具分析这盘</button>
         <button class="ghost-btn sm" id="btn-game-again" type="button">再来一局</button>
-        <button class="ghost-btn sm" id="btn-game-exit" type="button">回到计算器</button>
+        <button class="ghost-btn sm" id="btn-game-other" type="button">换玩法</button>
       </div>`);
   }
 
   function exitGame(keepBoard) {
     if (!S.game) return;
     S.game = null;
+    stopGameClock();
     updateGameBar();
     if (keepBoard) {
       setAdvice('已把游戏盘面交给计算器：下面就是它算出来的结论');
       analyze();
       settle();
-      toast('已把当前盘面交给计算器，右侧/下方就是结论', 'gold');
+      toast('已把当前盘面交给计算器，下面就是结论', 'gold');
     } else {
       mark();
       clearAll();
@@ -1042,9 +1153,12 @@
       <div class="rules">
         <section>
           <h4>0 · 先玩一局试试（可选）</h4>
-          <p>点右上角<b>「随机玩一盘」</b>会随机生成一局：你有 <b>5 次探索机会</b>，<b>双击格子</b>探索一次（翻到钻石算收获），
-             <b>单击格子</b>标 × 做记号（只是笔记，不消耗次数）。机会用完会有结算；玩到一半想知道"剩下那颗在哪"，
-             点结算或状态栏里的<b>「用工具分析这盘」</b>，就把当前盘面交给计算器算了。</p>
+          <p>点右上角<b>「游戏模式」</b>可以随便玩一局，两种玩法：</p>
+          <ul>
+            <li><b>潮汐秘境</b>：不限次数、随便翻。<b>双击</b>格子翻开，<b>单击</b>标 × 做记号，把钻石全找出来。</li>
+            <li><b>扫雷</b>：大众那款。双击翻开、单击插旗，第一次点击保证安全，翻开所有不是雷的格子就通关。</li>
+          </ul>
+          <p>玩到一半想知道"下一格能不能翻"，点状态栏的<b>「用工具分析这盘」</b>，就把当前盘面交给计算器算了。</p>
         </section>
         <section>
           <h4>1 · 把游戏里的盘面抄进来</h4>
