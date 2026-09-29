@@ -828,3 +828,10 @@ body.light .cell.is-diamond { background: #fdf3dc; }
 .cell.is-bomb { background: #3a1b1b; }
 .cell.is-bomb .v-bomb { font-size: clamp(11px, calc(var(--font) * 1.05), 26px); line-height: 1; }
 body.light .cell.is-bomb { background: #ffe3e3; }
+
+/* 扫雷：未翻开 ■ / 问号 ❓ */
+.cell.is-blank .v-blank { color: #48525d; font-size: clamp(9px, calc(var(--font) * 0.72), 18px); line-height: 1; }
+body.light .cell.is-blank .v-blank { color: #b9c2cc; }
+.cell.is-question { font-size: clamp(11px, calc(var(--font) * 1.05), 26px); line-height: 1; }
+/* 扫雷的地图没有"固定钻石数"，那格藏起来 */
+body.is-mine-game .map-chip-gem { display: none; }
