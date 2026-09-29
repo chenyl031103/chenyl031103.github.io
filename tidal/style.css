@@ -816,3 +816,15 @@ main {
 /* 游戏模式下不显示分析结论与取值条（避免直接看到答案） */
 body.is-game .verdict-bar,
 body.is-game .palette { display: none !important; }
+
+/* ---------- 游戏模式：两套玩法各自的图标 ---------- */
+/* 潮汐秘境：找到的钻石（金色钻石，不用分析结论那个绿圈） */
+.cell.is-diamond { background: #2b2413; }
+.cell.is-diamond .ico { color: #ffc63f; width: 62%; height: 62%; filter: drop-shadow(0 0 3px rgba(255,198,63,.55)); }
+body.light .cell.is-diamond { background: #fdf3dc; }
+
+/* 扫雷：旗子与地雷 */
+.cell.is-flag { font-size: clamp(11px, calc(var(--font) * 1.05), 26px); line-height: 1; }
+.cell.is-bomb { background: #3a1b1b; }
+.cell.is-bomb .v-bomb { font-size: clamp(11px, calc(var(--font) * 1.05), 26px); line-height: 1; }
+body.light .cell.is-bomb { background: #ffe3e3; }

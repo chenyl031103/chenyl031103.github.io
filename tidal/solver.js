@@ -196,7 +196,8 @@
 
   function paint() {
     const { rows, cols, grid } = S;
-    const res = S.result;
+    // 游戏模式下不叠加任何分析标记（否则会把上一次分析的结果画到游戏盘上）
+    const res = S.game ? null : S.result;
     const hasClue = (() => {
       for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) if (typeof grid[r][c] === 'number' && grid[r][c] >= 0) return true;
       return false;
@@ -234,6 +235,9 @@
         let text = '';
         if (v === 'G') { cls += ' is-open is-gem'; }
         else if (v === 'X') { cls += ' is-x'; }
+        else if (v === 'D') { cls += ' is-open is-diamond'; }   // 潮汐秘境：找到的钻石
+        else if (v === 'F') { cls += ' is-flag'; }              // 扫雷：插的旗
+        else if (v === 'B') { cls += ' is-open is-bomb'; }      // 扫雷：地雷
         else if (typeof v === 'number' && v >= 0) {
           cls += ' is-open';
           if (v > 0) { cls += ' n' + v; text = String(v); }
@@ -266,12 +270,15 @@
         }
 
         if (node.className !== cls) node.className = cls;
-        const key = content ? 'v:' + content : (text || (v === 'G' ? 'G' : v === 'X' ? 'X' : ''));
+        const key = content ? 'v:' + content : (text || (typeof v === 'string' ? v : ''));
         if (node.dataset.k !== key) {
           node.dataset.k = key;
           node.innerHTML = content ? content
             : v === 'G' ? '<svg class="ico" aria-hidden="true"><use href="#ico-gem"/></svg>'
             : v === 'X' ? '<svg class="ico" aria-hidden="true"><use href="#ico-x"/></svg>'
+            : v === 'D' ? '<svg class="ico" aria-hidden="true"><use href="#ico-gem"/></svg>'
+            : v === 'F' ? '<span class="v-flag">🚩</span>'
+            : v === 'B' ? '<span class="v-bomb">💣</span>'
             : text;
         }
         if (badge) { if (node.dataset.badge !== badge) node.dataset.badge = badge; }
@@ -613,6 +620,17 @@
 
       // 游戏模式：单击标 ×，双击（第二下）探索一格
       if (S.game) {
+        if (S.game.over) return;
+        // 扫雷按大众习惯：单击翻开、右键/长按插旗（和潮汐秘境那套完全分开）
+        if (S.game.kind === 'mine') {
+          if (e.button === 2) { gameMark(i); return; }
+          S.tap = { i, long: false };
+          clearTimeout(S.tapTimer);
+          S.tapTimer = setTimeout(() => {
+            if (S.tap && S.tap.i === i) { S.tap.long = true; gameMark(i); }   // 长按 = 插旗
+          }, 400);
+          return;
+        }
         if (e.button === 2) { gameMark(i); return; }
         if (S.lastTap.i === i && now - S.lastTap.t < DOUBLE_MS) {
           S.lastTap = { i: -1, t: 0 };
@@ -684,7 +702,17 @@
       const node = e.target.closest('.cell');
       if (node) applyBrush(node, S.painting);
     });
-    window.addEventListener('pointerup', () => { S.painting = null; settle(); });
+    window.addEventListener('pointerup', () => {
+      S.painting = null;
+      // 扫雷：抬手就是翻开（长按已经插旗了，就不要再翻）
+      if (S.game && S.game.kind === 'mine' && S.tap) {
+        const tap = S.tap;
+        S.tap = null;
+        clearTimeout(S.tapTimer);
+        if (!tap.long) gameReveal(tap.i);
+      }
+      settle();
+    });
     window.addEventListener('blur', () => { S.painting = null; settle(); });
     el.board.addEventListener('contextmenu', (e) => e.preventDefault());
 
@@ -876,12 +904,12 @@
       <div class="rules">
         <section>
           <h4>💎 潮汐秘境</h4>
-          <p>从空盘开始玩、不限次数。<b>双击</b>翻开格子，<b>单击</b>标 × 做记号；数字 = 周围 8 格的钻石数，把钻石全找出来。</p>
+          <p>从空盘开始玩、不限次数。<b>双击</b>翻开格子，<b>单击</b>标 × 做记号（× 表示"这里没有钻石"）；数字 = 周围 8 格的钻石数，把钻石 💎 全找出来。</p>
           <div class="modal-actions">${sizeBtns('tidal')}</div>
         </section>
         <section>
           <h4>🚩 扫雷</h4>
-          <p>大众那款。<b>双击</b>翻开、<b>单击</b>插旗；第一次点击保证安全，翻开所有不是雷的格子就通关。</p>
+          <p>大众那款。<b>单击</b>翻开、<b>右键或长按</b>插旗 🚩；第一次点击保证安全，翻开所有不是雷的格子就通关。</p>
           <div class="modal-actions">${sizeBtns('mine')}</div>
         </section>
       </div>`);
@@ -968,9 +996,11 @@
     const grid = newGrid(g.n, g.n);
     for (let i = 0; i < g.n * g.n; i++) {
       const r = (i / g.n) | 0, c = i % g.n;
-      if (g.opened.has(i)) grid[r][c] = (g.mine && g.mine[i]) ? 'G' : (g.adj ? g.adj[i] : -1);
-      else if (g.revealAll && g.mine && g.mine[i]) grid[r][c] = 'G';
-      else if (g.marks.has(i)) grid[r][c] = 'X';
+      const gemChar = g.kind === 'mine' ? 'B' : 'D';     // 扫雷露出来的是雷，潮汐秘境是钻石
+      const markChar = g.kind === 'mine' ? 'F' : 'X';    // 扫雷插旗，潮汐秘境标 ×
+      if (g.opened.has(i)) grid[r][c] = (g.mine && g.mine[i]) ? gemChar : (g.adj ? g.adj[i] : -1);
+      else if (g.revealAll && g.mine && g.mine[i]) grid[r][c] = gemChar;
+      else if (g.marks.has(i)) grid[r][c] = markChar;
     }
     S.grid = grid;
     S.aiCells.clear();
@@ -979,7 +1009,7 @@
     paint();
     updateGameBar();
     setAdvice(g.kind === 'mine'
-      ? '双击翻开 · 单击插旗（×）· 数字 = 周围 8 格的雷数 · 第一次点击保证安全'
+      ? '单击翻开 · 右键或长按插旗 🚩 · 数字 = 周围 8 格的雷数 · 第一次点击保证安全'
       : '双击翻开（不限次数）· 单击标 × 做记号 · 数字 = 周围 8 格的钻石数');
   }
 
@@ -999,7 +1029,7 @@
     show('#gb-wrong-wrap', !isMine && g.wrong > 0);
     const hint = $('#gb-hint');
     if (hint) hint.textContent = isMine
-      ? '双击翻开 · 单击插旗 · 数字 = 周围 8 格的雷数 · 第一次点击保证安全'
+      ? '单击翻开 · 右键或长按插旗 🚩 · 数字 = 周围 8 格的雷数 · 第一次点击保证安全'
       : '双击翻开（不限次数）· 单击标 × 做记号 · 数字 = 周围 8 格的钻石数';
     const total = g.n * g.n;
     $('#gb-open').textContent = g.opened.size;
@@ -1147,8 +1177,8 @@
           <h4>0 · 先玩一局试试（可选）</h4>
           <p>点右上角<b>「游戏模式」</b>可以随便玩一局，两种玩法、每种都能选三个地图：</p>
           <ul>
-            <li><b>潮汐秘境</b>：从空盘开始，不限次数。<b>双击</b>翻开、<b>单击</b>标 × 做记号，数字 = 周围 8 格的钻石数，把钻石全找出来。</li>
-            <li><b>扫雷</b>：大众那款。<b>双击</b>翻开、<b>单击</b>插旗，第一次点击保证安全，翻开所有不是雷的格子就通关。</li>
+            <li><b>潮汐秘境</b>（双击翻开、单击标 ×）：从空盘开始、不限次数，数字 = 周围 8 格的钻石数，把钻石 💎 全找出来。</li>
+            <li><b>扫雷</b>（单击翻开、右键或长按插旗 🚩）：大众那款，第一次点击保证安全，翻开所有不是雷的格子就通关。</li>
           </ul>
         </section>
         <section>
