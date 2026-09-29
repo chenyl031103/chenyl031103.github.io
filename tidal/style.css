@@ -26,6 +26,7 @@
   --radius: 8px;
   --shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
 
+  --x-mark: #c8d4e0;
   --tile-closed: #162231;
   --tile-open: #ccd6e0;
   --tile-open-ink: #16222e;
@@ -64,6 +65,7 @@
 
   --shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
 
+  --x-mark: #111827;
   --tile-closed: #d5dbe3;
   --tile-open: #ffffff;
   --tile-open-ink: #1a1a2e;
@@ -302,7 +304,7 @@ main {
 .cell.is-gem .ico { width: 76%; height: 76%; }
 
 /* × 标记（未翻开格上的叉） */
-.cell.is-x { color: var(--text-secondary); }
+.cell.is-x { color: var(--x-mark); }
 .cell.is-x .ico { width: 58%; height: 58%; }
 
 /* 截图识别填进来的格子：金虚框提示核对；模型不确定的：红虚框 */
@@ -310,9 +312,9 @@ main {
 .cell.is-unsure { border-style: dashed; border-color: var(--danger); }
 
 /* ---------- 7. 分析叠加 ---------- */
-.cell.say-gem { outline: 2px solid var(--gold); outline-offset: -1px; }
-.cell.say-safe { outline: 2px solid var(--success); outline-offset: -1px; }
-.cell.say-prob { outline: 1px dashed var(--prob-line); outline-offset: -1px; }
+/* 结论只用符号表达，不画框 */
+.cell.say-gem, .cell.say-safe { }
+.cell.say-prob { }
 /* 标了 × 但推导说这里其实是宝钻 —— 标错了 */
 .cell.say-conflict {
   outline: 2px solid var(--danger);
@@ -340,12 +342,10 @@ main {
 .cell.say-safe[data-badge]::after { background: var(--success); color: var(--ink-on-safe); }
 .cell.say-prob[data-badge]::after { background: var(--badge-prob-bg); color: var(--badge-prob-ink); }
 
-/* 推荐先点的格子：实框 + 外发光，不闪烁（原来会淡到 35%，看着若隐若现） */
+/* 推荐先点的格子：不画框，用外发光 + 左上角橙色三角标出来 */
 .cell.pick {
-  outline: 3px solid var(--accent2);
-  outline-offset: -2px;
   z-index: 4;
-  box-shadow: 0 0 0 3px rgba(240, 144, 64, 0.28), 0 0 14px rgba(240, 144, 64, 0.5);
+  box-shadow: 0 0 0 2px rgba(240, 144, 64, 0.55), 0 0 16px rgba(240, 144, 64, 0.55);
 }
 /* 推荐格左上角加个橙色三角，一眼能认出来 */
 .cell.pick::before {
@@ -742,3 +742,34 @@ main {
   transition: all 0.18s;
 }
 .site-links a:hover { border-color: var(--accent); background: var(--bg-hover); }
+
+/* ---------- 21. 结论符号：绿 √ = 必定是宝钻，黑 × = 必定不是宝钻 ---------- */
+.cell .v-gem {
+  display: grid;
+  place-items: center;
+  width: 78%;
+  height: 78%;
+  font-size: calc(var(--font) * 1.15);
+  font-weight: 900;
+  line-height: 1;
+  border-radius: 50%;
+  background: var(--success);
+  color: #fff;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+}
+.cell .v-safe {
+  display: grid;
+  place-items: center;
+  width: 78%;
+  height: 78%;
+  font-size: calc(var(--font) * 1.2);
+  font-weight: 900;
+  line-height: 1;
+  border-radius: 8px;
+  color: var(--tile-open-ink);
+  background: rgba(0, 0, 0, 0.14);
+}
+[data-theme="dark"] .cell .v-safe { color: #0d1b26; background: rgba(255, 255, 255, 0.14); }
+/* 小格子上字小一点，别撑破 */
+.cell .v-gem, .cell .v-safe { font-size: clamp(11px, calc(var(--font) * 1.15), 30px); }

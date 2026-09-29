@@ -151,7 +151,9 @@
     const byH = Math.floor((availH - gap * (rows - 1)) / rows);
     if (byH > 0) cell = Math.min(cell, byH);
 
-    cell = clamp(cell, 18, 78);
+    // 手机上格子太小看不清 —— 宁可让棋盘可滚动，也保证格子里数字够大
+    const minCell = cols >= 24 ? 22 : (window.innerWidth <= 640 ? 30 : 20);
+    cell = clamp(cell, minCell, 78);
     el.board.style.setProperty('--gap', gap + 'px');
     el.board.style.setProperty('--cell', cell + 'px');
     el.board.style.setProperty('--font', Math.round(cell * 0.54) + 'px');
@@ -237,16 +239,20 @@
         if (S.unsure.has(i)) cls += ' is-unsure';
         if (S.awaiting === i) cls += ' awaiting';
 
+        // 结论用「符号」表达，不再画框：绿 √ = 必定是宝钻，黑 × = 必定不是宝钻
         let badge = '';
+        let content = null;   // 覆盖格子内容（隐藏格才用）
         if (res) {
           const marked = v === 'X';
           if (marked) {
-            // 打了 ×（= 已确认这格没有宝钻）就不再重复显示 ✓；只有标错了才报警
+            // 自己标了 ×（= 已确认没钻石），而且推导也支持 → 就是黑 ×，不再加东西
             if (res.knownGem && res.knownGem[i]) { cls += ' say-conflict'; badge = '!'; }
           } else if (res.knownGem && res.knownGem[i] && v !== 'G') {
-            cls += ' say-gem'; badge = '◆';
+            cls += ' say-gem';
+            content = '<span class="v-gem">✓</span>';
           } else if (res.knownSafe && res.knownSafe[i]) {
-            cls += ' say-safe'; badge = '✓';
+            cls += ' say-safe';
+            content = '<span class="v-safe">×</span>';
           } else if (res.probs && res.probs[i] != null && showProb && frontier[i]) {
             cls += ' say-prob';
             const p = res.probs[i];
@@ -256,10 +262,11 @@
         }
 
         if (node.className !== cls) node.className = cls;
-        const key = text || (v === 'G' ? 'G' : v === 'X' ? 'X' : '');
+        const key = content ? 'v:' + content : (text || (v === 'G' ? 'G' : v === 'X' ? 'X' : ''));
         if (node.dataset.k !== key) {
           node.dataset.k = key;
-          node.innerHTML = v === 'G' ? '<svg class="ico" aria-hidden="true"><use href="#ico-gem"/></svg>'
+          node.innerHTML = content ? content
+            : v === 'G' ? '<svg class="ico" aria-hidden="true"><use href="#ico-gem"/></svg>'
             : v === 'X' ? '<svg class="ico" aria-hidden="true"><use href="#ico-x"/></svg>'
             : text;
         }
@@ -889,10 +896,10 @@
         <section>
           <h4>棋盘上的标记怎么读</h4>
           <ul>
-            <li><b>金框 ◆</b>＝必定是宝钻，放心去翻，直接得分。</li>
-            <li><b>绿框 ✓</b>＝必定安全，可以单点标上 ×；也可以点「把可确认的格标上 ×」一键标完。</li>
+            <li><b>绿色 √</b>＝<b>必定是宝钻</b>，放心去翻，直接得分。</li>
+            <li><b>黑色 ×</b>＝<b>必定不是宝钻</b>（安全格），可以放心；也可以点「把可确认的格标上 ×」一键标完。</li>
             <li><b>虚框 %</b>＝解不唯一时按所有合法摆法统计出的含宝钻概率，只是参考。</li>
-            <li><b>橙色脉冲框</b>＝推荐先点的格子。</li>
+            <li><b>左上角橙色三角</b>＝推荐先点的格子（棋盘下方那行字也会写是哪一格）。</li>
             <li>标了 <b>×</b> 的格子＝你已确认它没有宝钻，就不再重复显示 ✓；<b>只有标错时</b>才会亮红框 <b>!</b> 提醒。</li>
             <li>推理只使用<b>数字</b>和<b>宝钻总数</b>；你标的 × 不参与推理，但会用来自动检查标错的地方。</li>
           </ul>
@@ -1232,7 +1239,7 @@
             </section>
           </div>`);
       } else {
-        toast(unsureN ? `识别完成，${unsureN} 处红框请重点核对` : '识别完成，请核对金框格子', 'gold');
+        toast(unsureN ? `识别完成，${unsureN} 处红框请重点核对` : '识别完成，请核对带红框的格子', 'gold');
       }
     } catch (err) {
       stopImportClock();
