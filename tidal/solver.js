@@ -197,6 +197,24 @@
       return false;
     })();
     const showProb = hasClue && parseFloat(getComputedStyle(el.board).getPropertyValue('--cell')) >= 26;
+    // 只给「紧挨着数字的边界格」画虚线概率框：离线索很远的格子概率就是基准值，
+    // 全画上会是一堆若隐若现的虚线，反而看不清重点
+    const frontier = new Uint8Array(rows * cols);
+    if (showProb) {
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          if (typeof grid[r][c] !== 'number' || grid[r][c] < 0) continue;
+          for (let dr = -1; dr <= 1; dr++) {
+            for (let dc = -1; dc <= 1; dc++) {
+              if (!dr && !dc) continue;
+              const rr = r + dr, cc = c + dc;
+              if (rr < 0 || cc < 0 || rr >= rows || cc >= cols) continue;
+              frontier[rr * cols + cc] = 1;
+            }
+          }
+        }
+      }
+    }
     let filled = 0;
 
     for (let r = 0; r < rows; r++) {
@@ -229,7 +247,7 @@
             cls += ' say-gem'; badge = '◆';
           } else if (res.knownSafe && res.knownSafe[i]) {
             cls += ' say-safe'; badge = '✓';
-          } else if (res.probs && res.probs[i] != null && showProb) {
+          } else if (res.probs && res.probs[i] != null && showProb && frontier[i]) {
             cls += ' say-prob';
             const p = res.probs[i];
             badge = p >= 0.995 ? '≈1' : p <= 0.005 ? '≈0' : Math.round(p * 100) + '%';

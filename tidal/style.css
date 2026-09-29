@@ -314,8 +314,12 @@ main {
 .cell.say-safe { outline: 2px solid var(--success); outline-offset: -1px; }
 .cell.say-prob { outline: 1px dashed var(--prob-line); outline-offset: -1px; }
 /* 标了 × 但推导说这里其实是宝钻 —— 标错了 */
-.cell.say-conflict { outline: 2px solid var(--danger); outline-offset: -1px; animation: conflictBlink 1.4s ease-in-out infinite; }
-@keyframes conflictBlink { 0%, 100% { outline-color: var(--danger); } 50% { outline-color: rgba(224, 85, 85, 0.3); } }
+.cell.say-conflict {
+  outline: 2px solid var(--danger);
+  outline-offset: -1px;
+  z-index: 3;
+  box-shadow: 0 0 0 3px rgba(224, 85, 85, 0.22), 0 0 12px rgba(224, 85, 85, 0.45);
+}
 
 .cell[data-badge]::after {
   content: attr(data-badge);
@@ -336,9 +340,25 @@ main {
 .cell.say-safe[data-badge]::after { background: var(--success); color: var(--ink-on-safe); }
 .cell.say-prob[data-badge]::after { background: var(--badge-prob-bg); color: var(--badge-prob-ink); }
 
-/* 推荐先点的格子 */
-.cell.pick { outline: 3px solid var(--accent2); outline-offset: -2px; z-index: 2; animation: pickBlink 1.6s ease-in-out infinite; }
-@keyframes pickBlink { 0%, 100% { outline-color: var(--accent2); } 50% { outline-color: rgba(240, 144, 64, 0.35); } }
+/* 推荐先点的格子：实框 + 外发光，不闪烁（原来会淡到 35%，看着若隐若现） */
+.cell.pick {
+  outline: 3px solid var(--accent2);
+  outline-offset: -2px;
+  z-index: 4;
+  box-shadow: 0 0 0 3px rgba(240, 144, 64, 0.28), 0 0 14px rgba(240, 144, 64, 0.5);
+}
+/* 推荐格左上角加个橙色三角，一眼能认出来 */
+.cell.pick::before {
+  content: "";
+  position: absolute;
+  top: 0; left: 0;
+  width: 0; height: 0;
+  border-top: calc(var(--cell) * 0.4) solid var(--accent2);
+  border-right: calc(var(--cell) * 0.4) solid transparent;
+  border-radius: 0;
+  background: none;
+  opacity: 1;
+}
 
 /* 正在等待选择「翻开值」的格子 */
 .cell.awaiting { outline: 3px solid var(--accent); outline-offset: -2px; z-index: 3; }
