@@ -37,6 +37,33 @@
   const OCR_SERVICE = resolveOcrService();
   const DOUBLE_MS = 340;   // 两次按下间隔小于此值算「双击翻开」
 
+  // 页脚上方的相关链接：静态版列出「带识别」的网址，服务版列出「静态版」网址
+  const STATIC_SITES = [
+    'https://chenyl031103.github.io/tidal/',
+    'https://www.axxiu.cn/project/t1gBdI7v/',
+  ];
+  const OCR_FALLBACK = 'http://chenyl.free.idcfengye.com/';
+  const GATEWAY_URL = 'https://chenyl031103.github.io';
+
+  function renderSiteLinks() {
+    const box = document.getElementById('site-links');
+    if (!box) return;
+    const short = (u) => u.replace(/^https?:\/\//, '').replace(/\/+$/, '');
+    let title, list;
+    if (OCR_ENABLED) {
+      title = '静态版（无需服务器，可发给群友）：';
+      list = STATIC_SITES.map((u) => ({ u, label: short(u) }));
+    } else {
+      const svc = OCR_SERVICE || OCR_FALLBACK;
+      title = '带截图识别的版本（需要那台服务器在线）：';
+      list = [
+        { u: svc, label: short(svc) },
+        { u: GATEWAY_URL, label: short(GATEWAY_URL) + '（总入口，自动跳转）' },
+      ];
+    }
+    box.innerHTML = title + list.map((x) => '<a href="' + x.u + '" target="_blank" rel="noopener">' + x.label + '</a>').join('<span class="sep">·</span>');
+  }
+
   const $ = (s) => document.querySelector(s);
   const el = {
     board: $('#board'),
@@ -833,7 +860,7 @@
         <section>
           <h4>截图识别</h4>
           ${OCR_ENABLED ? '' : (OCR_SERVICE
-            ? '<p>当前是<b>静态托管版</b>，没有后端，不提供截图识别；手动填写可以用全部求解功能。需要用截图识别就点顶部的「💎 去用截图识别版」。</p>'
+            ? '<p>当前是<b>静态托管版</b>，没有后端，不提供截图识别；手动填写可以用全部求解功能。需要用截图识别，就用页面最下方列出的「带截图识别的版本」网址。</p>'
             : '<p>当前是<b>静态托管版</b>，没有后端，不提供截图识别；手动填写可以用全部求解功能。</p>')}
           <ul>
             <li>点顶部<b>「截图识别」</b>上传游戏截图，识别后自动填进棋盘，识别出来的格子会打<b>金色虚框</b>。</li>
@@ -1180,17 +1207,12 @@
   /* ---------- 启动 ---------- */
   function init() {
     initTheme();
-    // 静态托管版：隐藏截图识别入口，改成指向「带截图识别的网址」
+    // 静态托管版：隐藏截图识别入口；两种版本都在页脚上方列出对应网址
     if (!OCR_ENABLED) {
       const b0 = document.querySelector('#btn-shot-open');
       if (b0) b0.hidden = true;
-      const link = document.querySelector('#btn-ocr-version');
-      if (link && OCR_SERVICE) {
-        link.href = OCR_SERVICE;
-        link.title = '静态版没有识图后端，去服务版用（需要那台服务器在线）\n' + OCR_SERVICE;
-        link.hidden = false;
-      }
     }
+    renderSiteLinks();
     S.grid = newGrid(S.rows, S.cols);
     el.gemTotalText.textContent = S.gemTotal;
     el.sizeSeg.querySelectorAll('.seg-btn').forEach((b) => b.classList.toggle('is-on', Number(b.dataset.size) === S.rows));

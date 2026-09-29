@@ -688,3 +688,17 @@ main {
   color: var(--accent);
   font-weight: 700;
 }
+
+/* ---------- 20. 页脚上方的相关链接 ---------- */
+.site-links {
+  margin: 20px 0 0;
+  padding: 12px 14px;
+  border-top: 1px solid var(--border);
+  text-align: center;
+  font-size: 0.78rem;
+  line-height: 2;
+  color: var(--text-muted);
+}
+.site-links a { color: var(--accent); text-decoration: none; word-break: break-all; }
+.site-links a:hover { text-decoration: underline; }
+.site-links .sep { margin: 0 8px; color: var(--text-muted); }
