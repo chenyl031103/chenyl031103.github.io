@@ -49,19 +49,24 @@
     const box = document.getElementById('site-links');
     if (!box) return;
     const short = (u) => u.replace(/^https?:\/\//, '').replace(/\/+$/, '');
-    let title, list;
+    let note, list;
     if (OCR_ENABLED) {
-      title = '静态版（无需服务器，可发给群友）：';
+      note = '静态版：不用服务器、不消耗识图额度，可直接发给群友';
       list = STATIC_SITES.map((u) => ({ u, label: short(u) }));
     } else {
       const svc = OCR_SERVICE || OCR_FALLBACK;
-      title = '带截图识别的版本（需要那台服务器在线）：';
+      note = '带截图识别的版本：需要那台服务器在线（手动填写不受影响）';
       list = [
         { u: svc, label: short(svc) },
         { u: GATEWAY_URL, label: short(GATEWAY_URL) + '（总入口，自动跳转）' },
       ];
     }
-    box.innerHTML = title + list.map((x) => '<a href="' + x.u + '" target="_blank" rel="noopener">' + x.label + '</a>').join('<span class="sep">·</span>');
+    box.innerHTML =
+      '<span class="sl-title">🔗 相关网址</span>' +
+      '<span class="sl-note">' + note + '</span>' +
+      '<span class="sl-list">' +
+      list.map((x) => '<a href="' + x.u + '" target="_blank" rel="noopener">' + x.label + '</a>').join('<span class="sep">·</span>') +
+      '</span>';
   }
 
   const $ = (s) => document.querySelector(s);
