@@ -671,7 +671,15 @@
       const b = e.target.closest('[data-val]');
       if (!b) return;
       const raw = b.dataset.val;
-      setReveal(raw === 'G' ? 'G' : Number(raw));
+      // 「× 标记」「清除」不是数字，要单独处理
+      // （否则 Number('X') = NaN，格子会被写成空值，看着就是"点了没反应"）
+      let val;
+      if (raw === 'G') val = 'G';
+      else if (raw === 'X') val = 'X';
+      else if (raw === 'CLEAR') val = -1;
+      else val = Number(raw);
+      if (typeof val === 'number' && !Number.isFinite(val)) return;
+      setReveal(val);
     });
     el.revealBar.addEventListener('click', (e) => {
       if (e.target.closest('[data-rb="cancel"]')) closeRevealBar();
