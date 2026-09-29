@@ -756,17 +756,17 @@
     });
     $('#btn-undo').addEventListener('click', undo);
     $('#btn-sample').addEventListener('click', openGameChooser);
-    $('#btn-game-analyze').addEventListener('click', () => exitGame(true));
-    $('#btn-game-restart').addEventListener('click', () => startGame(S.game ? S.game.kind : 'tidal'));
+    $('#btn-game-restart').addEventListener('click', () => startGame(S.game ? S.game.kind : 'tidal', S.game ? S.game.n : 0));
     $('#btn-game-switch').addEventListener('click', openGameChooser);
+    $('#btn-game-quit').addEventListener('click', quitGame);
 
     el.modal.addEventListener('click', (e) => {
       if (e.target.closest('[data-close]')) closeModal();
-      if (e.target.closest('#btn-play-tidal')) { startGame('tidal'); return; }
-      if (e.target.closest('#btn-play-mine')) { startGame('mine'); return; }
-      if (e.target.closest('#btn-game-use')) { closeModal(); exitGame(true); }
-      if (e.target.closest('#btn-game-again')) { closeModal(); startGame(S.game ? S.game.kind : 'tidal'); }
+      const play = e.target.closest('[data-play]');
+      if (play) { startGame(play.dataset.play, Number(play.dataset.size)); return; }
+      if (e.target.closest('#btn-game-again')) { closeModal(); startGame(S.game ? S.game.kind : 'tidal', S.game ? S.game.n : 0); }
       if (e.target.closest('#btn-game-other')) { openGameChooser(); }
+      if (e.target.closest('#btn-game-quit')) { closeModal(); quitGame(); }
     });
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') { closeRevealBar(); closeModal(); }
@@ -859,7 +859,15 @@
      · 扫雷：大众那款。双击翻开、单击插旗，第一次点击保证安全，翻开所有非雷格即通关。 */
   const MINE_COUNT = { 8: 8, 10: 12, 12: 18 };   // 经典难度比例（约 12.5%）
 
+  const SIZE_INFO = {
+    tidal: { 8: '8×8 · 20 颗钻石', 10: '10×10 · 30 颗钻石', 12: '12×12 · 45 颗钻石' },
+    mine: { 8: '8×8 · 8 颗雷', 10: '10×10 · 12 颗雷', 12: '12×12 · 18 颗雷' },
+  };
+
   function openGameChooser() {
+    const sizeBtns = (kind) => [8, 10, 12]
+      .map((n) => `<button class="ghost-btn sm" data-play="${kind}" data-size="${n}" type="button">${SIZE_INFO[kind][n]}</button>`)
+      .join('');
     openModal(`
       <div class="modal-head">
         <h3>游戏模式</h3>
@@ -867,14 +875,15 @@
       </div>
       <div class="rules">
         <section>
-          <p><b>潮汐秘境</b>：不限次数、随便翻。双击格子翻开，单击标 × 做记号，把钻石全找出来。</p>
-          <p><b>扫雷</b>：大众那款。双击翻开、单击插旗，第一次点击保证安全，翻开所有不是雷的格子就通关。</p>
-          <p>两种玩法随时都能点<b>「用工具分析这盘」</b>，把当前盘面交给计算器算 —— 这正是平时用它的方式。</p>
+          <h4>💎 潮汐秘境</h4>
+          <p>从空盘开始玩、不限次数。<b>双击</b>翻开格子，<b>单击</b>标 × 做记号；数字 = 周围 8 格的钻石数，把钻石全找出来。</p>
+          <div class="modal-actions">${sizeBtns('tidal')}</div>
         </section>
-      </div>
-      <div class="modal-actions">
-        <button class="ghost-btn" id="btn-play-tidal" type="button">💎 潮汐秘境</button>
-        <button class="ghost-btn" id="btn-play-mine" type="button">🚩 扫雷</button>
+        <section>
+          <h4>🚩 扫雷</h4>
+          <p>大众那款。<b>双击</b>翻开、<b>单击</b>插旗；第一次点击保证安全，翻开所有不是雷的格子就通关。</p>
+          <div class="modal-actions">${sizeBtns('mine')}</div>
+        </section>
       </div>`);
   }
 
@@ -898,9 +907,11 @@
     return { n, total, mine, adj, nbrs };
   }
 
-  function startGame(kind) {
+  function startGame(kind, size) {
     if (!kind) kind = 'tidal';
     closeModal();
+    // 指定了地图就先切尺寸（setSize 会退出当前游戏，所以必须在建新局之前）
+    if (size && size !== S.rows) setSize(Number(size));
     const n = S.rows;
     const common = { kind, n, opened: new Set(), marks: new Set(), over: false, revealAll: false, t0: 0, wrong: 0 };
     if (kind === 'mine') {
@@ -909,22 +920,8 @@
     } else {
       const gems = GEM_TOTAL[n] || S.gemTotal || 0;
       const b = makeBoard(n, gems);
-      // 开局先翻开一片（模拟真实残局），否则玩家无从下手
-      const opened = new Set();
-      let seeds = 0;
-      for (let i = 0; i < b.total && seeds < 3; i++) {
-        if (b.mine[i] || b.adj[i] !== 0) continue;
-        seeds++;
-        const stack = [i];
-        while (stack.length) {
-          const v = stack.pop();
-          if (opened.has(v)) continue;
-          opened.add(v);
-          if (b.adj[v] === 0) for (const j of b.nbrs(v)) if (!b.mine[j] && !opened.has(j)) stack.push(j);
-        }
-      }
-      if (!opened.size) for (let i = 0; i < b.total; i++) if (!b.mine[i]) { opened.add(i); break; }
-      S.game = Object.assign(common, { gems, mine: b.mine, adj: b.adj, nbrs: b.nbrs, found: new Set(), opened });
+      // 从空盘开始玩：开局不翻开任何格子，全靠自己翻
+      S.game = Object.assign(common, { gems, mine: b.mine, adj: b.adj, nbrs: b.nbrs, found: new Set() });
     }
     S.cursor = -1;
     clearPick();
@@ -1093,27 +1090,22 @@
         </section>
       </div>
       <div class="modal-actions">
-        <button class="ghost-btn" id="btn-game-use" type="button">用工具分析这盘</button>
-        <button class="ghost-btn sm" id="btn-game-again" type="button">再来一局</button>
+        <button class="ghost-btn" id="btn-game-again" type="button">再来一局</button>
         <button class="ghost-btn sm" id="btn-game-other" type="button">换玩法</button>
+        <button class="ghost-btn sm" id="btn-game-quit" type="button">退出游戏</button>
       </div>`);
   }
 
-  function exitGame(keepBoard) {
+  function quitGame() {
     if (!S.game) return;
     S.game = null;
     stopGameClock();
     updateGameBar();
-    if (keepBoard) {
-      setAdvice('已把游戏盘面交给计算器：下面就是它算出来的结论');
-      analyze();
-      settle();
-      toast('已把当前盘面交给计算器，下面就是结论', 'gold');
-    } else {
-      mark();
-      clearAll();
-      settle();
-    }
+    mark();
+    clearAll();
+    analyze();
+    settle();
+    toast('已退出游戏模式', 'gold');
   }
 
   /* ---------- 主题：与统计中心共用 localStorage 的 theme 键 ---------- */
@@ -1153,12 +1145,11 @@
       <div class="rules">
         <section>
           <h4>0 · 先玩一局试试（可选）</h4>
-          <p>点右上角<b>「游戏模式」</b>可以随便玩一局，两种玩法：</p>
+          <p>点右上角<b>「游戏模式」</b>可以随便玩一局，两种玩法、每种都能选三个地图：</p>
           <ul>
-            <li><b>潮汐秘境</b>：不限次数、随便翻。<b>双击</b>格子翻开，<b>单击</b>标 × 做记号，把钻石全找出来。</li>
-            <li><b>扫雷</b>：大众那款。双击翻开、单击插旗，第一次点击保证安全，翻开所有不是雷的格子就通关。</li>
+            <li><b>潮汐秘境</b>：从空盘开始，不限次数。<b>双击</b>翻开、<b>单击</b>标 × 做记号，数字 = 周围 8 格的钻石数，把钻石全找出来。</li>
+            <li><b>扫雷</b>：大众那款。<b>双击</b>翻开、<b>单击</b>插旗，第一次点击保证安全，翻开所有不是雷的格子就通关。</li>
           </ul>
-          <p>玩到一半想知道"下一格能不能翻"，点状态栏的<b>「用工具分析这盘」</b>，就把当前盘面交给计算器算了。</p>
         </section>
         <section>
           <h4>1 · 把游戏里的盘面抄进来</h4>
