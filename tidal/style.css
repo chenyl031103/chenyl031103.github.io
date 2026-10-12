@@ -143,10 +143,21 @@ a { text-decoration: none; }
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
+  flex-wrap: wrap;
+  gap: 6px 16px;
   padding: 14px clamp(14px, 3vw, 24px);
   background: var(--bg-secondary);
   border-bottom: 1px solid var(--border);
+}
+/* 顶部中间：出品署名（易看到但不抢眼；窄屏时换行到中间一行） */
+.credit-top {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .brand-mark { font-size: 22px; line-height: 1; flex: none; }
@@ -251,7 +262,20 @@ main {
 .brush-empty { background: var(--tile-closed); border: 1px solid var(--border); }
 .brush-gem .ico { color: var(--gold); }
 .brush-x .ico { color: var(--text-secondary); }
-.palette-tip { margin-left: auto; font-size: 0.75rem; color: var(--text-muted); }
+.palette-tip {
+  margin-left: auto;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  flex: 0 1 auto;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: right;
+}
+@media (max-width: 640px) {
+  .palette-tip { display: none; }   /* 手机上不用键盘提示，别占地方 */
+}
 
 /* ---------- 数字 0-8 颜色梯度（0 灰最不显眼 → 8 红最显眼）：笔刷 / 取值卡统一；棋盘数字在下方 .cell 规则处 ---------- */
 .palette .brush-num[data-brush="0"], .reveal-bar .rb-btn[data-val="0"] { color: var(--num-0); }
@@ -756,7 +780,39 @@ main {
   *, *::before, *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; }
 }
 
-/* ---------- 15. 建议条（棋盘下方一行） ---------- */
+/* ---------- 15. 状态条：建议 + 结论合并成一条（省一行） ---------- */
+.status-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  padding: 10px 14px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.status-bar .advice {
+  flex: 1 1 240px;
+  min-width: 0;
+  padding: 0;
+  background: none;
+  border: none;
+  border-radius: 0;
+}
+.status-bar .verdict-bar {
+  flex: 0 1 auto;
+  padding: 0;
+  background: none;
+  border: none;
+  border-radius: 0;
+  gap: 6px 14px;
+}
+/* 建议条原有的状态配色（金/绿/橙）映射到整条边框，观感不变 */
+.status-bar:has(.advice.is-gem) { border-color: var(--gold); }
+.status-bar:has(.advice.is-safe) { border-color: var(--success); }
+.status-bar:has(.advice.is-warn) { border-color: var(--accent2); }
+
+/* ---------- 15b. 建议条本体（在状态条里不带卡片外观） ---------- */
 .advice {
   display: flex;
   align-items: flex-start;
@@ -969,6 +1025,7 @@ body.is-game .credit { display: none; }        /* 玩游戏时不必占底部空
 
 /* 游戏模式下不显示分析结论与取值条（避免直接看到答案） */
 body.is-game .verdict-bar,
+body.is-game .status-bar,   /* 建议+结论合并条一起隐藏（游戏模式有自己的状态栏） */
 body.is-game .palette { display: none !important; }
 
 /* ---------- 游戏模式：两套玩法各自的图标 ---------- */
