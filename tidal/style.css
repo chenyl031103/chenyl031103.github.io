@@ -46,6 +46,16 @@
   --p-lo-ink: #58b7e8;
   --p-lo-line: #4aa3d9;
   --p-lo-tint: #1b2a38;
+  /* 数字 0-8 颜色梯度：0 最不显眼（灰）→ 8 最显眼（红），棋盘/笔刷/取值卡统一 */
+  --num-0: #8a97a5;
+  --num-1: #6f9fc4;
+  --num-2: #3d7fc1;
+  --num-3: #2a9d9f;
+  --num-4: #2f9e5f;
+  --num-5: #c9a227;
+  --num-6: #e0871f;
+  --num-7: #e05a2b;
+  --num-8: #d02b2b;
   --safe-ink: #8fd9b3;
   --warn-ink: #f0a09a;
   --ink-on-accent: #0f1923;
@@ -243,21 +253,25 @@ main {
 .brush-x .ico { color: var(--text-secondary); }
 .palette-tip { margin-left: auto; font-size: 0.75rem; color: var(--text-muted); }
 
-/* ---------- 数字 0-8 颜色（与棋盘上数字同色：笔刷 / 取值卡统一，一眼区分） ---------- */
-.palette .brush-num[data-brush="0"], .reveal-bar .rb-btn[data-val="0"] { color: #8a97a5; }
-.palette .brush-num[data-brush="1"], .reveal-bar .rb-btn[data-val="1"] { color: #1565a8; }
-.palette .brush-num[data-brush="2"], .reveal-bar .rb-btn[data-val="2"] { color: #1f7d43; }
-.palette .brush-num[data-brush="3"], .reveal-bar .rb-btn[data-val="3"] { color: #c0392b; }
-.palette .brush-num[data-brush="4"], .reveal-bar .rb-btn[data-val="4"] { color: #6a389e; }
-.palette .brush-num[data-brush="5"], .reveal-bar .rb-btn[data-val="5"] { color: #a86a10; }
-.palette .brush-num[data-brush="6"], .reveal-bar .rb-btn[data-val="6"] { color: #0b7d84; }
-.palette .brush-num[data-brush="7"], .reveal-bar .rb-btn[data-val="7"] { color: #33404c; }
-.palette .brush-num[data-brush="8"], .reveal-bar .rb-btn[data-val="8"] { color: #6d7681; }
-/* 深色主题下 7/8 太暗，换成同色系亮一档 */
-[data-theme="dark"] .palette .brush-num[data-brush="7"],
-[data-theme="dark"] .reveal-bar .rb-btn[data-val="7"] { color: #93a6ba; }
-[data-theme="dark"] .palette .brush-num[data-brush="8"],
-[data-theme="dark"] .reveal-bar .rb-btn[data-val="8"] { color: #aab4bf; }
+/* ---------- 数字 0-8 颜色梯度（0 灰最不显眼 → 8 红最显眼）：棋盘数字 / 笔刷 / 取值卡统一 ---------- */
+.cell.n0 { color: var(--num-0); }
+.cell.n1 { color: var(--num-1); }
+.cell.n2 { color: var(--num-2); }
+.cell.n3 { color: var(--num-3); }
+.cell.n4 { color: var(--num-4); }
+.cell.n5 { color: var(--num-5); }
+.cell.n6 { color: var(--num-6); }
+.cell.n7 { color: var(--num-7); }
+.cell.n8 { color: var(--num-8); }
+.palette .brush-num[data-brush="0"], .reveal-bar .rb-btn[data-val="0"] { color: var(--num-0); }
+.palette .brush-num[data-brush="1"], .reveal-bar .rb-btn[data-val="1"] { color: var(--num-1); }
+.palette .brush-num[data-brush="2"], .reveal-bar .rb-btn[data-val="2"] { color: var(--num-2); }
+.palette .brush-num[data-brush="3"], .reveal-bar .rb-btn[data-val="3"] { color: var(--num-3); }
+.palette .brush-num[data-brush="4"], .reveal-bar .rb-btn[data-val="4"] { color: var(--num-4); }
+.palette .brush-num[data-brush="5"], .reveal-bar .rb-btn[data-val="5"] { color: var(--num-5); }
+.palette .brush-num[data-brush="6"], .reveal-bar .rb-btn[data-val="6"] { color: var(--num-6); }
+.palette .brush-num[data-brush="7"], .reveal-bar .rb-btn[data-val="7"] { color: var(--num-7); }
+.palette .brush-num[data-brush="8"], .reveal-bar .rb-btn[data-val="8"] { color: var(--num-8); }
 
 /* ---------- 6. 棋盘 ---------- */
 .board-shell {
@@ -322,15 +336,6 @@ main {
 }
 .cell.is-open:hover { border-color: var(--tile-open-ink); }
 .cell.is-open:active { transform: none; }
-
-.cell.n1 { color: #1565a8; }
-.cell.n2 { color: #1f7d43; }
-.cell.n3 { color: #c0392b; }
-.cell.n4 { color: #6a389e; }
-.cell.n5 { color: #a86a10; }
-.cell.n6 { color: #0b7d84; }
-.cell.n7 { color: #33404c; }
-.cell.n8 { color: #6d7681; }
 
 /* 宝钻：金黄色 */
 .cell.is-gem {
