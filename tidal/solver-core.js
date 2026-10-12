@@ -426,6 +426,21 @@
       }
       if (promoted) { deduce(); res = analyze(); }
     }
+    // 全盘固定钻石数的确定性推导：局部概率模型不含总数，这里单独补上"已找齐 / 剩满格"的必然后果。
+    // （例：8×8 的 20 颗全找到了 → 剩下的格子全部没有钻石，直接标 ×）
+    if (gTotal != null && res && !res.impossible) {
+      let changed = false;
+      const leftCells = [];
+      for (let i = 0; i < total; i++) if (clue[i] < 0 && !knownGem[i] && !knownSafe[i]) leftCells.push(i);
+      const knownCount = knownGem.reduce((a, b) => a + b, 0);
+      const rem = gTotal - knownCount;
+      if (leftCells.length && rem <= 0) {
+        for (const i of leftCells) { knownSafe[i] = 1; reason[i] = reason[i] || `本图 ${gTotal} 颗钻石已全部找到，剩余的格子都没有钻石`; changed = true; }
+      } else if (leftCells.length && rem >= leftCells.length) {
+        for (const i of leftCells) { knownGem[i] = 1; reason[i] = reason[i] || `剩余 ${rem} 颗钻石正好等于剩下的格子数，剩下的格子全是钻石`; changed = true; }
+      }
+      if (changed) { deduce(); res = analyze(); }
+    }
     const probs = res.probs;
 
     /* ---------- 4. 与玩家 × 标记比对 ---------- */

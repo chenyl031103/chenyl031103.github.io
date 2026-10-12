@@ -7,7 +7,15 @@
 
   // 各尺寸的钻石总数由活动固定，不可更改
   const GEM_TOTAL = { 8: 20, 10: 30, 12: 45 };
-  const OCR_ENABLED = window.TIDAL_OCR !== false;   // 静态托管版把 window.TIDAL_OCR 设为 false
+  /* 截图识别有两个引擎：
+     · 本机识别（vision.js，零依赖模板匹配）—— 秒级、不联网、不花额度，默认优先
+     · 服务器识别（api/parse-board）—— 本机没认准时兜底；只有服务版有 */
+  const OCR_SERVER_ON = window.TIDAL_OCR !== false;   // 静态托管版把 window.TIDAL_OCR 设为 false
+  const HAS_LOCAL_VISION = !!(window.TidalVision && typeof window.TidalVision.recognize === 'function');
+  const OCR_MODE = String(window.TIDAL_OCR_MODE || '').toLowerCase();   // 'local' | 'server' | 'off'
+  const LOCAL_OCR = HAS_LOCAL_VISION && OCR_MODE !== 'server' && OCR_MODE !== 'off';
+  const SERVER_OCR = OCR_SERVER_ON && OCR_MODE !== 'local' && OCR_MODE !== 'off';
+  const OCR_ENABLED = LOCAL_OCR || SERVER_OCR;
 
   /* 静态版：「去用截图识别版」指向的地址（构建时写入）。
      隧道地址会变，所以支持用 ?ocr=新地址 覆盖，存本地，改地址不必重新上传。 */
@@ -37,6 +45,17 @@
   const OCR_SERVICE = resolveOcrService();
   const DOUBLE_MS = 340;   // 两次按下间隔小于此值算「双击翻开」
 
+  /* 服务器识别的候选地址（按序尝试）：
+     · 服务版：同源 api/parse-board
+     · 静态版：构建时写入的隧道地址（?ocr= 可临时覆盖）
+     本地识别能用时不走这里；本地失败才作为兜底。 */
+  function serverOcrUrls() {
+    const out = [];
+    if (OCR_MODE !== 'local' && /^https?:$/.test(location.protocol)) out.push('api/parse-board');
+    if (OCR_SERVICE) out.push(OCR_SERVICE.replace(/\/+$/, '') + '/api/parse-board');
+    return out.filter((u, i) => out.indexOf(u) === i);
+  }
+
   // 页脚上方的相关链接：静态版列出「带识别」的网址，服务版列出「静态版」网址
   const STATIC_SITES = [
     'https://chenyl031103.github.io/tidal/',
@@ -48,21 +67,11 @@
   function renderSiteLinks() {
     const box = document.getElementById('site-links');
     if (!box) return;
-    // 静态版不显示这条：带识别的两个网址改由右上角「截图识别」按钮的弹窗列出
-    if (!OCR_ENABLED) { box.hidden = true; return; }
+    // 只有服务版列这条（把静态版网址发给群友）；静态版自己不显示
+    if (!OCR_SERVER_ON) { box.hidden = true; return; }
     const short = (u) => u.replace(/^https?:\/\//, '').replace(/\/+$/, '');
-    let note, list;
-    if (OCR_ENABLED) {
-      note = '静态版：不用服务器、不消耗识图额度，可直接发给群友';
-      list = STATIC_SITES.map((u) => ({ u, label: short(u) }));
-    } else {
-      const svc = OCR_SERVICE || OCR_FALLBACK;
-      note = '带截图识别的版本：需要那台服务器在线（手动填写不受影响）';
-      list = [
-        { u: svc, label: short(svc) },
-        { u: GATEWAY_URL, label: short(GATEWAY_URL) + '（总入口，自动跳转）' },
-      ];
-    }
+    const note = '静态版：不用服务器也能本机识别、不消耗识图额度，可直接发给群友';
+    const list = STATIC_SITES.map((u) => ({ u, label: short(u) }));
     box.innerHTML =
       '<span class="sl-title">🔗 相关网址</span>' +
       '<span class="sl-note">' + note + '</span>' +
@@ -125,7 +134,9 @@
     histBase: null,       // 本次操作开始前的快照，抬手时才入栈（拖动连涂算一步）
     importTimer: null,
     importPreviewUrl: null,
-    ocrBlob: null,        // 待识别的图片
+    ocrBlob: null,        // 待识别的图片（送服务器的压缩版）
+    ocrFile: null,        // 原图（本机识别用，清晰度更好）
+    localFail: null,      // 本机识别失败的原因（用于给出针对性提示）
     shotSize: 8,          // 识别时确认的地图尺寸
     ocrCanceled: false,
     pasteBound: false,
@@ -1421,8 +1432,9 @@
     const t0 = Date.now();
     clearInterval(S.importTimer);
     S.ocrStage = '';      // 服务端报告的当前进度（例如"正在改用备选模型…"）
+    const tip = LOCAL_OCR ? '本机识别，一般 1 秒内' : `按 ${sizeLabel} 识别，通常十几秒，忙的时候要一分钟`;
     const line = (s) => `识别中… 已用 ${s}s`
-      + (S.ocrStage ? ` · ${S.ocrStage}` : `（按 ${sizeLabel} 识别，通常十几秒，忙的时候要一分钟）`);
+      + (S.ocrStage ? ` · ${S.ocrStage}` : `（${tip}）`);
     setImportStatus(line(0), 'busy');
     S.importTimer = setInterval(() => {
       setImportStatus(line(Math.round((Date.now() - t0) / 1000)), 'busy');
@@ -1515,7 +1527,7 @@
             <button class="seg-btn" data-size="10" type="button">10×10</button>
             <button class="seg-btn" data-size="12" type="button">12×12</button>
           </div>
-          <p class="card-foot">选错会白等 1~2 分钟，所以必须先确认。默认跟着当前棋盘走。</p>
+          <p class="card-foot">${LOCAL_OCR ? '识别在本机完成，不联网；选错也会立刻告诉你，不用重等。默认跟着当前棋盘走。' : '选错会白等 1~2 分钟，所以必须先确认。默认跟着当前棋盘走。'}</p>
         </section>
         <section>
           <h4>3. 开始识别</h4>
@@ -1559,7 +1571,7 @@
     });
 
     $('#btn-ocr-clear').addEventListener('click', () => { clearPick(); });
-    $('#btn-ocr-go').addEventListener('click', () => { if (S.ocrBlob) recognize(S.ocrBlob); });
+    $('#btn-ocr-go').addEventListener('click', () => { if (S.ocrBlob) recognize(S.ocrFile || S.ocrBlob); });
     $('#btn-ocr-cancel').addEventListener('click', () => {
       S.ocrCanceled = true;
       stopImportClock();
@@ -1610,6 +1622,7 @@
     const row = $('#pick-row');
     if (row) row.hidden = true;
     S.ocrBlob = null;
+    S.ocrFile = null;
     if (S.importPreviewUrl) { try { URL.revokeObjectURL(S.importPreviewUrl); } catch (e) {} S.importPreviewUrl = null; }
     setGoState(false);
     const go = $('#btn-ocr-go');
@@ -1625,6 +1638,7 @@
     S.ocrCanceled = false;
     const shrunk = await shrinkImage(file, 1000);   // 宽度上限：实测 1000px 最稳（见函数注释）
     S.ocrBlob = shrunk.blob;
+    S.ocrFile = file;                               // 本机识别用原图（清晰度优先）
 
     const row = $('#pick-row');
     if (row) {
@@ -1642,130 +1656,232 @@
     setImportStatus('图片已就绪 —— 确认上面是几×几，再点「开始识别」', '');
   }
 
-  async function recognize(blob) {
+  /** 本机识别（vision.js 模板匹配）：不用服务器、秒级返回；返回结构与服务端一致 */
+  async function recognizeLocal(file, forceN) {
+    const url = URL.createObjectURL(file);
+    try {
+      const img = await new Promise((resolve, reject) => {
+        const im = new Image();
+        im.onload = () => resolve(im);
+        im.onerror = () => reject(new Error('图片打不开（换个格式试试）'));
+        im.src = url;
+      });
+      // 画进 canvas 时把总像素压到 ~450 万以内（手机内存安全；棋盘定位需要原始清晰度，尽量不缩）
+      let w = img.naturalWidth || img.width, h = img.naturalHeight || img.height;
+      const k = Math.min(1, Math.sqrt(4500000 / Math.max(1, w * h)));
+      if (k < 1) { w = Math.max(1, Math.round(w * k)); h = Math.max(1, Math.round(h * k)); }
+      const cv = document.createElement('canvas');
+      cv.width = w; cv.height = h;
+      const cx = cv.getContext('2d', { willReadFrequently: true });
+      cx.imageSmoothingEnabled = true; cx.imageSmoothingQuality = 'high';
+      cx.drawImage(img, 0, 0, w, h);
+      const id = cx.getImageData(0, 0, w, h);
+      const t0 = performance.now();
+      const r = window.TidalVision.recognize(id, forceN ? { forceN } : {});   // 尺寸优先本地判定，再和用户选的档位核对
+      r.localMs = Math.round(performance.now() - t0);
+      return r;
+    } finally {
+      try { URL.revokeObjectURL(url); } catch (e) {}
+    }
+  }
+
+  /** 服务器识别：POST 拿任务号 + 轮询取结果（长请求会被公网网关掐断） */
+  async function recognizeViaServer(blob, size) {
+    const urls = serverOcrUrls();
+    if (!urls.length) { const e = new Error('没有可用的服务器识别地址'); e.netErr = true; throw e; }
+    let lastErr = null;
+    for (const base of urls) {
+      try {
+        return await serverJob(base, blob, size);
+      } catch (e) {
+        lastErr = e;
+        if (!(e && e.netErr)) throw e;   // 业务性错误（尺寸不符等）不换地址重试
+      }
+    }
+    throw lastErr || new Error('服务器识别失败');
+  }
+
+  async function serverJob(base, blob, size) {
+    const fd = new FormData();
+    fd.append('image', blob, 'shot.jpg');
+    fd.append('rows', String(size));
+    fd.append('cols', String(size));
+    const post = async (u, opt) => {
+      try { return await fetch(u, opt); }
+      catch (e) { const er = new Error('连不上识别服务'); er.netErr = true; throw er; }
+    };
+    const resp = await post(base, { method: 'POST', body: fd });
+    const posted = await resp.json().catch(() => null);
+    if (!resp.ok || !posted) throw new Error((posted && posted.error) || `服务返回 ${resp.status}`);
+    if (!posted.ok) throw new Error(posted.error || '上传失败');
+    const jobId = posted.jobId;
+    if (!jobId) throw new Error('服务没有返回任务号');
+
+    let data = null;
+    const poll = base.replace(/\/parse-board$/, '') + '/parse-board/';
+    for (let i = 0; i < 150; i++) {          // 最长约 5 分钟
+      await new Promise((r) => setTimeout(r, 2000));
+      if (S.ocrCanceled) return null;
+      const r2 = await post(poll + encodeURIComponent(jobId));
+      if (r2.status === 404) throw new Error('识别任务已失效（服务可能重启过），请重新识别');
+      const j = await r2.json().catch(() => null);
+      if (!j) continue;
+      if (j.status === 'running') {
+        if (j.stage && j.stage !== S.ocrStage) S.ocrStage = j.stage;   // 让用户看到服务端在做什么
+        continue;
+      }
+      if (!j.ok || j.status === 'error') throw new Error(j.error || '识别失败');
+      data = j.data;
+      break;
+    }
+    if (S.ocrCanceled) return null;
+    if (!data) throw new Error('识别超时（超过 5 分钟没有结果）');
+    return data;
+  }
+
+  /** 把识别结果填进棋盘（本地/服务器两条路共用），并按需提示核对 */
+  function applyResult(data, how) {
+    const size = S.shotSize || S.rows;
+    const { rows, cols, cells } = data;
+    if (!rows || !cols || !Array.isArray(cells) || cells.length !== rows) throw new Error('识别结果格式不正确');
+    if (rows !== size) {
+      throw new Error(`识别出来是 ${rows}×${cols}，和你选的 ${size}×${size} 不一致 —— 请核对后重选尺寸再识别`);
+    }
+
+    mark();   // 整次识别算一步：识别错了可以一键退回识别前的盘面
+    S.rows = rows; S.cols = cols;
+    el.sizeSeg.querySelectorAll('.seg-btn').forEach((b) => b.classList.toggle('is-on', Number(b.dataset.size) === rows));
+    S.gemTotal = GEM_TOTAL[rows];      // 钻石总数由尺寸固定
+    el.gemTotalText.textContent = S.gemTotal;
+
+    S.grid = newGrid(rows, cols);
+    S.aiCells.clear();
+    S.unsure.clear();
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        let v = cells[r][c];
+        if (v === 9 || v === 'G') v = 'G';
+        else if (v === 10 || v === 'X') v = 'X';
+        else if (typeof v === 'number' && v >= 0 && v <= 8) v = v;
+        else v = -1;
+        S.grid[r][c] = v;
+        if (v !== -1) S.aiCells.add(r * cols + c);
+      }
+    }
+    for (const pair of (data.unsure || [])) {
+      const r = Number(pair[0]), c = Number(pair[1]);
+      if (r >= 0 && r < rows && c >= 0 && c < cols) { S.aiCells.add(r * cols + c); S.unsure.add(r * cols + c); }
+    }
+    buildBoard();
+    analyze();
+    settle();
+    stopImportClock();
+    clearPick();
+    closeModal();
+    const unsureN = S.unsure.size;
+    // 尺寸选错时，模型会照着错尺寸硬编，结果通常自相矛盾 —— 这里直接提醒
+    const bad = (S.result && S.result.conflicts) ? S.result.conflicts.length : 0;
+    // 几乎没读出东西：弱模型会把整张盘面都当成空格，这种"成功"必须拦住。
+    // 本机识别按它自己的 thin 判定（真实残局常常大半没翻开，用覆盖率卡会误报）
+    let filledN = 0;
+    for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) if (S.grid[r][c] !== -1) filledN++;
+    const cov = (typeof data.coverage === 'number') ? data.coverage : null;
+    const weak = how === 'local'
+      ? (filledN === 0 || data.thin === true)
+      : (filledN === 0 || data.thin === true || filledN < Math.max(6, Math.round(rows * rows * 0.05)) || (cov != null && cov < 0.6));
+    const missN = rows * cols - filledN;   // 没读出的空格（未翻开 + 空著）
+    if (weak) {
+      setImportStatus('识别完成，但几乎没有读出内容，请重试或手工填写。', 'err');
+      openModal(`
+        <div class="modal-head">
+          <h3>这次没读出内容</h3>
+          <button class="modal-close" data-close type="button">✕</button>
+        </div>
+        <div class="rules">
+          <section>
+            <p>${rows}×${rows} 一共 ${rows * cols} 格，这次只读出 <b>${filledN}</b> 个已翻开的格子${cov != null ? `（逐格只报回 ${data.reported}/${data.total} 格）` : ''}。</p>
+            <p>${how === 'local'
+              ? '本机识别没定位到棋盘 —— 多半是截图里棋盘不完整（被裁掉边框/被挡住），或者格子小、图太糊。'
+              : '说明识图服务没看清盘面，把大部分格子当成空的了。常见原因是图片太小太糊，或者换了不擅长看密集小字的识图模型。'}</p>
+            <p>建议：<b>用清晰的整屏截图重试</b>${how === 'local' ? '（棋盘四周的边框要拍全）' : ''}；还是不行就对照截图手工填写 —— 手工填的盘面分析结果一样准确。</p>
+          </section>
+        </div>`);
+    } else if (bad) {
+      const sizeLabel = rows + '×' + rows;
+      setImportStatus(`识别完成，但有 ${bad} 处数字自相矛盾 —— 多半是地图尺寸选错了，请核对后重新识别。`, 'err');
+      openModal(`
+        <div class="modal-head">
+          <h3>识别结果可能不对</h3>
+          <button class="modal-close" data-close type="button">✕</button>
+        </div>
+        <div class="rules">
+          <section>
+            <p>棋盘已经填好了，但<b>有 ${bad} 处数字和周围情况对不上</b>。</p>
+            <p>最常见的原因是<b>地图尺寸选错了</b>（你选的是 ${sizeLabel}，截图可能不是这一档）；也可能是识图读错了个别数字。</p>
+            <p>建议：<b>确认截图是哪一档地图后重新识别</b>；或者对照截图手工改掉不一致的格子 ——
+               具体位置在「使用说明 → 当前分析 → 盘面自检」里列着。</p>
+          </section>
+        </div>`);
+    } else if (data.badRows > 0) {
+      // 个别行读不准：那几行已留空并整行标红，提示用户手动补，别让他以为是空的
+      setImportStatus(`识别完成，但有 ${data.badRows} 行没读准 —— 已留空并标红，请对照截图把那几行补上。`, 'err');
+      toast(`识别完成：${data.badRows} 行没读准，红框那一行请手动补`, 'warn');
+    } else {
+      if (data.note) setImportStatus(data.note, '');
+      const tip = how === 'local'
+        ? `本机识别完成（${data.localMs || 0} 毫秒），还有 ${missN} 个没翻开的格子`
+        : null;
+      toast(tip || (unsureN ? `识别完成，${unsureN} 处红框请重点核对` : '识别完成，请核对带红框的格子'), 'gold');
+      if (how === 'local') setImportStatus(`本机识别完成：读出 ${filledN} 格，未翻开 ${missN} 格${unsureN ? `，${unsureN} 处待核对` : ''}`, '');
+    }
+  }
+
+  /** 识别入口：本机优先 → 失败再问服务器（静态版会提示手动填写） */
+  async function recognize(file) {
     const size = S.shotSize || S.rows;
     startImportClock(`${size}×${size}`);
     setGoState(true);
 
     try {
-      const fd = new FormData();
-      fd.append('image', blob, 'shot.jpg');
-      fd.append('rows', String(size));
-      fd.append('cols', String(size));
-
-      // 识图要 1~2 分钟：POST 只负责拿任务号，再轮询取结果（长请求会被公网网关掐断）
-      const resp = await fetch('api/parse-board', { method: 'POST', body: fd });
-      const posted = await resp.json().catch(() => null);
-      if (!resp.ok || !posted) throw new Error((posted && posted.error) || `服务返回 ${resp.status}`);
-      if (!posted.ok) throw new Error(posted.error || '上传失败');
-      const jobId = posted.jobId;
-      if (!jobId) throw new Error('服务没有返回任务号');
-
-      let data = null;
-      for (let i = 0; i < 150; i++) {          // 最长约 5 分钟
-        await new Promise((r) => setTimeout(r, 2000));
+      let data = null, how = '';
+      if (LOCAL_OCR) {
+        // 先让浏览器画一帧"识别中"，本机识别是同步计算（约 1 秒）。
+        // 只等 setTimeout，不用 rAF —— 后台标签页里 rAF 可能一直不触发
+        await new Promise((r) => setTimeout(r, 30));
+        try {
+          data = await recognizeLocal(file || S.ocrBlob);
+          how = 'local';
+        } catch (e) {
+          S.localFail = e;
+          const urls = serverOcrUrls();
+          if (!urls.length) throw e;
+          setImportStatus('本机没认准，改用服务器识别…', 'busy');
+        }
+        // 本机判定不可靠时（没走外框定位/读得太少），按用户选的档位再对一次格 ——
+        // 他对着游戏看得最准；判定可靠时不覆盖，尺寸对不上会直接提示他去改档位
+        const autoWeak = data && (data.thin === true || !data.debug || !data.debug.grid || data.debug.grid.src !== 'frame');
+        if (autoWeak && data.rows !== size) {
+          try {
+            const d2 = await recognizeLocal(file || S.ocrBlob, size);
+            if (d2 && d2.rows === size && !d2.thin) {
+              d2.note = `已按你选的 ${size}×${size} 重新对格`;
+              data = d2;
+            }
+          } catch (e2) { /* 保持第一次的结果，交给下面的尺寸不一致提示 */ }
+        }
         if (S.ocrCanceled) return;
-        const r2 = await fetch('api/parse-board/' + encodeURIComponent(jobId));
-        if (r2.status === 404) throw new Error('识别任务已失效（服务可能重启过），请重新识别');
-        const j = await r2.json().catch(() => null);
-        if (!j) continue;
-        if (j.status === 'running') {
-          if (j.stage && j.stage !== S.ocrStage) S.ocrStage = j.stage;   // 让用户看到服务端在做什么
-          continue;
-        }
-        if (!j.ok || j.status === 'error') throw new Error(j.error || '识别失败');
-        data = j.data;
-        break;
       }
-      if (S.ocrCanceled) return;
-      if (!data) throw new Error('识别超时（超过 5 分钟没有结果）');
-
-      const { rows, cols, cells } = data;
-      if (!rows || !cols || !Array.isArray(cells) || cells.length !== rows) throw new Error('识别结果格式不正确');
-      if (rows !== size) {
-        throw new Error(`识别出来是 ${rows}×${cols}，和你选的 ${size}×${size} 不一致 —— 请核对后重选尺寸再识别`);
+      if (!data) {
+        data = await recognizeViaServer(S.ocrBlob || file, size);
+        how = how || 'server';
+        if (!data) return;    // 被取消
       }
-
-      mark();   // 整次识别算一步：识别错了可以一键退回识别前的盘面
-      S.rows = rows; S.cols = cols;
-      el.sizeSeg.querySelectorAll('.seg-btn').forEach((b) => b.classList.toggle('is-on', Number(b.dataset.size) === rows));
-      S.gemTotal = GEM_TOTAL[rows];      // 钻石总数由尺寸固定
-      el.gemTotalText.textContent = S.gemTotal;
-
-      S.grid = newGrid(rows, cols);
-      S.aiCells.clear();
-      S.unsure.clear();
-      for (let r = 0; r < rows; r++) {
-        for (let c = 0; c < cols; c++) {
-          let v = cells[r][c];
-          if (v === 9 || v === 'G') v = 'G';
-          else if (v === 10 || v === 'X') v = 'X';
-          else if (typeof v === 'number' && v >= 0 && v <= 8) v = v;
-          else v = -1;
-          S.grid[r][c] = v;
-          if (v !== -1) S.aiCells.add(r * cols + c);
-        }
-      }
-      for (const pair of (data.unsure || [])) {
-        const r = Number(pair[0]), c = Number(pair[1]);
-        if (r >= 0 && r < rows && c >= 0 && c < cols) { S.aiCells.add(r * cols + c); S.unsure.add(r * cols + c); }
-      }
-      buildBoard();
-      analyze();
-      settle();
-      stopImportClock();
-      clearPick();
-      closeModal();
-      const unsureN = S.unsure.size;
-      // 尺寸选错时，模型会照着错尺寸硬编，结果通常自相矛盾 —— 这里直接提醒
-      const bad = (S.result && S.result.conflicts) ? S.result.conflicts.length : 0;
-      // 几乎没读出东西：弱模型会把整张盘面都当成空格，这种"成功"必须拦住
-      let filledN = 0;
-      for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) if (S.grid[r][c] !== -1) filledN++;
-      const cov = (typeof data.coverage === 'number') ? data.coverage : null;
-      const weak = filledN === 0 || data.thin === true || filledN < Math.max(6, Math.round(rows * rows * 0.05)) || (cov != null && cov < 0.6);
-      if (weak) {
-        setImportStatus('识别完成，但几乎没有读出内容，请重试或手工填写。', 'err');
-        openModal(`
-          <div class="modal-head">
-            <h3>这次没读出内容</h3>
-            <button class="modal-close" data-close type="button">✕</button>
-          </div>
-          <div class="rules">
-            <section>
-              <p>${rows}×${rows} 一共 ${rows * cols} 格，这次只读出 <b>${filledN}</b> 个已翻开的格子${cov != null ? `（模型逐格只报回 ${data.reported}/${data.total} 格）` : ''}。</p>
-              <p>说明识图服务没看清盘面，把大部分格子当成空的了。常见原因是图片太小太糊，或者换了不擅长看密集小字的识图模型。</p>
-              <p>建议：<b>用清晰的整屏截图重试</b>；还是不行就对照截图手工填写 —— 手工填的盘面分析结果一样准确。</p>
-            </section>
-          </div>`);
-      } else if (bad) {
-        const sizeLabel = rows + '×' + rows;
-        setImportStatus(`识别完成，但有 ${bad} 处数字自相矛盾 —— 多半是地图尺寸选错了，请核对后重新识别。`, 'err');
-        openModal(`
-          <div class="modal-head">
-            <h3>识别结果可能不对</h3>
-            <button class="modal-close" data-close type="button">✕</button>
-          </div>
-          <div class="rules">
-            <section>
-              <p>棋盘已经填好了，但<b>有 ${bad} 处数字和周围情况对不上</b>。</p>
-              <p>最常见的原因是<b>地图尺寸选错了</b>（你选的是 ${sizeLabel}，截图可能不是这一档）；也可能是识图读错了个别数字。</p>
-              <p>建议：<b>确认截图是哪一档地图后重新识别</b>；或者对照截图手工改掉不一致的格子 ——
-                 具体位置在「使用说明 → 当前分析 → 盘面自检」里列着。</p>
-            </section>
-          </div>`);
-      } else if (data.badRows > 0) {
-        // 个别行读不准：那几行已留空并整行标红，提示用户手动补，别让他以为是空的
-        setImportStatus(`识别完成，但有 ${data.badRows} 行没读准 —— 已留空并标红，请对照截图把那几行补上。`, 'err');
-        toast(`识别完成：${data.badRows} 行没读准，红框那一行请手动补`, 'warn');
-      } else {
-        if (data.note) setImportStatus(data.note, '');
-        toast(unsureN ? `识别完成，${unsureN} 处红框请重点核对` : '识别完成，请核对带红框的格子', 'gold');
-      }
+      applyResult(data, how);
     } catch (err) {
       stopImportClock();
       const msg = String((err && err.message) || err);
-      const isNetErr = (err && err.name === 'TypeError') || /Failed to fetch|NetworkError|load failed/i.test(msg);
+      const isNetErr = (err && err.netErr) || (err && err.name === 'TypeError') || /Failed to fetch|NetworkError|load failed/i.test(msg);
+      const localFail = LOCAL_OCR && S.localFail === err;
       setImportStatus(
         isNetErr
           ? '连不上识别服务：当前页面可能是静态托管打开的（识别需要服务器）。手动填写不受影响。'
@@ -1773,7 +1889,27 @@
         'err'
       );
       toast(isNetErr ? '连不上识别服务（识别需要服务器版）' : '识别失败，看看弹窗里的提示', 'warn');
+      // 本机识别失败时给一条可操作的出路：重试 / 去服务器版 / 手工填
+      if (localFail) {
+        const svc = OCR_SERVICE || OCR_FALLBACK;
+        openModal(`
+          <div class="modal-head"><h3>本机没能认出棋盘</h3>
+            <button class="modal-close" data-close type="button">✕</button></div>
+          <div class="rules">
+            <section>
+              <p>这次本机识别没定位到棋盘（${msg.slice(0, 60)}）。多半是截图<b>没把棋盘拍全</b>，或者格子太小、图太糊。</p>
+              <ul>
+                <li>截图时<b>把整个棋盘连边框一起截进来</b>（别裁掉四周），尽量用原图不要转发压缩过的图</li>
+                <li>确认上面选的档位和截图一致，然后<b>再识别一次</b></li>
+                <li>也可以点右上角「截图识别」旁边那个按钮换一张更清晰的图</li>
+              </ul>
+              <p>实在认不出来也没关系：<b>手动把已翻开的数字和钻石填进棋盘</b>，分析结果一样准确。</p>
+              <p class="card-foot">需要时也可以用服务器识别（更慢、要联网）：<a class="btn sm" href="${svc}" target="_blank" rel="noopener">${svc}</a></p>
+            </section>
+          </div>`);
+      }
     } finally {
+      S.localFail = null;
       setGoState(false);
       const go = $('#btn-ocr-go');
       if (go) go.textContent = `开始识别（${S.shotSize}×${S.shotSize}）`;
