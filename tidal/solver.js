@@ -244,15 +244,7 @@
     if (!S.game) {
       const center = Math.round((rows - 1) / 2) * cols + Math.round((cols - 1) / 2);
       if (S.filledCount === 0 || !hasClue) hot = center;
-      else if (res) {
-        if (res.pick && res.pick.type === 'gem' && res.pick.i != null) {
-          hot = res.pick.i;
-        } else {
-          // 求解器给出的"赌一把"目标（undecided 已排除钻石/已知安全/×，按概率升序，末尾即最高）
-          const hi = (res.undecided && res.undecided.length) ? res.undecided[res.undecided.length - 1] : null;
-          if (hi && hi.p > 0) hot = hi.i;      // 和建议条用同一个格子，避免平局时两处不一致
-        }
-      }
+      else if (res) hot = pickHotCell(res);
     }
 
     let filled = 0;
@@ -332,6 +324,49 @@
   }
 
   /* ---------- 分析 ---------- */
+  /**
+   * 金色闪烁/建议的目标格：
+   *   ① 已经能确定是钻石的格 → 直接去挖；
+   *   ② 否则取概率最高的格；概率并列时优先"未打开 3×3 的正中心"
+   *      （周围 9 格全没翻开 → 翻一下最多能带出 9 格新线索，比在角落里瞎点强）；
+   *   ③ 再没有就取并列组里求解器排最后的那个（保持和建议条一致）；
+   *   ④ 概率全为 0 / 盘上没线索 → 返回 -1（空盘由调用方退回"棋盘中心"）。
+   */
+  function pickHotCell(res) {
+    if (!res) return -1;
+    if (res.pick && res.pick.type === 'gem' && res.pick.i != null) return res.pick.i;
+    const und = res.undecided || [];
+    if (!und.length) return -1;
+    let maxP = 0;
+    for (const u of und) if (u.p > maxP) maxP = u.p;
+    if (!(maxP > 0)) return -1;
+    const cands = und.filter((u) => u.p >= maxP - 1e-9);
+    const midR = (S.rows - 1) / 2, midC = (S.cols - 1) / 2;
+    let best = -1, bestScore = -Infinity;
+    for (const u of cands) {
+      if (u.r <= 0 || u.c <= 0 || u.r >= S.rows - 1 || u.c >= S.cols - 1) continue;   // 边缘格当不了"3×3 正中心"
+      let allUnopened = true;
+      for (let dr = -1; dr <= 1 && allUnopened; dr++) {
+        for (let dc = -1; dc <= 1; dc++) {
+          if (S.grid[u.r + dr][u.c + dc] !== -1) { allUnopened = false; break; }
+        }
+      }
+      if (!allUnopened) continue;
+      let open5 = 0;                                    // 5×5 里没翻开的格数：越多说明这块越"空"
+      for (let dr = -2; dr <= 2; dr++) {
+        for (let dc = -2; dc <= 2; dc++) {
+          const rr = u.r + dr, cc = u.c + dc;
+          if (rr < 0 || cc < 0 || rr >= S.rows || cc >= S.cols) continue;
+          if (S.grid[rr][cc] === -1) open5++;
+        }
+      }
+      const score = open5 * 100 - (Math.abs(u.r - midR) + Math.abs(u.c - midC));
+      if (score > bestScore) { bestScore = score; best = u.i; }
+    }
+    if (best >= 0) return best;
+    return cands[cands.length - 1].i;
+  }
+
   // 盘上有没有数字线索（没有任何数字时求解器给不出建议，只能提示"第一手点哪"）
   function boardHasClue() {
     for (let r = 0; r < S.rows; r++) {
@@ -384,6 +419,13 @@
       : `显示数字 ${x.clue}，需要 ${x.want} 颗钻石，却只剩 ${x.hidden} 格没翻开`;
   }
 
+  // 这格是不是"未打开 3×3 的正中心"（周围 9 格全没翻开）
+  function isOpenCenter(r, c) {
+    if (r <= 0 || c <= 0 || r >= S.rows - 1 || c >= S.cols - 1) return false;
+    for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) if (S.grid[r + dr][c + dc] !== -1) return false;
+    return true;
+  }
+
   /** 一行建议条（始终显示在棋盘下方） */
   function adviceLine(res) {
     const c = res.counts;
@@ -405,20 +447,28 @@
       return { kind: 'gem', text: `先点开 ${coord(pick.r, pick.c)} —— 必定是钻石（${pick.why || '由数字推出'}）` };
     }
     if (pick.type === 'safe') {
-      const hi = (res.undecided && res.undecided.length) ? res.undecided[res.undecided.length - 1] : null;
+      const hiIdx = pickHotCell(res);
+      const hi = hiIdx >= 0 ? (res.undecided || []).find((u) => u.i === hiIdx) : null;
       if (hi && hi.p > 0) {
+        const inOpen = isOpenCenter(hi.r, hi.c);
+        const why = inOpen ? '，这格周围 9 格全没翻开，一翻就能带出新线索' : '';
         return {
           kind: 'warn',
-          text: `没有能确定的钻石：想挖钻石就点 ${coord(hi.r, hi.c)}（含钻石 ${Math.round(hi.p * 100)}%，现在最高）`
+          text: `没有能确定的钻石：想挖钻石就点 ${coord(hi.r, hi.c)}（含钻石 ${Math.round(hi.p * 100)}%，现在最高${why}）`
             + `；想稳一点先翻开 ${coord(pick.r, pick.c)}（必定不是钻石，可扩开线索）`,
         };
       }
       return { kind: 'safe', text: `没有能确定的钻石；先翻开 ${coord(pick.r, pick.c)}（必定不是钻石，可扩开线索）—— ${pick.why || '由数字推出'}` };
     }
-    const hi = pick, lo = pick.alt;
+    // 赌的目标要和金色闪烁用同一格（并列时优先"未打开 3×3 的正中心"）
+    const hiIdx = pickHotCell(res);
+    const hi = (hiIdx >= 0 && (res.undecided || []).find((u) => u.i === hiIdx)) || pick;
+    const lo = hi === pick ? pick.alt : pick;
+    const why = isOpenCenter(hi.r, hi.c) ? '，这格周围 9 格全没翻开，一翻就能带出新线索' : '';
     return {
       kind: 'warn',
-      text: `推不出确定格子：想赌分翻 ${coord(hi.r, hi.c)}（含钻石 ${Math.round(hi.p * 100)}%），想探线索翻 ${lo ? coord(lo.r, lo.c) + '（' + Math.round(lo.p * 100) + '%）' : '—'}`,
+      text: `推不出确定格子：想赌分翻 ${coord(hi.r, hi.c)}（含钻石 ${Math.round(hi.p * 100)}%${why}）`
+        + `，想探线索翻 ${lo ? coord(lo.r, lo.c) + '（' + Math.round(lo.p * 100) + '%）' : '—'}`,
     };
   }
 
