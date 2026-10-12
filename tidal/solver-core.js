@@ -31,19 +31,6 @@
     return out;
   }
 
-  /** 卷积（带上限），用于把各连通分量的方案数合并成总数约束下的权重 */
-  function convolve(a, b, limit) {
-    const out = new Float64Array(limit + 1);
-    for (let i = 0; i < a.length; i++) {
-      if (a[i] === 0) continue;
-      for (let j = 0; j < b.length && i + j <= limit; j++) {
-        if (b[j] === 0) continue;
-        out[i + j] += a[i] * b[j];
-      }
-    }
-    return out;
-  }
-
   function solve(input) {
     const rows = input.rows | 0;
     const cols = input.cols | 0;
@@ -337,55 +324,35 @@
         compStats.push(stat);
       }
 
-      // 总数约束：候选区钻石数 = 地图总数 - 已翻出/已知的钻石数
-      const knownCount = knownGem.reduce((a, b) => a + b, 0);
-      const need = gTotal == null ? null : gTotal - knownCount;
+      // 概率采用「分组局部」模型：只统计该格所在线索组内的合法摆法（逐组独立），
+      // 放一个数字只影响与它 3×3 邻域相交的数字组，不相交的区域完全不受影响。
+      for (const st of compStats) {
+        let denom = 0;
+        for (const v of st.perCount) denom += v;
+        if (!denom) return { probs, approx, impossible: true };   // 组内无合法摆法 → 盘面矛盾
+        for (let t = 0; t < st.cells.length; t++) {
+          let num = 0;
+          for (let g = 0; g < st.cellGem[t].length; g++) num += st.cellGem[t][g];
+          probs[st.cells[t]] = num / denom;
+        }
+      }
 
-      const limit = need == null ? 0 : Math.max(0, need);
-      let totalWays = 1;
-      if (need != null) {
-        if (need < 0) return { probs, approx, impossible: true };
-        const prefix = [];
-        let cur = new Float64Array(limit + 1);
-        cur[0] = 1;
-        prefix.push(cur);
+      // 单独的「全盘钻石总数」一致性检查：只用于矛盾提示，不参与概率计算。
+      // 各组最少/最多需要的钻石数求和，与剩余总数比较，超出范围即盘面矛盾。
+      if (gTotal != null) {
+        const knownCount = knownGem.reduce((a, b) => a + b, 0);
+        const needLeft = gTotal - knownCount;
+        if (needLeft < 0) return { probs, approx, impossible: true };
+        let minSum = 0, maxSum = 0;
         for (const st of compStats) {
-          cur = convolve(cur, st.perCount, limit);
-          prefix.push(cur);
-        }
-        const suffix = new Array(compStats.length + 1);
-        suffix[compStats.length] = (() => { const a = new Float64Array(limit + 1); a[0] = 1; return a; })();
-        for (let c = compStats.length - 1; c >= 0; c--) {
-          suffix[c] = convolve(compStats[c].perCount, suffix[c + 1], limit);
-        }
-        totalWays = prefix[compStats.length][need] || 0;
-        if (totalWays === 0) return { probs, approx, impossible: true };
-
-        for (let c = 0; c < compStats.length; c++) {
-          const st = compStats[c];
-          const others = c === 0 ? suffix[1] : (c === compStats.length - 1 ? prefix[c] : convolve(prefix[c], suffix[c + 1], limit));
-          for (let t = 0; t < st.cells.length; t++) {
-            let num = 0;
-            for (let g = 0; g < st.cellGem[t].length; g++) {
-              if (!st.cellGem[t][g]) continue;
-              const rest = need - g;
-              if (rest < 0 || rest > limit) continue;
-              num += st.cellGem[t][g] * (others[rest] || 0);
-            }
-            probs[st.cells[t]] = num / totalWays;
+          let mn = -1, mx = -1;
+          for (let g = 0; g < st.perCount.length; g++) {
+            if (st.perCount[g]) { if (mn < 0) mn = g; mx = g; }
           }
+          if (mn < 0) return { probs, approx, impossible: true };
+          minSum += mn; maxSum += mx;
         }
-      } else {
-        // 未提供总数：只看局部比例
-        for (const st of compStats) {
-          let denom = 0;
-          for (const v of st.perCount) denom += v;
-          for (let t = 0; t < st.cells.length; t++) {
-            let num = 0;
-            for (let g = 0; g < st.cellGem[t].length; g++) num += st.cellGem[t][g];
-            probs[st.cells[t]] = denom ? num / denom : null;
-          }
-        }
+        if (needLeft < minSum || needLeft > maxSum) return { probs, approx, impossible: true };
       }
       return { probs, approx };
     }

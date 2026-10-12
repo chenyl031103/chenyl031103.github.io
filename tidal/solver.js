@@ -1337,6 +1337,7 @@
             <li><span class="lg-dot lg-dot-gem">√</span><b>绿色 √ ＝ 这格是钻石</b>，直接去翻它</li>
             <li><span class="lg-dot lg-dot-safe">×</span><b>灰色 × ＝ 这格不是钻石</b>，可以放心</li>
             <li><b>格子中央的百分比</b>＝推不出来时的概率，仅供参考；<b>颜色分三档</b>：<b style="color:#d93a2b">红色＝高概率</b>（值得赌）、<b style="color:#b3770a">琥珀色＝中等</b>、<b style="color:#2f7fbf">蓝色＝低概率</b>（先别碰）</li>
+            <li><b>概率只受"与它 3×3 邻域相交的数字"影响</b>：算法会枚举与这格相关的所有数字线索的全部合法摆法，统计这格含钻的比例（组与组互相独立）；远处的数字不影响它，新填一个数字也只会改变它自己邻域及相关联数字邻域的概率。</li>
             <li><b>数字颜色</b>按大小渐变：<b style="color:#8a97a5">0 灰</b>（最不显眼）→ <b style="color:#3d7fc1">2 蓝</b> → <b style="color:#2f9e5f">4 绿</b> → <b style="color:#e0871f">6 橙</b> → <b style="color:#d02b2b">8 红</b>（最醒目），笔刷和取值卡里的数字同色</li>
           </ul>
         </section>
