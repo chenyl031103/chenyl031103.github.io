@@ -76,6 +76,7 @@
     board: $('#board'),
     boardScroll: $('#board-scroll'),
     boardShell: $('#board-shell'),
+    stage: $('#stage'),
     cellMinus: $('#cell-minus'),
     cellPlus: $('#cell-plus'),
     cellAuto: $('#cell-auto'),
@@ -520,6 +521,7 @@
     const r = (i / S.cols) | 0, c = i % S.cols;
     const rng = revealRange(r, c);
     S.awaiting = i;
+    S.cursor = i;   // 光标同步到这格：高亮只出现在一个格子上，不会出现"两个框"
     el.rbTarget.textContent = coord(r, c);
     const btns = [];
     for (let v = rng.min; v <= rng.max; v++) {
@@ -935,24 +937,17 @@
       el.cellAuto.onclick = () => setManualCell(0);
     }
     if (el.boardFs) el.boardFs.onclick = () => {
-      const shell = el.boardShell || document.querySelector('.board-shell');
+      // 全屏整个工具栏+棋盘区域（含笔刷栏、取值卡、提示弹窗都在里面，全屏下功能完整）
+      const stage = el.stage || document.querySelector('.stage');
       if (!document.fullscreenElement) {
-        if (shell && shell.requestFullscreen) shell.requestFullscreen().catch(() => showToast('当前浏览器不支持全屏'));
+        if (stage && stage.requestFullscreen) stage.requestFullscreen().catch(() => showToast('当前浏览器不支持全屏'));
       } else if (document.exitFullscreen) {
         document.exitFullscreen();
       }
     };
-    // 全屏时把工具条（格子大小/全屏）临时移进棋盘浮层，退出时放回原处
-    const toolsEl = $('#board-tools');
-    const toolsHome = toolsEl ? toolsEl.parentElement : null;
-    const toolsNext = toolsEl ? toolsEl.nextElementSibling : null;
     document.addEventListener('fullscreenchange', () => {
       const on = !!document.fullscreenElement;
       if (el.boardFs) el.boardFs.textContent = on ? '退出全屏' : '全屏';
-      if (toolsEl) {
-        if (on && el.boardShell) el.boardShell.appendChild(toolsEl);
-        else if (!on && toolsHome) toolsHome.insertBefore(toolsEl, toolsNext);
-      }
       setTimeout(() => { fitBoard(); paint(); if (S.awaiting >= 0) positionRevealBar(); }, 80);
     });
   }

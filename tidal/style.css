@@ -293,31 +293,26 @@ main {
 }
 .bb-btn:hover { border-color: var(--accent); color: var(--accent); }
 .bb-btn.is-on { border-color: var(--accent); color: var(--accent); font-weight: 700; }
-/* 全屏：棋盘铺满整屏；工具条由 JS 移进 shell，浮在右上角（全屏下棋盘居中，角落是空的） */
-.board-shell:fullscreen {
+/* 全屏：整个工具区（地图栏 + 笔刷栏 + 棋盘 + 提示）铺满屏幕，
+   全屏下也能改格子、也能弹取值卡；棋盘占满剩余高度，格子按屏幕重新适配 */
+.stage:fullscreen {
   background: var(--bg-primary);
-  border: none;
-  border-radius: 0;
-  display: flex;
-  flex-direction: column;
   width: 100vw;
   height: 100vh;
+  padding: 10px;
+  overflow: auto;
+  gap: 10px;
 }
-.board-shell:fullscreen .board-scroll {
+.stage:fullscreen .board-shell {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.stage:fullscreen .board-scroll {
   flex: 1;
   display: grid;
   place-items: center;
-  padding: 12px;
-}
-.board-shell:fullscreen .board-tools {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  z-index: 6;
-  padding: 4px 6px;
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
 }
 .board-scroll {
   padding: 14px;

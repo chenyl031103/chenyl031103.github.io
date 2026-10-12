@@ -7,7 +7,7 @@
 <meta name="description" content="《弹壳特攻队》潮汐秘境计算器：把当前棋盘的数字、钻石、× 标记填进来，自动推出哪些格子必定是钻石、哪些必定不是钻石、下一步先点哪里。支持上传截图自动识别。">
 <meta name="theme-color" content="#0f1923">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext y='25' font-size='25'%3E%F0%9F%92%8E%3C/text%3E%3C/svg%3E">
-<link rel="stylesheet" href="style.css?vmv4wwr88">
+<link rel="stylesheet" href="style.css?vmv4x2gmg">
 <script>var t=localStorage.getItem('theme')||'light';document.documentElement.setAttribute('data-theme',t);</script>
 </head>
 <body>
@@ -62,7 +62,7 @@
 </header>
 
 <main>
-  <section class="stage">
+  <section class="stage" id="stage">
 
     <p class="site-links" id="site-links"></p>
 
@@ -155,28 +155,28 @@
       </span>
     </div>
 
+    <div class="reveal-bar" id="reveal-bar" hidden>
+      <div class="rb-head">
+        <span class="rb-label">翻开的 <b id="rb-target">—</b> 是：</span>
+        <button class="rb-close" data-rb="cancel" type="button" title="取消">✕</button>
+      </div>
+      <span class="rb-values" id="rb-values"></span>
+      <span class="rb-hint" id="rb-hint"></span>
+    </div>
+
+    <div class="modal" id="modal" hidden>
+      <div class="modal-mask" data-close></div>
+      <div class="modal-box" id="modal-box" role="dialog" aria-modal="true"></div>
+    </div>
+    <div class="toasts" id="toasts"></div>
+
   </section>
   <footer class="footer">《弹壳特攻队》潮汐秘境计算器小工具 · 海出品</footer>
 </main>
 
-<div class="reveal-bar" id="reveal-bar" hidden>
-  <div class="rb-head">
-    <span class="rb-label">翻开的 <b id="rb-target">—</b> 是：</span>
-    <button class="rb-close" data-rb="cancel" type="button" title="取消">✕</button>
-  </div>
-  <span class="rb-values" id="rb-values"></span>
-  <span class="rb-hint" id="rb-hint"></span>
-</div>
-
-<div class="modal" id="modal" hidden>
-  <div class="modal-mask" data-close></div>
-  <div class="modal-box" id="modal-box" role="dialog" aria-modal="true"></div>
-</div>
-<div class="toasts" id="toasts"></div>
-
 <script>window.TIDAL_OCR = false;/* 静态托管版由构建脚本改成 false */</script>
 <script>window.TIDAL_OCR_URL = 'http://chenyl.free.idcfengye.com/';/* 静态版构建时填入「带截图识别的网址」 */</script>
-<script src="solver-core.js?vmv4wwr88"></script>
-<script src="solver.js?vmv4wwr88"></script>
+<script src="solver-core.js?vmv4x2gmg"></script>
+<script src="solver.js?vmv4x2gmg"></script>
 </body>
 </html>
