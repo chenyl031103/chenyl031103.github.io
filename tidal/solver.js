@@ -942,9 +942,17 @@
         document.exitFullscreen();
       }
     };
+    // 全屏时把工具条（格子大小/全屏）临时移进棋盘浮层，退出时放回原处
+    const toolsEl = $('#board-tools');
+    const toolsHome = toolsEl ? toolsEl.parentElement : null;
+    const toolsNext = toolsEl ? toolsEl.nextElementSibling : null;
     document.addEventListener('fullscreenchange', () => {
       const on = !!document.fullscreenElement;
       if (el.boardFs) el.boardFs.textContent = on ? '退出全屏' : '全屏';
+      if (toolsEl) {
+        if (on && el.boardShell) el.boardShell.appendChild(toolsEl);
+        else if (!on && toolsHome) toolsHome.insertBefore(toolsEl, toolsNext);
+      }
       setTimeout(() => { fitBoard(); paint(); if (S.awaiting >= 0) positionRevealBar(); }, 80);
     });
   }

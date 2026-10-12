@@ -271,33 +271,29 @@ main {
   border-radius: var(--radius);
   overflow: hidden;
 }
-/* 棋盘工具条：格子大小调节 + 全屏 */
-.board-bar {
-  display: flex;
+/* 格子大小 / 全屏：并入「地图尺寸」同一行，不再单独占一行 */
+.board-tools {
+  display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
-  border-bottom: 1px solid var(--border);
-  background: var(--bg-secondary);
-  font-size: 0.78rem;
+  gap: 4px;
+  margin-left: auto;   /* 靠右对齐 */
 }
-.bb-label { color: var(--text-muted); }
+.bb-label { color: var(--text-muted); font-size: 0.75rem; }
 .bb-btn {
-  min-width: 30px;
-  height: 26px;
-  padding: 0 8px;
+  min-width: 26px;
+  height: 24px;
+  padding: 0 7px;
   background: var(--bg-input);
   color: var(--text-secondary);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  font-size: 0.78rem;
+  font-size: 0.75rem;
   cursor: pointer;
   transition: all 0.15s;
 }
 .bb-btn:hover { border-color: var(--accent); color: var(--accent); }
 .bb-btn.is-on { border-color: var(--accent); color: var(--accent); font-weight: 700; }
-.bb-spacer { flex: 1; }
-/* 全屏：棋盘铺满整屏，工具条固定在顶部，格子按屏幕重新适配（手机上格子更大好点） */
+/* 全屏：棋盘铺满整屏；工具条由 JS 移进 shell，浮在右上角（全屏下棋盘居中，角落是空的） */
 .board-shell:fullscreen {
   background: var(--bg-primary);
   border: none;
@@ -312,6 +308,16 @@ main {
   display: grid;
   place-items: center;
   padding: 12px;
+}
+.board-shell:fullscreen .board-tools {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 6;
+  padding: 4px 6px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
 }
 .board-scroll {
   padding: 14px;
