@@ -57,28 +57,10 @@
   }
 
   // 页脚上方的相关链接：静态版列出「带识别」的网址，服务版列出「静态版」网址
-  const STATIC_SITES = [
-    'https://chenyl031103.github.io/tidal/',
-    'https://www.axxiu.cn/project/t1gBdI7v/',
-  ];
   const OCR_FALLBACK = 'http://chenyl.free.idcfengye.com/';
   const GATEWAY_URL = 'https://chenyl031103.github.io';
-
-  function renderSiteLinks() {
-    const box = document.getElementById('site-links');
-    if (!box) return;
-    // 只有服务版列这条（把静态版网址发给群友）；静态版自己不显示
-    if (!OCR_SERVER_ON) { box.hidden = true; return; }
-    const short = (u) => u.replace(/^https?:\/\//, '').replace(/\/+$/, '');
-    const note = '静态版：不用服务器也能本机识别、不消耗识图额度，可直接发给群友';
-    const list = STATIC_SITES.map((u) => ({ u, label: short(u) }));
-    box.innerHTML =
-      '<span class="sl-title">🔗 相关网址</span>' +
-      '<span class="sl-note">' + note + '</span>' +
-      '<span class="sl-list">' +
-      list.map((x) => '<a href="' + x.u + '" target="_blank" rel="noopener">' + x.label + '</a>').join('<span class="sep">·</span>') +
-      '</span>';
-  }
+  // 页脚不再列"相关网址"：现在主要入口就是 chenyl031103.github.io/tidal（静态版自带本机识别）
+  function renderSiteLinks() {}
 
   const $ = (s) => document.querySelector(s);
   const el = {
@@ -92,7 +74,6 @@
     boardFs: $('#board-fs'),
     sizeSeg: $('#size-seg'),
     gemTotalText: $('#gem-total-text'),
-    gemOpened: $('#gem-opened'),
     gemLeft: $('#gem-left'),
     ticketsUsed: $('#tickets-used'),
     diamondsUsed: $('#diamonds-used'),
@@ -1616,7 +1597,6 @@
       }
     }
     const total = Number.isFinite(S.gemTotal) ? S.gemTotal : null;
-    if (el.gemOpened) el.gemOpened.textContent = String(gems);
     if (el.gemLeft) el.gemLeft.textContent = total == null ? '—' : String(Math.max(0, total - gems));
     if (el.ticketsUsed) el.ticketsUsed.textContent = String(tickets);
     if (el.diamondsUsed) el.diamondsUsed.textContent = (tickets * TICKET_COST).toLocaleString('en-US');
