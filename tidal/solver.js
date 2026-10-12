@@ -236,12 +236,23 @@
       }
     }
     const clueLess = (i) => !isClue[i];
-    // 高亮闪烁提示"点这一格"：有确定建议就用建议格，没有（例如空盘）用棋盘中心
+    // 金色闪烁 = "这格最可能是钻石"：依次取
+    //   ① 已经能确定的钻石（直接去挖）② 概率最高的那一格（赌一把的靶子）
+    // 空盘/还没线索时退化成"第一手点哪"（棋盘中心）。
+    // 注意：不闪"必定安全"的格子 —— 那种格子是"稳着探线索"用的，和目标用户预期不符。
     let hot = -1;
     if (!S.game) {
       const center = Math.round((rows - 1) / 2) * cols + Math.round((cols - 1) / 2);
-      if (S.filledCount === 0 || !hasClue) hot = center;      // 空盘/无线索：提示第一手
-      else if (res && res.pick && typeof res.pick.r === 'number' && res.pick.i != null) hot = res.pick.i;
+      if (S.filledCount === 0 || !hasClue) hot = center;
+      else if (res) {
+        if (res.pick && res.pick.type === 'gem' && res.pick.i != null) {
+          hot = res.pick.i;
+        } else {
+          // 求解器给出的"赌一把"目标（undecided 已排除钻石/已知安全/×，按概率升序，末尾即最高）
+          const hi = (res.undecided && res.undecided.length) ? res.undecided[res.undecided.length - 1] : null;
+          if (hi && hi.p > 0) hot = hi.i;      // 和建议条用同一个格子，避免平局时两处不一致
+        }
+      }
     }
 
     let filled = 0;
@@ -394,6 +405,14 @@
       return { kind: 'gem', text: `先点开 ${coord(pick.r, pick.c)} —— 必定是钻石（${pick.why || '由数字推出'}）` };
     }
     if (pick.type === 'safe') {
+      const hi = (res.undecided && res.undecided.length) ? res.undecided[res.undecided.length - 1] : null;
+      if (hi && hi.p > 0) {
+        return {
+          kind: 'warn',
+          text: `没有能确定的钻石：想挖钻石就点 ${coord(hi.r, hi.c)}（含钻石 ${Math.round(hi.p * 100)}%，现在最高）`
+            + `；想稳一点先翻开 ${coord(pick.r, pick.c)}（必定不是钻石，可扩开线索）`,
+        };
+      }
       return { kind: 'safe', text: `没有能确定的钻石；先翻开 ${coord(pick.r, pick.c)}（必定不是钻石，可扩开线索）—— ${pick.why || '由数字推出'}` };
     }
     const hi = pick, lo = pick.alt;
