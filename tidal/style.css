@@ -1138,13 +1138,23 @@ body.is-game .board-scroll { display: flex; justify-content: center; align-items
 .ocr-prev canvas { max-width: 100%; height: auto; border-radius: 6px; display: block; }
 .ocr-stats { text-align: center; font-size: 0.78rem; color: var(--text-muted); margin: 2px 0 8px; }
 .nudge-row { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-bottom: 4px; }
-/* 建议点击的格子：红色高亮闪烁（"最可能出钻石 / 没开区域最多的一格 / 空盘第一手"） */
+/* 建议点击的格子：高亮闪烁，颜色跟着概率档位（高=红 / 中=黄 / 低=蓝） */
 .cell.is-hot {
   position: relative;
   z-index: 3;
-  outline: 5px solid #ff2d20;
+  --hot: #ff2d20; --hot-soft: #ff7a63;
+  --hot-a: rgba(255, 45, 32, 0.95); --hot-b: rgba(255, 45, 32, 0.62); --hot-c: rgba(255, 45, 32, 0);
+  outline: 5px solid var(--hot);
   outline-offset: -4px;
   animation: hot-pulse 0.8s ease-in-out infinite;
+}
+.cell.is-hot[data-hot="mid"] {
+  --hot: #e79a12; --hot-soft: #ffd166;
+  --hot-a: rgba(231, 154, 18, 0.95); --hot-b: rgba(231, 154, 18, 0.62); --hot-c: rgba(231, 154, 18, 0);
+}
+.cell.is-hot[data-hot="lo"] {
+  --hot: #2f7fbf; --hot-soft: #8ccbf2;
+  --hot-a: rgba(47, 127, 191, 0.95); --hot-b: rgba(47, 127, 191, 0.62); --hot-c: rgba(47, 127, 191, 0);
 }
 .cell.is-hot::before {
   content: '';
@@ -1155,12 +1165,12 @@ body.is-game .board-scroll { display: flex; justify-content: center; align-items
   animation: hot-ring 0.8s ease-out infinite;
 }
 @keyframes hot-pulse {
-  0%, 100% { outline-color: rgba(255, 45, 32, 0.95); box-shadow: 0 0 0 0 rgba(255, 45, 32, 0.6), inset 0 0 16px rgba(255, 45, 32, 0.5); transform: scale(1); }
-  50%      { outline-color: #ff6a52; box-shadow: 0 0 20px 6px rgba(255, 45, 32, 0.95), inset 0 0 24px rgba(255, 45, 32, 0.75); transform: scale(1.1); }
+  0%, 100% { outline-color: var(--hot-b); box-shadow: 0 0 0 0 var(--hot-b), inset 0 0 16px var(--hot-b); transform: scale(1); }
+  50%      { outline-color: var(--hot-soft); box-shadow: 0 0 20px 6px var(--hot-a), inset 0 0 24px var(--hot-a); transform: scale(1.1); }
 }
 @keyframes hot-ring {
-  0%   { box-shadow: 0 0 0 0 rgba(255, 45, 32, 0.85); opacity: 1; }
-  100% { box-shadow: 0 0 0 12px rgba(255, 45, 32, 0); opacity: 0; }
+  0%   { box-shadow: 0 0 0 0 var(--hot-a); opacity: 1; }
+  100% { box-shadow: 0 0 0 12px var(--hot-c); opacity: 0; }
 }
 @media (prefers-reduced-motion: reduce) {
   .cell.is-hot { animation: none; }

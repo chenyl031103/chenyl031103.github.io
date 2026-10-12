@@ -43,7 +43,7 @@
   }
 
   const OCR_SERVICE = resolveOcrService();
-  const DOUBLE_MS = 340;   // 两次按下间隔小于此值算「双击翻开」
+  const DOUBLE_MS = 340;   // 两次按下间隔小于此值算「双击」（涂色笔刷下双击 = 弹取值卡）
 
   /* 服务器识别的候选地址（按序尝试）：
      · 服务版：同源 api/parse-board
@@ -131,6 +131,7 @@
     awaiting: -1,         // 正在等待选择「翻开值」的格子
     cursor: -1,           // 当前选中的格子（键盘输入的目标）
     lastTap: { i: -1, t: 0 },
+    tapStart: null,       // 选中笔刷按下时的位置（抬手没怎么动才弹取值卡）
     pressBackup: null,    // 记录按下前的值，供双击时回滚
     // 手动格子大小（px）：0 = 自动适配屏幕；非 0 时固定该尺寸（localStorage 记忆）
     manualCell: (() => { const v = Number(localStorage.getItem('tidal_cell_px') || 0); return Number.isFinite(v) && v > 0 ? v : 0; })(),
@@ -325,7 +326,18 @@
           cls += ' is-open';
           cls += ' n' + v; text = String(v);      // 0 也显示（灰色，最不显眼）
         }
-        if (i === hot) cls += ' is-hot';
+        if (i === hot) {
+          cls += ' is-hot';
+          // 闪烁颜色跟着"这一格现在的概率档位"走：高=红、中=黄、低=蓝（和格子里的百分比标签同色系）
+          let tier = 'mid';
+          if (v === 'G' || (res && res.knownGem && res.knownGem[i])) tier = 'hi';
+          else if (res && res.probs && res.probs[i] != null) {
+            const p = res.probs[i];
+            const pct = Math.round(p * 100);
+            tier = (p >= 0.995 || pct >= 67) ? 'hi' : (p <= 0.005 || pct < 33) ? 'lo' : 'mid';
+          }
+          node.dataset.hot = tier;
+        } else if (node.dataset.hot) node.dataset.hot = '';
         if (S.aiCells.has(i)) cls += ' is-ai';
         if (S.unsure.has(i)) cls += ' is-unsure';
         if (S.awaiting === i) cls += ' awaiting';
@@ -654,7 +666,7 @@
     analyze();
   }
 
-  /* ---------- 双击翻开：选择这一格翻出来是什么 ---------- */
+  /* ---------- 取值卡：选择这一格翻出来是什么（单击格子弹出） ---------- */
   /**
    * 这一格周围可能出现的数字范围。
    * 数字 = 周围 8 格里钻石的总数（含已经翻出来的），所以：
@@ -896,8 +908,8 @@
         return;
       }
 
-      // 双击 = 打开取值栏（鼠标 / 手机的输入方式）
-      if (S.lastTap.i === i && now - S.lastTap.t < DOUBLE_MS) {
+      // 双击数字格 = 快速翻开周围（仅"涂"类笔刷；选中笔刷单击就会弹取值卡，不需要双击）
+      if (S.brush !== 'select' && S.lastTap.i === i && now - S.lastTap.t < DOUBLE_MS) {
         S.lastTap = { i: -1, t: 0 };
         S.painting = null;
         if (S.pressBackup && S.pressBackup.i === i) {
@@ -913,7 +925,9 @@
       // 单击 = 选中这一格（键盘 0-8 / Enter / X / Delete 都作用在它上面）
       S.cursor = i;
       if (S.brush === 'select') {
+        // 选中笔刷：单击就弹取值卡（抬手时才弹，手指在手机上滚页面不会误触）
         S.painting = null;
+        S.tapStart = { i, x: e.clientX, y: e.clientY };
         paint();
         return;
       }
@@ -923,6 +937,15 @@
       mark();
       applyBrush(node, 'paint');
     });
+
+    el.board.addEventListener('pointerup', (e) => {
+      const t = S.tapStart;
+      if (!t) return;
+      S.tapStart = null;
+      if (Math.abs(e.clientX - t.x) + Math.abs(e.clientY - t.y) > 10) return;   // 拖动了（滚页面/滑动）→ 不算点击
+      openRevealBar(t.i);
+    });
+    el.board.addEventListener('pointercancel', () => { S.tapStart = null; });
 
     el.board.addEventListener('pointerover', (e) => {
       if (!S.painting) return;
@@ -1045,6 +1068,7 @@
         paint();
         analyze();
         settle();
+        closeRevealBar();
       };
 
       // 方向键：移动选中的格子
@@ -1539,8 +1563,8 @@
         <section>
           <h4>1 · 把游戏里的盘面抄进来</h4>
           <ul>
-            <li><b>电脑</b>：先点一下格子选中它，然后 —— <b>0~8</b> 填数字 · <b>Enter</b> 填钻石 · <b>X</b> 填 × · <b>Delete</b> 清除 · <b>方向键</b>换格子</li>
-            <li><b>手机</b>：双击格子，格子旁边会弹出按钮（数字 / 钻石 / × / 清除）</li>
+            <li><b>电脑</b>：点一下格子，旁边会弹出取值卡（数字 / 钻石 / × / 清除）；也可以直接按键盘 —— <b>0~8</b> 填数字 · <b>Enter</b> 填钻石 · <b>X</b> 填 × · <b>Delete</b> 清除 · <b>方向键</b>换格子</li>
+            <li><b>手机</b>：<b>单击格子</b>，格子旁边弹出取值卡（左右滑动页面不会误触）</li>
             <li><b>想快速标钻石</b>：右键格子（手机长按）；填错了按 <b>Ctrl+Z</b> 撤销</li>
             <li><b>格子太小/太大</b>：棋盘上方「格子大小 −/＋」可手动调（会记住，下次打开还是这个大小），点「自动」恢复按屏幕适配；点「全屏」让棋盘铺满整个屏幕，手机上格子更大更好点。</li>
             <li>一整盘抄不完也没关系，先把<b>已经翻开的数字</b>和<b>已经翻出的钻石</b>填上就够用了</li>
