@@ -783,29 +783,33 @@ main {
 /* ---------- 15. 状态条：建议 + 结论合并成一条（省一行） ---------- */
 .status-bar {
   display: flex;
-  align-items: center;
-  flex-wrap: wrap;
+  align-items: flex-start;   /* 建议首行与右侧计数在同一水平线 */
+  flex-wrap: nowrap;         /* 建议与结论始终保持同一水平带（窄屏时结论在内部换行） */
   gap: 6px 16px;
   padding: 10px 14px;
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: var(--radius);
 }
+@media (max-width: 640px) {
+  .status-bar { flex-wrap: wrap; }   /* 手机太窄，允许结论整体换到下一行 */
+}
 .status-bar .advice {
-  flex: 1 1 240px;
-  min-width: 0;
+  flex: 1 1 auto;
+  min-width: 200px;
   padding: 0;
   background: none;
   border: none;
   border-radius: 0;
 }
 .status-bar .verdict-bar {
-  flex: 0 1 auto;
+  flex: 0 1 auto;      /* 计数与按钮收缩时在内部换行，始终和建议在同一水平带 */
+  justify-content: flex-end;
   padding: 0;
   background: none;
   border: none;
   border-radius: 0;
-  gap: 6px 14px;
+  gap: 6px 12px;
 }
 /* 建议条原有的状态配色（金/绿/橙）映射到整条边框，观感不变 */
 .status-bar:has(.advice.is-gem) { border-color: var(--gold); }
