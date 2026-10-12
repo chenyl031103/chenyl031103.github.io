@@ -499,10 +499,10 @@
     el.rbTarget.textContent = coord(r, c);
     const btns = [];
     for (let v = rng.min; v <= rng.max; v++) {
-      btns.push('<button class="rb-btn' + (v === 0 ? ' rb-zero' : '') + '" data-val="' + v + '" type="button">' + (v === 0 ? '空白 0' : v) + '</button>');
+      btns.push('<button class="rb-btn" data-val="' + v + '" type="button" title="' + (v === 0 ? '空白（0）' : '数字 ' + v) + '">' + v + '</button>');
     }
-    btns.push('<button class="rb-btn rb-gem" data-val="G" type="button"><svg class="ico"><use href="#ico-gem"/></svg>钻石</button>');
-    btns.push('<button class="rb-btn" data-val="X" type="button">× 标记</button>');
+    btns.push('<button class="rb-btn rb-gem" data-val="G" type="button" title="钻石"><svg class="ico"><use href="#ico-gem"/></svg></button>');
+    btns.push('<button class="rb-btn" data-val="X" type="button" title="× 标记">×</button>');
     btns.push('<button class="rb-btn rb-zero" data-val="CLEAR" type="button">清除</button>');
     el.rbValues.innerHTML = btns.join('');
 
@@ -527,7 +527,7 @@
     const cell = node.getBoundingClientRect();
     const bar = el.revealBar.getBoundingClientRect();
     const vw = window.innerWidth, vh = window.innerHeight;
-    const gap = 8, pad = 8;
+    const gap = 14, pad = 8;   // 与格子的距离留一点空，不贴脸
     let top = cell.bottom + gap;
     if (top + bar.height > vh - pad) top = cell.top - bar.height - gap;   // 下方放不下 → 换上方
     if (top < pad) top = pad;

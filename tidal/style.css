@@ -453,9 +453,9 @@ main {
 .rb-btn:hover { background: var(--bg-hover); border-color: var(--accent); color: var(--accent); }
 .rb-btn .ico { width: 15px; height: 15px; color: var(--gold); }
 .rb-gem { color: var(--gold); border-color: var(--gold); }
+.rb-gem .ico { width: 19px; height: 19px; }
 .rb-hint { font-size: 0.72rem; color: var(--text-muted); text-align: center; }
 .rb-zero { font-weight: 400; }
-.rb-gem .ico { width: 15px; height: 15px; color: var(--gold); }
 
 /* ---------- 9. 结论条 ---------- */
 .verdict-bar {
