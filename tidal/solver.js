@@ -75,6 +75,11 @@
   const el = {
     board: $('#board'),
     boardScroll: $('#board-scroll'),
+    boardShell: $('#board-shell'),
+    cellMinus: $('#cell-minus'),
+    cellPlus: $('#cell-plus'),
+    cellAuto: $('#cell-auto'),
+    boardFs: $('#board-fs'),
     sizeSeg: $('#size-seg'),
     gemTotalText: $('#gem-total-text'),
     filled: $('#filled-count'),
@@ -113,6 +118,8 @@
     cursor: -1,           // 当前选中的格子（键盘输入的目标）
     lastTap: { i: -1, t: 0 },
     pressBackup: null,    // 记录按下前的值，供双击时回滚
+    // 手动格子大小（px）：0 = 自动适配屏幕；非 0 时固定该尺寸（localStorage 记忆）
+    manualCell: (() => { const v = Number(localStorage.getItem('tidal_cell_px') || 0); return Number.isFinite(v) && v > 0 ? v : 0; })(),
     history: [],          // 撤销栈：每项是「那一步之前」的盘面快照
     histBase: null,       // 本次操作开始前的快照，抬手时才入栈（拖动连涂算一步）
     importTimer: null,
@@ -139,6 +146,14 @@
   function fitBoard() {
     const cols = S.cols, rows = S.rows;
     const gap = cols > 10 ? 5 : 6;
+    // 手动模式：用户点过「格子大小 −/+」，固定尺寸（棋盘放不下就滚动），不再自动缩放
+    if (S.manualCell) {
+      const cell = clamp(S.manualCell, 14, 120);
+      el.board.style.setProperty('--gap', gap + 'px');
+      el.board.style.setProperty('--cell', cell + 'px');
+      el.board.style.setProperty('--font', Math.round(cell * 0.54) + 'px');
+      return cell;
+    }
     const cs = getComputedStyle(el.boardScroll);
     const padX = (parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.paddingRight) || 0);
     const padY = (parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.paddingBottom) || 0);
@@ -899,6 +914,39 @@
       if (rz) clearTimeout(rz);
       rz = setTimeout(() => { fitBoard(); paint(); }, 120);
     });
+
+    // 格子大小手动调节（− / ＋ / 自动）与棋盘全屏
+    const currentCellPx = () => parseFloat(getComputedStyle(el.board).getPropertyValue('--cell')) || 42;
+    const setManualCell = (px) => {
+      S.manualCell = px ? clamp(px, 14, 120) : 0;
+      try {
+        if (S.manualCell) localStorage.setItem('tidal_cell_px', String(S.manualCell));
+        else localStorage.removeItem('tidal_cell_px');
+      } catch (e) {}
+      if (el.cellAuto) el.cellAuto.classList.toggle('is-on', !S.manualCell);
+      fitBoard();
+      paint();
+      if (S.awaiting >= 0) positionRevealBar();
+    };
+    if (el.cellMinus) el.cellMinus.onclick = () => setManualCell((S.manualCell || currentCellPx()) - 2);
+    if (el.cellPlus) el.cellPlus.onclick = () => setManualCell((S.manualCell || currentCellPx()) + 2);
+    if (el.cellAuto) {
+      el.cellAuto.classList.toggle('is-on', !S.manualCell);
+      el.cellAuto.onclick = () => setManualCell(0);
+    }
+    if (el.boardFs) el.boardFs.onclick = () => {
+      const shell = el.boardShell || document.querySelector('.board-shell');
+      if (!document.fullscreenElement) {
+        if (shell && shell.requestFullscreen) shell.requestFullscreen().catch(() => showToast('当前浏览器不支持全屏'));
+      } else if (document.exitFullscreen) {
+        document.exitFullscreen();
+      }
+    };
+    document.addEventListener('fullscreenchange', () => {
+      const on = !!document.fullscreenElement;
+      if (el.boardFs) el.boardFs.textContent = on ? '退出全屏' : '全屏';
+      setTimeout(() => { fitBoard(); paint(); if (S.awaiting >= 0) positionRevealBar(); }, 80);
+    });
   }
 
   function selectBrush(name) {
@@ -1328,6 +1376,7 @@
             <li><b>电脑</b>：先点一下格子选中它，然后 —— <b>0~8</b> 填数字 · <b>Enter</b> 填钻石 · <b>X</b> 填 × · <b>Delete</b> 清除 · <b>方向键</b>换格子</li>
             <li><b>手机</b>：双击格子，格子旁边会弹出按钮（数字 / 钻石 / × / 清除）</li>
             <li><b>想快速标钻石</b>：右键格子（手机长按）；填错了按 <b>Ctrl+Z</b> 撤销</li>
+            <li><b>格子太小/太大</b>：棋盘上方「格子大小 −/＋」可手动调（会记住，下次打开还是这个大小），点「自动」恢复按屏幕适配；点「全屏」让棋盘铺满整个屏幕，手机上格子更大更好点。</li>
             <li>一整盘抄不完也没关系，先把<b>已经翻开的数字</b>和<b>已经翻出的钻石</b>填上就够用了</li>
           </ul>
         </section>

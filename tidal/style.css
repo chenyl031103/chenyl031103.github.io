@@ -271,6 +271,48 @@ main {
   border-radius: var(--radius);
   overflow: hidden;
 }
+/* 棋盘工具条：格子大小调节 + 全屏 */
+.board-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-secondary);
+  font-size: 0.78rem;
+}
+.bb-label { color: var(--text-muted); }
+.bb-btn {
+  min-width: 30px;
+  height: 26px;
+  padding: 0 8px;
+  background: var(--bg-input);
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 0.78rem;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.bb-btn:hover { border-color: var(--accent); color: var(--accent); }
+.bb-btn.is-on { border-color: var(--accent); color: var(--accent); font-weight: 700; }
+.bb-spacer { flex: 1; }
+/* 全屏：棋盘铺满整屏，工具条固定在顶部，格子按屏幕重新适配（手机上格子更大好点） */
+.board-shell:fullscreen {
+  background: var(--bg-primary);
+  border: none;
+  border-radius: 0;
+  display: flex;
+  flex-direction: column;
+  width: 100vw;
+  height: 100vh;
+}
+.board-shell:fullscreen .board-scroll {
+  flex: 1;
+  display: grid;
+  place-items: center;
+  padding: 12px;
+}
 .board-scroll {
   padding: 14px;
   overflow: auto;
