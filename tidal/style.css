@@ -1138,13 +1138,13 @@ body.is-game .board-scroll { display: flex; justify-content: center; align-items
 .ocr-prev canvas { max-width: 100%; height: auto; border-radius: 6px; display: block; }
 .ocr-stats { text-align: center; font-size: 0.78rem; color: var(--text-muted); margin: 2px 0 8px; }
 .nudge-row { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-bottom: 4px; }
-/* 建议点击的格子：金色闪烁（"最可能出钻石 / 未打开区域的中心 / 空盘第一手"） */
+/* 建议点击的格子：红色高亮闪烁（"最可能出钻石 / 没开区域最多的一格 / 空盘第一手"） */
 .cell.is-hot {
   position: relative;
   z-index: 3;
-  outline: 4px solid #ffc83c;
-  outline-offset: -3px;
-  animation: hot-pulse 0.95s ease-in-out infinite;
+  outline: 5px solid #ff2d20;
+  outline-offset: -4px;
+  animation: hot-pulse 0.8s ease-in-out infinite;
 }
 .cell.is-hot::before {
   content: '';
@@ -1152,15 +1152,15 @@ body.is-game .board-scroll { display: flex; justify-content: center; align-items
   inset: 0;
   border-radius: inherit;
   pointer-events: none;
-  animation: hot-ring 0.95s ease-out infinite;
+  animation: hot-ring 0.8s ease-out infinite;
 }
 @keyframes hot-pulse {
-  0%, 100% { outline-color: rgba(255, 200, 60, 0.85); box-shadow: 0 0 0 0 rgba(255, 200, 60, 0.55), inset 0 0 14px rgba(255, 200, 60, 0.45); transform: scale(1); }
-  50%      { outline-color: #ffe07a; box-shadow: 0 0 16px 4px rgba(255, 200, 60, 0.9), inset 0 0 20px rgba(255, 200, 60, 0.65); transform: scale(1.08); }
+  0%, 100% { outline-color: rgba(255, 45, 32, 0.95); box-shadow: 0 0 0 0 rgba(255, 45, 32, 0.6), inset 0 0 16px rgba(255, 45, 32, 0.5); transform: scale(1); }
+  50%      { outline-color: #ff6a52; box-shadow: 0 0 20px 6px rgba(255, 45, 32, 0.95), inset 0 0 24px rgba(255, 45, 32, 0.75); transform: scale(1.1); }
 }
 @keyframes hot-ring {
-  0%   { box-shadow: 0 0 0 0 rgba(255, 200, 60, 0.75); opacity: 1; }
-  100% { box-shadow: 0 0 0 10px rgba(255, 200, 60, 0); opacity: 0; }
+  0%   { box-shadow: 0 0 0 0 rgba(255, 45, 32, 0.85); opacity: 1; }
+  100% { box-shadow: 0 0 0 12px rgba(255, 45, 32, 0); opacity: 0; }
 }
 @media (prefers-reduced-motion: reduce) {
   .cell.is-hot { animation: none; }
@@ -1179,3 +1179,5 @@ body.is-game .board-scroll { display: flex; justify-content: center; align-items
   left: 0; right: 0; height: 2px; margin-top: -1px;
   background-image: repeating-linear-gradient(to right, var(--aux-line) 0 6px, transparent 6px 13px);
 }
+/* 扫雷模式没有"钻石/票"的概念，这两个统计藏起来 */
+body.is-mine-game #chip-gem-progress, body.is-mine-game #chip-cost { display: none; }

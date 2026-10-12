@@ -92,6 +92,10 @@
     boardFs: $('#board-fs'),
     sizeSeg: $('#size-seg'),
     gemTotalText: $('#gem-total-text'),
+    gemOpened: $('#gem-opened'),
+    gemLeft: $('#gem-left'),
+    ticketsUsed: $('#tickets-used'),
+    diamondsUsed: $('#diamonds-used'),
     filled: $('#filled-count'),
     cellTotal: $('#cell-total'),
     palette: $('#palette'),
@@ -372,6 +376,7 @@
     }
     el.filled.textContent = filled;
     S.filledCount = filled;
+    updateCostChips(grid);
   }
 
   /* ---------- 分析 ---------- */
@@ -1571,6 +1576,26 @@
   // 顶部"钻石"小标签（总数由地图尺寸固定；截图里读到的计数只用于交叉核对）
   function setGemTotalDisplay() {
     if (el.gemTotalText) el.gemTotalText.textContent = S.gemTotal == null ? '—' : S.gemTotal;
+  }
+
+  /* 成本统计：1 票 = 开出（翻到）一格"有内容"的格子（数字或钻石）；× 和没翻开的不算。
+     游戏里 1 票 = 1500 钻石，所以"已用钻石 = 票数 × 1500"。 */
+  const TICKET_COST = 1500;
+  function updateCostChips(grid) {
+    const { rows, cols } = S;
+    let gems = 0, tickets = 0;
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        const v = grid[r][c];
+        if (v === 'G' || v === 'D') { gems++; tickets++; }
+        else if (typeof v === 'number' && v >= 0 && Number.isFinite(v)) tickets++;
+      }
+    }
+    const total = Number.isFinite(S.gemTotal) ? S.gemTotal : null;
+    if (el.gemOpened) el.gemOpened.textContent = String(gems);
+    if (el.gemLeft) el.gemLeft.textContent = total == null ? '—' : String(Math.max(0, total - gems));
+    if (el.ticketsUsed) el.ticketsUsed.textContent = String(tickets);
+    if (el.diamondsUsed) el.diamondsUsed.textContent = (tickets * TICKET_COST).toLocaleString('en-US');
   }
 
   function setImportStatus(text, kind) {
