@@ -247,10 +247,12 @@
         const k = cells.length;
         const stat = { cells, perCount: new Float64Array(k + 1), cellGem: cells.map(() => new Float64Array(k + 1)), approx: false };
 
-        if (k > 20) {
-          // 分量过大：退化为启发式（按约束比例取最大），并标注为估算
+        // 分量过大时（>EXACT_MAX 或枚举爆预算）退化为启发式估算
+        const heuristic = () => {
           stat.approx = true;
           approx = true;
+          stat.perCount.fill(0);
+          for (const row of stat.cellGem) row.fill(0);
           const hv = new Float64Array(k);
           for (const kk of rel) {
             const p = kk.need / kk.ix.length;
@@ -261,9 +263,15 @@
             const p = hv[t];
             stat.cellGem[t][0] = 1 - p;
             stat.cellGem[t][1] = p;
-            stat.perCount[0] *= (1 - p);
+            stat.perCount[0] = (stat.perCount[0] || 1) * (1 - p);
             stat.perCount[1] = (stat.perCount[1] || 0) + p;
           }
+        };
+
+        const EXACT_MAX = 26;          // 超过这个规模才走启发式（多数残局不会到）
+        const STEP_BUDGET = 8000000;   // 枚举步数预算，超了就退回启发式，保证不卡页面
+        if (k > EXACT_MAX) {
+          heuristic();
           compStats.push(stat);
           continue;
         }
@@ -272,7 +280,10 @@
         const inc = cells.map(() => []);
         for (const kk of rel) for (const ix of kk.ix) inc[ix].push(kk);
 
+        let steps = 0, overflow = false;
         (function rec(t, gemCount) {
+          if (overflow) return;
+          if (++steps > STEP_BUDGET) { overflow = true; return; }
           if (t === k) {
             stat.perCount[gemCount] += 1;
             for (let z = 0; z < k; z++) if (assign[z] === 1) stat.cellGem[z][gemCount] += 1;
@@ -294,6 +305,10 @@
           }
         })(0, 0);
 
+        if (overflow) {
+          // 枚举超预算：这个分量退回启发式估算，避免页面卡死
+          heuristic();
+        }
         compStats.push(stat);
       }
 
