@@ -220,6 +220,53 @@
         comps.push(cells);
       }
 
+      // 通用精确枚举（MRV 动态选格 + 约束优先），cellsArr 为格子列表、relArr 的 ix 是其下标
+      function enumStats(cellsArr, relArr, budgetMs) {
+        const kk = cellsArr.length;
+        const perCount = new Float64Array(kk + 1);
+        const cellGem = cellsArr.map(() => new Float64Array(kk + 1));
+        const inc = cellsArr.map(() => []);
+        for (const c of relArr) for (const ix of c.ix) inc[ix].push(c);
+        const assign = new Int8Array(kk).fill(-1);
+        let steps = 0, overflow = false;
+        const t0 = Date.now();
+        (function rec(depth, gemCount) {
+          if (overflow) return;
+          if ((++steps & 511) === 0 && Date.now() - t0 > budgetMs) { overflow = true; return; }
+          if (depth === kk) {
+            perCount[gemCount] += 1;
+            for (let z = 0; z < kk; z++) if (assign[z] === 1) cellGem[z][gemCount] += 1;
+            return;
+          }
+          let best = -1, bestScore = -1;
+          for (let i = 0; i < kk; i++) {
+            if (assign[i] >= 0) continue;
+            let score = 0;
+            for (const c of inc[i]) {
+              let done = 0;
+              for (const ix of c.ix) if (assign[ix] >= 0) done++;
+              score += done * done + 1;
+            }
+            if (score > bestScore) { bestScore = score; best = i; }
+          }
+          for (const v of [0, 1]) {
+            assign[best] = v;
+            let ok = true;
+            for (const c of inc[best]) {
+              let done = true, g = 0;
+              for (const ix of c.ix) {
+                if (assign[ix] < 0) { done = false; break; }
+                if (assign[ix] === 1) g++;
+              }
+              if (done && g !== c.need) { ok = false; break; }
+            }
+            if (ok) rec(depth + 1, gemCount + v);
+            assign[best] = -1;
+          }
+        })(0, 0);
+        return { perCount, cellGem, overflow };
+      }
+
       // 每个分量的方案统计
       const compStats = [];
       for (const cells of comps) {
@@ -246,87 +293,94 @@
         const stat = { cells, perCount: new Float64Array(k + 1), cellGem: cells.map(() => new Float64Array(k + 1)), approx: false };
 
         // 分量过大时（>EXACT_MAX 或枚举爆预算）退化为启发式估算
-        const heuristic = () => {
-          stat.approx = true;
-          approx = true;
-          stat.perCount.fill(0);
-          for (const row of stat.cellGem) row.fill(0);
-          const hv = new Float64Array(k);
-          for (const kk of rel) {
-            const p = kk.need / kk.ix.length;
-            for (const ix of kk.ix) if (p > hv[ix]) hv[ix] = p;
+        // 整分量精确枚举（40 格以内、150ms 以内基本都是秒算）
+        const EXACT_MAX = 40;
+        if (k <= EXACT_MAX) {
+          const r = enumStats(cells, rel, 150);
+          if (!r.overflow) {
+            stat.perCount = r.perCount;
+            stat.cellGem = r.cellGem;
+            compStats.push(stat);
+            continue;
           }
-          for (let t = 0; t < k; t++) {
-            // 把启发式概率折算成权重
-            const p = hv[t];
-            stat.cellGem[t][0] = 1 - p;
-            stat.cellGem[t][1] = p;
-            stat.perCount[0] = (stat.perCount[0] || 1) * (1 - p);
-            stat.perCount[1] = (stat.perCount[1] || 0) + p;
-          }
-        };
-
-        const EXACT_MAX = 40;          // 分量规模上限（配合约束优先排序，实测上千格也能秒算；超了走启发式）
-        if (k > EXACT_MAX) {
-          heuristic();
-          compStats.push(stat);
-          continue;
         }
 
-        const assign = new Int8Array(k).fill(-1);
-        const inc = cells.map(() => []);
-        for (const kk of rel) for (const ix of kk.ix) inc[ix].push(kk);
-
-        let steps = 0, overflow = false;
-        const t0 = Date.now();
-        const TIME_BUDGET = 150;   // 单分量枚举最多 150ms，超时退回启发式（保证点格子不卡）
-        // 回溯枚举，动态选格（MRV 变体）：每次优先展开"与已赋值格共同约束最多"的未定格，
-        // 让约束尽早完整以便剪枝，大分量也能快速精确求解
-        (function rec(depth, gemCount) {
-          if (overflow) return;
-          if ((++steps & 511) === 0 && Date.now() - t0 > TIME_BUDGET) { overflow = true; return; }
-          if (depth === k) {
-            stat.perCount[gemCount] += 1;
-            for (let z = 0; z < k; z++) if (assign[z] === 1) stat.cellGem[z][gemCount] += 1;
-            return;
-          }
-          let t = -1, bestScore = -1;
-          for (let i = 0; i < k; i++) {
-            if (assign[i] >= 0) continue;
-            let score = 0;
-            for (const kk of inc[i]) {
-              let done = 0;
-              for (const ix of kk.ix) if (assign[ix] >= 0) done++;
-              score += done * done + 1;
+        // 大分量 / 超时：改为"逐格局部精确"——把该格相关的两层约束圈出来当独立小问题精确枚举，
+        // 不同位置各算各的值，不会再出现一大片相同的粗估值。
+        stat.approx = true;
+        approx = true;
+        const ratio = new Float64Array(k);
+        for (const kk of rel) {
+          const p = kk.need / kk.ix.length;
+          for (const ix of kk.ix) if (p > ratio[ix]) ratio[ix] = p;
+        }
+        const touching = cells.map(() => []);
+        rel.forEach((kk, ri) => { for (const ix of kk.ix) touching[ix].push(ri); });
+        const regionCache = new Map();
+        const FB_BUDGET = 250;              // 局部兜底总预算
+        const fbStart = Date.now();
+        const direct = new Float64Array(k);
+        for (let t = 0; t < k; t++) {
+          let val = ratio[t];               // 算不动时的兜底：按最紧约束的比例
+          if (Date.now() - fbStart < FB_BUDGET) {
+            const relSet = new Set();
+            for (const ri of touching[t]) {
+              relSet.add(ri);
+              for (const ix of rel[ri].ix) for (const r2 of touching[ix]) relSet.add(r2);
             }
-            if (score > bestScore) { bestScore = score; t = i; }
-          }
-          for (const v of [0, 1]) {
-            assign[t] = v;
-            let ok = true;
-            for (const kk of inc[t]) {
-              let done = true, g = 0;
-              for (const ix of kk.ix) {
-                if (assign[ix] < 0) { done = false; break; }
-                if (assign[ix] === 1) g++;
+            const key = [...relSet].sort((a, b) => a - b).join(',');
+            let entry = regionCache.get(key);
+            if (entry === undefined) {
+              entry = null;
+              const vars = new Set();
+              for (const ri of relSet) for (const ix of rel[ri].ix) vars.add(ix);
+              if (vars.size <= 26) {
+                const varArr = [...vars];
+                const m = new Map();
+                varArr.forEach((v, i) => m.set(v, i));
+                const subRel = [...relSet].map((ri) => ({ need: rel[ri].need, ix: rel[ri].ix.map((v) => m.get(v)) }));
+                const rr = enumStats(varArr, subRel, 25);
+                if (!rr.overflow) {
+                  let den = 0;
+                  for (const w of rr.perCount) den += w;
+                  if (den) {
+                    const sub = new Float64Array(varArr.length);
+                    for (let z = 0; z < varArr.length; z++) {
+                      let num = 0;
+                      for (let g = 0; g < rr.cellGem[z].length; g++) num += rr.cellGem[z][g];
+                      sub[z] = num / den;
+                    }
+                    entry = { m, probs: sub };
+                  }
+                }
               }
-              if (done && g !== kk.need) { ok = false; break; }
+              regionCache.set(key, entry);
             }
-            if (ok) rec(depth + 1, gemCount + v);
-            assign[t] = -1;
+            if (entry) val = entry.probs[entry.m.get(t)];
           }
-        })(0, 0);
-
-        if (overflow) {
-          // 枚举超预算：这个分量退回启发式估算，避免页面卡死
-          heuristic();
+          direct[t] = val;
         }
+        // 供"全盘总数一致性检查"用的粗略最少/最多钻石数
+        let mn = 0, mx = 0;
+        for (let t = 0; t < k; t++) {
+          if (direct[t] >= 0.999) mn++;
+          if (direct[t] > 0.001) mx++;
+        }
+        stat.perCount = new Float64Array(k + 1);
+        stat.perCount[mn] = 1;
+        stat.perCount[mx] = 1;
+        stat.direct = direct;
         compStats.push(stat);
       }
 
       // 概率采用「分组局部」模型：只统计该格所在线索组内的合法摆法（逐组独立），
       // 放一个数字只影响与它 3×3 邻域相交的数字组，不相交的区域完全不受影响。
       for (const st of compStats) {
+        if (st.direct) {
+          // 大分量的局部兜底：每格已是最终概率（局部精确或比例估计）
+          for (let t = 0; t < st.cells.length; t++) probs[st.cells[t]] = st.direct[t];
+          continue;
+        }
         let denom = 0;
         for (const v of st.perCount) denom += v;
         if (!denom) return { probs, approx, impossible: true };   // 组内无合法摆法 → 盘面矛盾
