@@ -199,7 +199,7 @@
     // 游戏模式下不叠加任何分析标记（否则会把上一次分析的结果画到游戏盘上）
     const res = S.game ? null : S.result;
     const hasClue = (() => {
-      for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) if (typeof grid[r][c] === 'number' && grid[r][c] >= 0) return true;
+      for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) { const v = grid[r][c]; if (typeof v === 'number' && v >= 0 && Number.isFinite(v)) return true; }
       return false;
     })();
     const showProb = hasClue && parseFloat(getComputedStyle(el.board).getPropertyValue('--cell')) >= 26;
@@ -209,7 +209,8 @@
     if (showProb) {
       for (let r = 0; r < rows; r++) {
         for (let c = 0; c < cols; c++) {
-          if (typeof grid[r][c] !== 'number' || grid[r][c] < 0) continue;
+          const v = grid[r][c];
+          if (typeof v !== 'number' || !(v >= 0) || !Number.isFinite(v)) continue;   // NaN/负数都不是线索
           for (let dr = -1; dr <= 1; dr++) {
             for (let dc = -1; dc <= 1; dc++) {
               if (!dr && !dc) continue;
@@ -229,7 +230,7 @@
         const node = S.nodes[i];
         if (!node) continue;
         const v = grid[r][c];
-        if (v !== -1) filled++;
+        if (v !== -1 && !(typeof v === 'number' && !Number.isFinite(v))) filled++;   // NaN 不算已填
 
         let cls = 'cell';
         let text = '';
@@ -458,9 +459,10 @@
     const r = +node.dataset.r, c = +node.dataset.c;
     const i = r * S.cols + c;
     let v;
-    if (mode === 'erase') v = -1;                                     // 右键 / 清除笔刷
+    if (mode === 'erase' || S.brush === 'hide') v = -1;               // 右键 / 清除笔刷 → 清除为未翻开
     else if (S.brush === 'X') v = S.grid[r][c] === 'X' ? -1 : 'X';    // 单击 = 切换 ×（与游戏一致）
     else v = S.brush === 'G' ? 'G' : Number(S.brush);
+    if (!(v === -1 || v === 'X' || v === 'G' || (typeof v === 'number' && Number.isFinite(v)))) v = -1;  // 兜底：绝不让 NaN 进棋盘
     if (S.grid[r][c] === v && !S.aiCells.has(i)) return;
     S.grid[r][c] = v;
     S.aiCells.delete(i);
