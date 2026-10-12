@@ -393,25 +393,27 @@
     if (!(maxP > 0)) return -1;
     const cands = und.filter((u) => u.p >= maxP - 1e-9);
     const midR = (S.rows - 1) / 2, midC = (S.cols - 1) / 2;
+    // 在"没翻开"的格子里挑点下去收益最大的：
+    //   ① 3×3 里没翻开的格数最多 —— "3×3 正中心"（9 格全没开）只是它的特例；
+    //      中局往往没有整片没开的地方，所以退一步取"周围没开的最多"那格，
+    //      比角落/边缘格更可能一翻带出好几格新线索。
+    //   ② 其次看 5×5 里没翻开的格数；③ 再按离棋盘中心近。
+    const openedCount = (r, c, rad) => {
+      let n = 0;
+      for (let dr = -rad; dr <= rad; dr++) {
+        for (let dc = -rad; dc <= rad; dc++) {
+          const rr = r + dr, cc = c + dc;
+          if (rr < 0 || cc < 0 || rr >= S.rows || cc >= S.cols) continue;
+          if (S.grid[rr][cc] === -1) n++;               // -1 = 还没翻开（数字/钻石/× 都算已定）
+        }
+      }
+      return n;
+    };
     let best = -1, bestScore = -Infinity;
     for (const u of cands) {
-      if (u.r <= 0 || u.c <= 0 || u.r >= S.rows - 1 || u.c >= S.cols - 1) continue;   // 边缘格当不了"3×3 正中心"
-      let allUnopened = true;
-      for (let dr = -1; dr <= 1 && allUnopened; dr++) {
-        for (let dc = -1; dc <= 1; dc++) {
-          if (S.grid[u.r + dr][u.c + dc] !== -1) { allUnopened = false; break; }
-        }
-      }
-      if (!allUnopened) continue;
-      let open5 = 0;                                    // 5×5 里没翻开的格数：越多说明这块越"空"
-      for (let dr = -2; dr <= 2; dr++) {
-        for (let dc = -2; dc <= 2; dc++) {
-          const rr = u.r + dr, cc = u.c + dc;
-          if (rr < 0 || cc < 0 || rr >= S.rows || cc >= S.cols) continue;
-          if (S.grid[rr][cc] === -1) open5++;
-        }
-      }
-      const score = open5 * 100 - (Math.abs(u.r - midR) + Math.abs(u.c - midC));
+      const o3 = openedCount(u.r, u.c, 1);
+      const o5 = openedCount(u.r, u.c, 2);
+      const score = o3 * 1000 + o5 * 10 - (Math.abs(u.r - midR) + Math.abs(u.c - midC));
       if (score > bestScore) { bestScore = score; best = u.i; }
     }
     if (best >= 0) return best;
@@ -470,11 +472,17 @@
       : `显示数字 ${x.clue}，需要 ${x.want} 颗钻石，却只剩 ${x.hidden} 格没翻开`;
   }
 
-  // 这格是不是"未打开 3×3 的正中心"（周围 9 格全没翻开）
-  function isOpenCenter(r, c) {
-    if (r <= 0 || c <= 0 || r >= S.rows - 1 || c >= S.cols - 1) return false;
-    for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) if (S.grid[r + dr][c + dc] !== -1) return false;
-    return true;
+  // 这格周围 3×3 里"没翻开"的格数（用来解释"为什么点这格"）
+  function openAround3(r, c) {
+    let n = 0;
+    for (let dr = -1; dr <= 1; dr++) {
+      for (let dc = -1; dc <= 1; dc++) {
+        const rr = r + dr, cc = c + dc;
+        if (rr < 0 || cc < 0 || rr >= S.rows || cc >= S.cols) continue;
+        if (S.grid[rr][cc] === -1) n++;
+      }
+    }
+    return n;
   }
 
   /** 一行建议条（始终显示在棋盘下方） */
@@ -501,8 +509,8 @@
       const hiIdx = pickHotCell(res);
       const hi = hiIdx >= 0 ? (res.undecided || []).find((u) => u.i === hiIdx) : null;
       if (hi && hi.p > 0) {
-        const inOpen = isOpenCenter(hi.r, hi.c);
-        const why = inOpen ? '，这格周围 9 格全没翻开，一翻就能带出新线索' : '';
+        const o3 = openAround3(hi.r, hi.c);
+        const why = o3 >= 6 ? `，这格周围 3×3 里有 ${o3} 格没翻开，一翻就能带出新线索` : '';
         return {
           kind: 'warn',
           text: `没有能确定的钻石：想挖钻石就点 ${coord(hi.r, hi.c)}（含钻石 ${Math.round(hi.p * 100)}%，现在最高${why}）`
@@ -516,7 +524,8 @@
     const hi = (hiIdx >= 0 && (res.undecided || []).find((u) => u.i === hiIdx)) || pick;
     // 注意比下标、别比对象（pick 是展开出来的新对象，引用永远不会相等）
     const lo = (hi.i === pick.i) ? (pick.alt || (res.undecided || [])[0]) : pick;
-    const why = isOpenCenter(hi.r, hi.c) ? '，这格周围 9 格全没翻开，一翻就能带出新线索' : '';
+    const o3 = openAround3(hi.r, hi.c);
+    const why = o3 >= 6 ? `，这格周围 3×3 里有 ${o3} 格没翻开，一翻就能带出新线索` : '';
     return {
       kind: 'warn',
       text: `推不出确定格子：想赌分翻 ${coord(hi.r, hi.c)}（含钻石 ${Math.round(hi.p * 100)}%${why}）`
