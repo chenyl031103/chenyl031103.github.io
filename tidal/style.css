@@ -391,7 +391,7 @@ main {
 /* 正在取值的那一格：不画框，用发光提示 */
 .cell.awaiting { z-index: 5; box-shadow: 0 0 0 2px rgba(58, 214, 200, 0.6), 0 0 16px rgba(58, 214, 200, 0.55); }
 
-/* ---------- 8. 翻开取值卡（JS 定位到正在取值那一格旁边；网格布局，圆角卡片） ---------- */
+/* ---------- 8. 翻开取值卡 Popover（锚定在目标格子旁，带小箭头；网格按键布局） ---------- */
 .reveal-bar {
   position: fixed;
   left: 0;
@@ -399,20 +399,34 @@ main {
   z-index: 70;
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 12px;
+  gap: 10px;
+  padding: 14px;
   width: max-content;
-  max-width: calc(100vw - 24px);
-  background: var(--bg-secondary);
-  border: 1px solid var(--accent);
-  border-radius: 14px;
-  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.45);
-  animation: barIn 0.18s ease both;
+  max-width: calc(100vw - 20px);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.3), 0 3px 10px rgba(0, 0, 0, 0.16);
+  animation: popIn 0.16s ease both;
 }
-@keyframes barIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes popIn { from { opacity: 0; transform: translateY(4px) scale(0.97); } to { opacity: 1; transform: none; } }
+/* 指向目标格子的小箭头 */
+.reveal-bar::before {
+  content: '';
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  left: var(--arrow-x, 50%);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  transform: rotate(45deg);
+}
+.reveal-bar.arrow-top::before { top: -7px; border-right: none; border-bottom: none; }
+.reveal-bar.arrow-bottom::before { bottom: -7px; border-left: none; border-top: none; }
+
 .rb-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.rb-label { font-size: 0.85rem; color: var(--text-secondary); white-space: nowrap; }
-.rb-label b { color: var(--accent); }
+.rb-label { font-size: 0.82rem; color: var(--text-muted); white-space: nowrap; }
+.rb-label b { color: var(--accent); font-size: 0.95rem; }
 .rb-close {
   width: 26px;
   height: 26px;
@@ -421,41 +435,43 @@ main {
   padding: 0;
   background: transparent;
   color: var(--text-muted);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  font-size: 0.8rem;
+  border: 1px solid transparent;
+  border-radius: 50%;
+  font-size: 0.78rem;
   cursor: pointer;
   transition: all 0.15s;
 }
-.rb-close:hover { color: var(--danger); border-color: var(--danger); }
+.rb-close:hover { color: var(--danger); background: rgba(224, 85, 85, 0.1); }
 .rb-values {
   display: grid;
   grid-template-columns: repeat(3, minmax(66px, 1fr));
-  gap: 6px;
+  gap: 8px;
 }
 .rb-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 4px;
-  height: 38px;
+  height: 42px;
   padding: 0 14px;
-  background: var(--bg-card);
+  background: var(--bg-primary);
   color: var(--text-primary);
   border: 1px solid var(--border);
-  border-radius: 10px;
-  font-size: 0.9rem;
+  border-radius: 12px;
+  font-size: 1rem;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   cursor: pointer;
-  transition: all 0.15s;
+  transition: background 0.12s, border-color 0.12s, color 0.12s, transform 0.06s;
 }
 .rb-btn:hover { background: var(--bg-hover); border-color: var(--accent); color: var(--accent); }
+.rb-btn:active { transform: scale(0.95); }
 .rb-btn .ico { width: 15px; height: 15px; color: var(--gold); }
-.rb-gem { color: var(--gold); border-color: var(--gold); }
-.rb-gem .ico { width: 19px; height: 19px; }
+.rb-gem { background: rgba(212, 146, 10, 0.12); border-color: rgba(212, 146, 10, 0.45); }
+.rb-gem:hover { background: rgba(212, 146, 10, 0.22); border-color: var(--gold); }
+.rb-gem .ico { width: 20px; height: 20px; }
 .rb-hint { font-size: 0.72rem; color: var(--text-muted); text-align: center; }
-.rb-zero { font-weight: 400; }
+.rb-zero { font-weight: 400; color: var(--text-secondary); }
 
 /* ---------- 9. 结论条 ---------- */
 .verdict-bar {

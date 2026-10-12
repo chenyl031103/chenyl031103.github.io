@@ -519,7 +519,7 @@
     positionRevealBar();
   }
 
-  /* 把取值条挪到正在取值那一格的旁边：优先格子下方，放不下换上方，再不行夹在视口内 */
+  /* 把取值卡挪到正在取值那一格的旁边：优先格子下方，放不下换上方，再不行夹在视口内；小箭头对准格子 */
   function positionRevealBar() {
     if (S.awaiting < 0 || el.revealBar.hidden) return;
     const node = S.nodes[S.awaiting];
@@ -528,14 +528,19 @@
     const bar = el.revealBar.getBoundingClientRect();
     const vw = window.innerWidth, vh = window.innerHeight;
     const gap = 14, pad = 8;   // 与格子的距离留一点空，不贴脸
-    let top = cell.bottom + gap;
-    if (top + bar.height > vh - pad) top = cell.top - bar.height - gap;   // 下方放不下 → 换上方
+    const below = cell.bottom + gap + bar.height <= vh - pad;   // 下方放得下才放下面
+    let top = below ? cell.bottom + gap : cell.top - bar.height - gap;
     if (top < pad) top = pad;
     if (top + bar.height > vh - pad) top = Math.max(pad, vh - bar.height - pad);
-    let left = cell.left + cell.width / 2 - bar.width / 2;               // 水平居中对齐该格
+    let left = cell.left + cell.width / 2 - bar.width / 2;      // 水平居中对齐该格
     left = Math.max(pad, Math.min(left, vw - bar.width - pad));
     el.revealBar.style.left = Math.round(left) + 'px';
     el.revealBar.style.top = Math.round(top) + 'px';
+    // 小箭头：贴近格子那一侧，水平对准格子中心（并夹在卡片范围内）
+    el.revealBar.classList.toggle('arrow-top', below);
+    el.revealBar.classList.toggle('arrow-bottom', !below);
+    const ax = Math.round(cell.left + cell.width / 2 - left - 6);
+    el.revealBar.style.setProperty('--arrow-x', Math.max(12, Math.min(ax, Math.round(bar.width - 24))) + 'px');
   }
 
   function closeRevealBar() {
