@@ -279,9 +279,9 @@
     // 注意：不闪"必定安全"的格子 —— 那种格子是"稳着探线索"用的，和目标用户预期不符。
     let hot = -1;
     if (!S.game) {
-      const center = Math.round((rows - 1) / 2) * cols + Math.round((cols - 1) / 2);
-      if (S.filledCount === 0 || !hasClue) hot = center;
-      else if (res) hot = pickHotCell(res);
+      if (res) hot = pickHotCell(res);
+      // 兜底（概率全 0 / 没有候选）：还是给个"第一手"——棋盘中心
+      if (hot < 0) hot = Math.round((rows - 1) / 2) * cols + Math.round((cols - 1) / 2);
     }
 
     let filled = 0;
@@ -411,7 +411,8 @@
     for (const u of cands) {
       const o3 = openedCount(u.r, u.c, 1);
       const o5 = openedCount(u.r, u.c, 2);
-      const score = o3 * 1000 + o5 * 10 - (Math.abs(u.r - midR) + Math.abs(u.c - midC));
+      // 用"取整后的正中那格"作参照，空盘时结果稳定落在棋盘中心，不会因浮点并列乱跳
+      const score = o3 * 1000 + o5 * 10 - (Math.abs(u.r - Math.round(midR)) + Math.abs(u.c - Math.round(midC)));
       if (score > bestScore) { bestScore = score; best = u.i; }
     }
     if (best >= 0) return best;
@@ -487,14 +488,22 @@
   function adviceLine(res) {
     const c = res.counts;
     if (S.filledCount === 0 || !boardHasClue()) {
-      // 空盘 / 还没有数字线索：求解器给不出建议，直接告诉他第一手点哪
-      const cr = Math.round((S.rows - 1) / 2) + 1, cc = Math.round((S.cols - 1) / 2) + 1;
-      const where = S.rows >= 9 ? `9×9 范围的中心格（${cr}行${cc}列）` : `棋盘中心（${cr}行${cc}列）`;
+      // 空盘 / 还没有数字线索：求解器给不出建议，直接告诉他第一手点哪（和闪烁同一格）
+      const idx = pickHotCell(res);
+      const r0 = idx >= 0 ? ((idx / S.cols) | 0) : Math.round((S.rows - 1) / 2);
+      const c0 = idx >= 0 ? (idx % S.cols) : Math.round((S.cols - 1) / 2);
+      const cr = r0 + 1, cc = c0 + 1;
+      const isCenter = r0 === Math.round((S.rows - 1) / 2) && c0 === Math.round((S.cols - 1) / 2);
+      const where = isCenter
+        ? (S.rows >= 9 ? `9×9 范围的中心格（${cr}行${cc}列）` : `棋盘中心（${cr}行${cc}列）`)
+        : `${cr}行${cc}列`;
+      const o3 = openAround3(r0, c0);
+      const why = o3 >= 6 ? `，这格周围 3×3 里有 ${o3} 格没翻开` : '';
       return {
         kind: 'safe',
         text: S.filledCount === 0
-          ? `这张图还没开过：先点 ${where} —— 翻开后再把盘面抄进来（或直接截图识别）`
-          : `还没有数字线索：先点 ${where} 打开局面，再把翻开的数字填进来`,
+          ? `这张图还没开过：先点 ${where}${why} —— 翻开后再把盘面抄进来（或直接截图识别）`
+          : `还没有数字线索：先点 ${where}${why}，翻开后把翻开的数字/钻石填进来`,
       };
     }
     if (c.hiddenCells === 0) return { kind: '', text: '棋盘已填满，没有未翻开的格子了。' };
