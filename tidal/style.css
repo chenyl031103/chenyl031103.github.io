@@ -253,16 +253,7 @@ main {
 .brush-x .ico { color: var(--text-secondary); }
 .palette-tip { margin-left: auto; font-size: 0.75rem; color: var(--text-muted); }
 
-/* ---------- 数字 0-8 颜色梯度（0 灰最不显眼 → 8 红最显眼）：棋盘数字 / 笔刷 / 取值卡统一 ---------- */
-.cell.n0 { color: var(--num-0); }
-.cell.n1 { color: var(--num-1); }
-.cell.n2 { color: var(--num-2); }
-.cell.n3 { color: var(--num-3); }
-.cell.n4 { color: var(--num-4); }
-.cell.n5 { color: var(--num-5); }
-.cell.n6 { color: var(--num-6); }
-.cell.n7 { color: var(--num-7); }
-.cell.n8 { color: var(--num-8); }
+/* ---------- 数字 0-8 颜色梯度（0 灰最不显眼 → 8 红最显眼）：笔刷 / 取值卡统一；棋盘数字在下方 .cell 规则处 ---------- */
 .palette .brush-num[data-brush="0"], .reveal-bar .rb-btn[data-val="0"] { color: var(--num-0); }
 .palette .brush-num[data-brush="1"], .reveal-bar .rb-btn[data-val="1"] { color: var(--num-1); }
 .palette .brush-num[data-brush="2"], .reveal-bar .rb-btn[data-val="2"] { color: var(--num-2); }
@@ -336,6 +327,17 @@ main {
 }
 .cell.is-open:hover { border-color: var(--tile-open-ink); }
 .cell.is-open:active { transform: none; }
+
+/* 已翻开数字的颜色梯度（0 灰最不显眼 → 8 红最显眼）——必须放在 .cell.is-open 之后，否则被它的颜色盖掉 */
+.cell.n0 { color: var(--num-0); }
+.cell.n1 { color: var(--num-1); }
+.cell.n2 { color: var(--num-2); }
+.cell.n3 { color: var(--num-3); }
+.cell.n4 { color: var(--num-4); }
+.cell.n5 { color: var(--num-5); }
+.cell.n6 { color: var(--num-6); }
+.cell.n7 { color: var(--num-7); }
+.cell.n8 { color: var(--num-8); }
 
 /* 宝钻：金黄色 */
 .cell.is-gem {
