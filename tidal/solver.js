@@ -1322,7 +1322,7 @@
           <ul>
             <li><span class="lg-dot lg-dot-gem">√</span><b>绿色 √ ＝ 这格是钻石</b>，直接去翻它</li>
             <li><span class="lg-dot lg-dot-safe">×</span><b>灰色 × ＝ 这格不是钻石</b>，可以放心</li>
-            <li><b>右上角百分比</b>＝推不出来时的概率，仅供参考；<b>颜色越深＝概率越高</b>，越淡＝概率越低（边框和数字深浅同步变化）</li>
+            <li><b>格子中央的百分比</b>＝推不出来时的概率，仅供参考；<b>颜色分三档</b>：<b style="color:#d93a2b">红色＝高概率</b>（值得赌）、<b style="color:#b3770a">琥珀色＝中等</b>、<b style="color:#2f7fbf">蓝色＝低概率</b>（先别碰）</li>
           </ul>
         </section>
         <section>

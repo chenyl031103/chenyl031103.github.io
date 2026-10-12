@@ -36,16 +36,16 @@
   --badge-prob-bg: rgba(15, 25, 35, 0.88);
   --badge-prob-ink: #c3cfdb;
   --prob-line: #46586c;
-  /* 概率深浅三档（深＝概率高）：边框 + 角标同档取色 */
-  --p-hi-line: #e8f1f8;
-  --p-mid-line: #92a6b8;
-  --p-lo-line: #4c5c6d;
-  --p-hi-ink: #ffffff;
-  --p-mid-ink: #d3dfe9;
-  --p-lo-ink: #93a1af;
-  --p-hi-bg: rgba(22, 34, 46, 0.96);
-  --p-mid-bg: rgba(20, 30, 42, 0.92);
-  --p-lo-bg: rgba(18, 28, 38, 0.84);
+  /* 概率三档（彩色，高=红 中=琥珀 低=蓝）：整格显示百分比，边框/底色/字色同档 */
+  --p-hi-ink: #ff7a6b;
+  --p-hi-line: #ff6b5e;
+  --p-hi-tint: #3a1f24;
+  --p-mid-ink: #f5b545;
+  --p-mid-line: #e8a33a;
+  --p-mid-tint: #3a2f1c;
+  --p-lo-ink: #58b7e8;
+  --p-lo-line: #4aa3d9;
+  --p-lo-tint: #1b2a38;
   --safe-ink: #8fd9b3;
   --warn-ink: #f0a09a;
   --ink-on-accent: #0f1923;
@@ -85,16 +85,16 @@
   --badge-prob-bg: rgba(255, 255, 255, 0.94);
   --badge-prob-ink: #555770;
   --prob-line: #c3cad3;
-  /* 概率深浅三档（深＝概率高）：边框 + 角标同档取色 */
-  --p-hi-line: #2b3644;
-  --p-mid-line: #78848f;
-  --p-lo-line: #c8ced5;
-  --p-hi-ink: #1b232d;
-  --p-mid-ink: #55606d;
-  --p-lo-ink: #98a1aa;
-  --p-hi-bg: rgba(255, 255, 255, 0.98);
-  --p-mid-bg: rgba(255, 255, 255, 0.95);
-  --p-lo-bg: rgba(255, 255, 255, 0.9);
+  /* 概率三档（彩色，高=红 中=琥珀 低=蓝）：整格显示百分比，边框/底色/字色同档 */
+  --p-hi-ink: #d93a2b;
+  --p-hi-line: #e05545;
+  --p-hi-tint: #fde7e4;
+  --p-mid-ink: #b3770a;
+  --p-mid-line: #cf8a12;
+  --p-mid-tint: #fbf1dc;
+  --p-lo-ink: #2f7fbf;
+  --p-lo-line: #4a9ed6;
+  --p-lo-tint: #e6f2fb;
   --safe-ink: #2f7f52;
   --warn-ink: #b8362f;
   --ink-on-accent: #ffffff;
@@ -335,14 +335,27 @@ main {
 /* 结论只用符号表达，不画框 */
 .cell.say-gem, .cell.say-safe { }
 .cell.say-prob { }
-/* 概率三档：边框 + 角标字体深浅随概率变化（越深＝概率越高） */
-.cell.say-prob { border-style: dashed; }
-.cell.say-prob.prob-hi { border-color: var(--p-hi-line); }
-.cell.say-prob.prob-mid { border-color: var(--p-mid-line); }
-.cell.say-prob.prob-lo { border-color: var(--p-lo-line); }
-.cell.say-prob.prob-hi[data-badge]::after { background: var(--p-hi-bg); color: var(--p-hi-ink); font-weight: 800; }
-.cell.say-prob.prob-mid[data-badge]::after { background: var(--p-mid-bg); color: var(--p-mid-ink); }
-.cell.say-prob.prob-lo[data-badge]::after { background: var(--p-lo-bg); color: var(--p-lo-ink); font-weight: 600; }
+/* 概率在整格居中显示（彩色，高=红 中=琥珀 低=蓝），比右上角小角标醒目得多 */
+.cell.say-prob { border-style: dashed; border-width: 1.5px; }
+.cell.say-prob.prob-hi { border-color: var(--p-hi-line); background: var(--p-hi-tint); }
+.cell.say-prob.prob-mid { border-color: var(--p-mid-line); background: var(--p-mid-tint); }
+.cell.say-prob.prob-lo { border-color: var(--p-lo-line); background: var(--p-lo-tint); }
+.cell.say-prob[data-badge]::after {
+  inset: 0;
+  display: grid;
+  place-items: center;
+  min-width: 0;
+  padding: 0;
+  border-radius: 6px;
+  font-size: clamp(9px, calc(var(--cell) * 0.36), 22px);
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  background: transparent;
+}
+.cell.say-prob.prob-hi[data-badge]::after { color: var(--p-hi-ink); }
+.cell.say-prob.prob-mid[data-badge]::after { color: var(--p-mid-ink); }
+.cell.say-prob.prob-lo[data-badge]::after { color: var(--p-lo-ink); }
 /* 标了 × 但推导说这里其实是宝钻 —— 标错了 */
 .cell.say-conflict {
   outline: 2px solid var(--danger);
@@ -378,51 +391,69 @@ main {
 /* 正在取值的那一格：不画框，用发光提示 */
 .cell.awaiting { z-index: 5; box-shadow: 0 0 0 2px rgba(58, 214, 200, 0.6), 0 0 16px rgba(58, 214, 200, 0.55); }
 
-/* ---------- 8. 翻开取值条（JS 定位到正在取值那一格旁边，fixed 不占文档流） ---------- */
+/* ---------- 8. 翻开取值卡（JS 定位到正在取值那一格旁边；网格布局，圆角卡片） ---------- */
 .reveal-bar {
   position: fixed;
   left: 0;
   top: 0;
   z-index: 70;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
   width: max-content;
   max-width: calc(100vw - 24px);
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 14px;
   background: var(--bg-secondary);
   border: 1px solid var(--accent);
-  border-radius: var(--radius);
-  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.5);
+  border-radius: 14px;
+  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.45);
   animation: barIn 0.18s ease both;
 }
 @keyframes barIn { from { opacity: 0; } to { opacity: 1; } }
+.rb-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .rb-label { font-size: 0.85rem; color: var(--text-secondary); white-space: nowrap; }
 .rb-label b { color: var(--accent); }
-.rb-values { display: flex; flex-wrap: wrap; gap: 5px; }
+.rb-close {
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  background: transparent;
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.rb-close:hover { color: var(--danger); border-color: var(--danger); }
+.rb-values {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(66px, 1fr));
+  gap: 6px;
+}
 .rb-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 4px;
-  min-width: 34px;
-  height: 32px;
-  padding: 0 10px;
+  height: 38px;
+  padding: 0 14px;
   background: var(--bg-card);
   color: var(--text-primary);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
-  font-size: 0.85rem;
+  border-radius: 10px;
+  font-size: 0.9rem;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
+  cursor: pointer;
   transition: all 0.15s;
 }
 .rb-btn:hover { background: var(--bg-hover); border-color: var(--accent); color: var(--accent); }
 .rb-btn .ico { width: 15px; height: 15px; color: var(--gold); }
-.rb-gem { color: var(--gold); }
-.rb-cancel { margin-left: auto; font-weight: 400; color: var(--text-secondary); }
-.rb-hint { font-size: 0.75rem; color: var(--text-muted); }
+.rb-gem { color: var(--gold); border-color: var(--gold); }
+.rb-hint { font-size: 0.72rem; color: var(--text-muted); text-align: center; }
 .rb-zero { font-weight: 400; }
 .rb-gem .ico { width: 15px; height: 15px; color: var(--gold); }
 
