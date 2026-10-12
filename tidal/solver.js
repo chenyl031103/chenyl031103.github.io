@@ -1540,8 +1540,9 @@
         <section>
           <h4>识别完成后</h4>
           <ul>
-            <li>结果直接填进棋盘：识别到的格子打<b>金色虚框</b>，模型没把握的打<b>红虚框</b>。</li>
-            <li><b>请逐格核对</b>（尤其红框那几格）：错一格，后面结论就会跟着错。</li>
+            <li>本机识别先给一张<b>带红网格的预览</b>：红线要正好压在格缝上；偏了就点「左移/右移/上移/下移/格宽 ±」微调，看着对了再「应用到棋盘」。</li>
+            <li>结果填进棋盘后：识别到的格子打<b>金色虚框</b>，没把握的打<b>红虚框</b>，<b>请逐格核对</b>（错一格，后面结论就会跟着错）。</li>
+            <li>识别全靠本机完成，不联网、不花识图额度。</li>
           </ul>
         </section>
       </div>`);
@@ -1679,6 +1680,7 @@
       const t0 = performance.now();
       const r = window.TidalVision.recognize(id, forceN ? { forceN } : {});   // 尺寸优先本地判定，再和用户选的档位核对
       r.localMs = Math.round(performance.now() - t0);
+      r.image = id;      // 供"网格微调"重算用（不重解码）
       return r;
     } finally {
       try { URL.revokeObjectURL(url); } catch (e) {}
@@ -1737,6 +1739,150 @@
     if (S.ocrCanceled) return null;
     if (!data) throw new Error('识别超时（超过 5 分钟没有结果）');
     return data;
+  }
+
+  /** 识别结果预览 + 网格微调（本地识别专用；网格对不齐时不用重截图） */
+  let ocrPrev = null;   // { image: ImageData, grid: {x0,y0,cellX,cellY,n,base}, data }
+
+  function ocrPreviewHtml() {
+    return `
+      <div class="modal-head">
+        <h3>识别结果 · 先看网格对没对齐</h3>
+        <button class="modal-close" data-close type="button">✕</button>
+      </div>
+      <div class="rules">
+        <section>
+          <h4>对照预览：红线要正好压在格缝上</h4>
+          <div class="ocr-prev"><canvas id="ocr-prev-canvas" width="620" height="420"></canvas></div>
+          <div class="ocr-stats" id="ocr-prev-stats"></div>
+          <div class="nudge-row">
+            <button class="btn sm" data-nudge="x:-1" type="button">← 左移</button>
+            <button class="btn sm" data-nudge="x:1" type="button">右移 →</button>
+            <button class="btn sm" data-nudge="y:-1" type="button">↑ 上移</button>
+            <button class="btn sm" data-nudge="y:1" type="button">下移 ↓</button>
+            <button class="btn sm" data-nudge="w:-1" type="button">格宽 −</button>
+            <button class="btn sm" data-nudge="w:1" type="button">格宽 ＋</button>
+            <button class="btn sm" data-nudge="r:0" type="button">复位</button>
+          </div>
+          <p class="card-foot">红线偏了（压到数字上/切到相邻格）就点上面的微调按钮，每次挪 1/4 格；点完会立刻重算。</p>
+        </section>
+        <section>
+          <h4>没问题就填进棋盘</h4>
+          <div class="go-row">
+            <button class="btn" id="btn-ocr-apply" type="button">应用到棋盘</button>
+            <button class="btn sm" id="btn-ocr-back" type="button">换一张重来</button>
+          </div>
+          <p class="card-foot">填进去以后每格都能再手动改；识别没把握的格子会带红框提醒。</p>
+        </section>
+      </div>`;
+  }
+
+  function ocrDrawPreview() {
+    const cv = $('#ocr-prev-canvas');
+    if (!cv || !ocrPrev) return;
+    const { image, grid, data } = ocrPrev;
+    const cols = data.cols, rows = data.rows, cells = data.cells;
+    const pad = 0.05 * grid.n * Math.max(grid.cellX, grid.cellY);
+    const sx = Math.max(0, grid.x0 - pad), sy = Math.max(0, grid.y0 - pad);
+    const sw = Math.min(image.width - sx, grid.n * grid.cellX + 2 * pad);
+    const sh = Math.min(image.height - sy, grid.n * grid.cellY + 2 * pad);
+    const scale = Math.min(cv.width / sw, cv.height / sh);
+    const W = Math.max(40, Math.round(sw * scale)), H = Math.max(40, Math.round(sh * scale));
+    cv.width = W; cv.height = H;
+    const g = cv.getContext('2d');
+    const tmp = document.createElement('canvas');
+    tmp.width = image.width; tmp.height = image.height;
+    tmp.getContext('2d').putImageData(image, 0, 0);
+    g.imageSmoothingQuality = 'high';
+    g.drawImage(tmp, sx, sy, sw, sh, 0, 0, W, H);
+    const X = (v) => (v - sx) * scale, Y = (v) => (v - sy) * scale;
+    g.lineWidth = 1;
+    g.strokeStyle = 'rgba(255,70,70,.95)';
+    const bx = X(grid.x0), by = Y(grid.y0);
+    const bw = grid.n * grid.cellX * scale, bh = grid.n * grid.cellY * scale;
+    for (let k = 0; k <= grid.n; k++) {
+      const x = X(grid.x0 + k * grid.cellX), y = Y(grid.y0 + k * grid.cellY);
+      g.beginPath(); g.moveTo(x, by); g.lineTo(x, by + bh); g.stroke();
+      g.beginPath(); g.moveTo(bx, y); g.lineTo(bx + bw, y); g.stroke();
+    }
+    const dot = Math.max(1.5, Math.min(grid.cellX, grid.cellY) * scale * 0.15);
+    const cols2 = { gem: '#f0a830', x: '#7fd6f0', num: '#4ecb7a', blank: '#7f93a8' };
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        const v = cells[r][c];
+        let col = cols2.blank;
+        if (v === 9) col = cols2.gem;
+        else if (v === 10) col = cols2.x;
+        else if (typeof v === 'number' && v >= 0) col = cols2.num;
+        g.fillStyle = col;
+        g.beginPath();
+        g.arc(X(grid.x0 + (c + 0.5) * grid.cellX), Y(grid.y0 + (r + 0.5) * grid.cellY), dot, 0, Math.PI * 2);
+        g.fill();
+      }
+    }
+    const st = $('#ocr-prev-stats');
+    if (st) {
+      const unsureN = (data.unsure || []).length;
+      const gemN = cells.flat().filter((v) => v === 9).length;
+      const filled = cells.flat().filter((v) => v !== -1).length;
+      st.textContent = `${rows}×${cols} · 读出 ${filled} 格 · 钻石 ${gemN} 颗`
+        + ` · 未翻开 ${rows * cols - filled} 格${unsureN ? ` · ${unsureN} 处待核对` : ''}`;
+    }
+  }
+
+  async function ocrReRun() {
+    const box = ocrPrev;
+    if (!box) return;
+    setImportStatus('正在按微调后的网格重算…', 'busy');
+    try {
+      const r = window.TidalVision.recognize(box.image, { grid: box.grid });
+      ocrPrev = { image: box.image, grid: box.grid, data: r };
+      ocrDrawPreview();
+      setImportStatus('微调完成，看看红线对齐了吗', '');
+    } catch (e) {
+      setImportStatus('微调失败：' + String((e && e.message) || e).slice(0, 60), 'err');
+    }
+  }
+
+  function openOcrPreview(data) {
+    const g0 = data.debug.grid;
+    ocrPrev = {
+      image: data.image,
+      grid: { x0: g0.x0, y0: g0.y0, cellX: g0.cellX, cellY: g0.cellY, n: g0.n,
+        base: { x0: g0.x0, y0: g0.y0, cellX: g0.cellX, cellY: g0.cellY } },
+      data,
+    };
+    delete data.image;
+    openModal(ocrPreviewHtml());
+    const box = $('.modal-box');
+    if (box) {
+      box.addEventListener('click', (e) => {
+        const b = e.target.closest('[data-nudge]');
+        if (b) {
+          const g = ocrPrev && ocrPrev.grid;
+          if (!g) return;
+          const [k, d] = b.dataset.nudge.split(':');
+          const num = Number(d) || 0;
+          if (k === 'x') g.x0 += num * g.cellX * 0.25;
+          else if (k === 'y') g.y0 += num * g.cellY * 0.25;
+          else if (k === 'w') { const f = 1 + 0.02 * num; g.cellX *= f; g.cellY *= f; }
+          else if (k === 'r') { g.x0 = g.base.x0; g.y0 = g.base.y0; g.cellX = g.base.cellX; g.cellY = g.base.cellY; }
+          ocrReRun();
+          return;
+        }
+        if (e.target.closest('#btn-ocr-apply')) {
+          const d = ocrPrev && ocrPrev.data;
+          ocrPrev = null;
+          if (!d) return;
+          setImportStatus('已填进棋盘，逐格核对一下吧', '');
+          try { applyResult(d, 'local'); }
+          catch (err) { setImportStatus(String((err && err.message) || err).slice(0, 90), 'err'); toast('没能填进棋盘，看弹窗提示', 'warn'); }
+          return;
+        }
+        if (e.target.closest('#btn-ocr-back')) { ocrPrev = null; openShotModal(); }
+      });
+    }
+    ocrDrawPreview();
   }
 
   /** 把识别结果填进棋盘（本地/服务器两条路共用），并按需提示核对 */
@@ -1875,6 +2021,13 @@
         data = await recognizeViaServer(S.ocrBlob || file, size);
         how = how || 'server';
         if (!data) return;    // 被取消
+      }
+      // 本机识别：先给预览 + 网格微调，用户确认后再填棋盘（服务器版没有图，直接填）
+      if (how === 'local' && data.image && data.debug && data.debug.grid) {
+        stopImportClock();
+        setImportStatus('识别完成，先核对网格再应用', '');
+        openOcrPreview(data);
+        return;
       }
       applyResult(data, how);
     } catch (err) {

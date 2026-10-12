@@ -411,6 +411,11 @@
 
   // 棋盘定位主函数
   function detectBoard(id, opts) {
+    // 手动微调：调用方直接给网格（平移/缩放后重跑），跳过自动定位
+    if (opts && opts.grid) {
+      const g = opts.grid;
+      return { x0: g.x0, y0: g.y0, cellX: g.cellX, cellY: g.cellY, n: g.n, src: 'manual', note: '' };
+    }
     const { width: W, height: H } = id;
     const L = lumMap(id);
     const minWH = Math.min(W, H);
