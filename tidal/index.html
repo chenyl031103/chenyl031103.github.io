@@ -7,7 +7,7 @@
 <meta name="description" content="《弹壳特攻队》潮汐秘境计算器：把当前棋盘的数字、钻石、× 标记填进来，自动推出哪些格子必定是钻石、哪些必定不是钻石、下一步先点哪里。支持上传截图自动识别。">
 <meta name="theme-color" content="#0f1923">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext y='25' font-size='25'%3E%F0%9F%92%8E%3C/text%3E%3C/svg%3E">
-<link rel="stylesheet" href="style.css?vmv4x2gmg">
+<link rel="stylesheet" href="style.css?vmv4xgh7t">
 <script>var t=localStorage.getItem('theme')||'light';document.documentElement.setAttribute('data-theme',t);</script>
 </head>
 <body>
@@ -75,13 +75,7 @@
       </div>
       <span class="map-chip map-chip-quiet map-chip-gem">本图固定钻石 <b id="gem-total-text">20</b> 颗</span>
       <span class="map-chip map-chip-quiet">已填 <b id="filled-count">0</b> / <b id="cell-total">64</b> 格</span>
-      <span class="board-tools" id="board-tools">
-        <span class="bb-label">格子</span>
-        <button class="bb-btn" id="cell-minus" type="button" title="格子改小">−</button>
-        <button class="bb-btn" id="cell-plus" type="button" title="格子改大">＋</button>
-        <button class="bb-btn bb-auto" id="cell-auto" type="button" title="恢复自动适配屏幕">自动</button>
-        <button class="bb-btn" id="board-fs" type="button" title="棋盘全屏显示（手机上更好点）">全屏</button>
-      </span>
+      <button class="bb-btn" id="board-fs" type="button" title="整个工具区全屏（手机上格子更大好点）" style="margin-left:auto;">全屏</button>
     </div>
 
     <div class="palette" id="palette">
@@ -121,11 +115,18 @@
       <div class="board-scroll" id="board-scroll">
         <div class="board" id="board" role="grid" aria-label="残局棋盘"></div>
       </div>
+      <span class="board-tools" id="board-tools" title="调格子大小（自动按屏幕适配）">
+        <button class="bb-btn" id="cell-minus" type="button" title="格子改小">−</button>
+        <button class="bb-btn" id="cell-plus" type="button" title="格子改大">＋</button>
+        <button class="bb-btn bb-auto" id="cell-auto" type="button" title="恢复自动适配屏幕">自动</button>
+      </span>
     </div>
 
     <p class="advice" id="advice">
       <svg class="ico"><use href="#ico-aim"/></svg><span id="advice-text">先把残局填进来，或点右上角「随机玩一盘」体验一下。</span>
     </p>
+
+    <p class="credit">《弹壳特攻队》潮汐秘境计算器 · 海出品</p>
 
     <div class="game-bar" id="game-bar" hidden>
       <span class="gb gb-title" id="gb-title"></span>
@@ -171,12 +172,11 @@
     <div class="toasts" id="toasts"></div>
 
   </section>
-  <footer class="footer">《弹壳特攻队》潮汐秘境计算器小工具 · 海出品</footer>
 </main>
 
 <script>window.TIDAL_OCR = false;/* 静态托管版由构建脚本改成 false */</script>
 <script>window.TIDAL_OCR_URL = 'http://chenyl.free.idcfengye.com/';/* 静态版构建时填入「带截图识别的网址」 */</script>
-<script src="solver-core.js?vmv4x2gmg"></script>
-<script src="solver.js?vmv4x2gmg"></script>
+<script src="solver-core.js?vmv4xgh7t"></script>
+<script src="solver.js?vmv4xgh7t"></script>
 </body>
 </html>

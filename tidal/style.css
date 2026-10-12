@@ -271,13 +271,24 @@ main {
   border-radius: var(--radius);
   overflow: hidden;
 }
-/* 格子大小 / 全屏：并入「地图尺寸」同一行，不再单独占一行 */
+/* 调格子大小：浮在棋盘右下角（不占版面；滚动区底部留空，不挡格子） */
+.board-shell { position: relative; }
 .board-tools {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  z-index: 6;
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  margin-left: auto;   /* 靠右对齐 */
+  padding: 4px 6px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  opacity: 0.9;
+  transition: opacity 0.15s;
 }
+.board-tools:hover { opacity: 1; }
 .bb-label { color: var(--text-muted); font-size: 0.75rem; }
 .bb-btn {
   min-width: 26px;
@@ -303,6 +314,8 @@ main {
   overflow: auto;
   gap: 10px;
 }
+/* 全屏里不需要"相关网址"这些外部链接，保留功能部分 */
+.stage:fullscreen .site-links { display: none; }
 .stage:fullscreen .board-shell {
   flex: 1 1 auto;
   min-height: 0;
@@ -315,7 +328,7 @@ main {
   place-items: center;
 }
 .board-scroll {
-  padding: 14px;
+  padding: 14px 14px 46px;   /* 底部留出空间给"格子大小"浮层，不遮格子 */
   overflow: auto;
   scrollbar-width: thin;
   scrollbar-color: var(--scroll-thumb) transparent;
@@ -772,16 +785,16 @@ main {
 .detail .block-title:first-child { margin-top: 0; }
 .detail .coord-list { margin-bottom: 2px; }
 
-/* ---------- 17. 页脚 ---------- */
-.footer {
-  margin-top: 24px;
-  padding-top: 14px;
-  border-top: 1px solid var(--border);
+/* ---------- 17. 出品署名（放在棋盘下方、建议条后面：容易看到又不显眼，全屏也在） ---------- */
+.credit {
+  margin: 2px 0 4px;
   text-align: center;
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   color: var(--text-muted);
-  letter-spacing: 0.02em;
+  opacity: 0.8;
+  letter-spacing: 0.03em;
 }
+body.is-game .credit { display: none; }        /* 玩游戏时不必占底部空间 */
 
 /* ---------- 18. 截图识别：拖拽区 / 紧凑文件行 ---------- */
 .dropzone {
