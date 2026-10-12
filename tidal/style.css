@@ -149,16 +149,6 @@ a { text-decoration: none; }
   background: var(--bg-secondary);
   border-bottom: 1px solid var(--border);
 }
-/* 顶部中间：出品署名（易看到但不抢眼；窄屏时换行到中间一行） */
-.credit-top {
-  flex: 1 1 auto;
-  min-width: 0;
-  margin: 0;
-  text-align: center;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
 .brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .brand-mark { font-size: 22px; line-height: 1; flex: none; }
 .brand-text { display: flex; flex-direction: column; min-width: 0; }
@@ -845,14 +835,14 @@ main {
 .detail .block-title:first-child { margin-top: 0; }
 .detail .coord-list { margin-bottom: 2px; }
 
-/* ---------- 17. 出品署名（放在棋盘下方、建议条后面：容易看到又不显眼，全屏也在） ---------- */
+/* ---------- 17. 出品署名（底部中间：容易看到、不喧宾夺主，全屏也在） ---------- */
 .credit {
-  margin: 2px 0 4px;
+  margin: 2px 0 6px;
   text-align: center;
-  font-size: 0.72rem;
-  color: var(--text-muted);
-  opacity: 0.8;
-  letter-spacing: 0.03em;
+  font-size: 0.86rem;
+  color: var(--text-secondary);
+  opacity: 0.92;
+  letter-spacing: 0.04em;
 }
 body.is-game .credit { display: none; }        /* 玩游戏时不必占底部空间 */
 
