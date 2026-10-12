@@ -264,9 +264,11 @@
             content = '<span class="v-safe">×</span>';
           } else if (res.probs && res.probs[i] != null && showProb && frontier[i]) {
             const p = res.probs[i];
-            // 深浅分级：概率越高颜色越深越醒目（边框+角标字体同档），低概率淡化
-            cls += ' say-prob ' + (p >= 2 / 3 ? 'prob-hi' : p >= 1 / 3 ? 'prob-mid' : 'prob-lo');
-            badge = p >= 0.995 ? '≈1' : p <= 0.005 ? '≈0' : Math.round(p * 100) + '%';
+            // 分档以「显示出来的整数百分比」为准，避免出现"显示33%却是低概率蓝色"这种不一致
+            const pct = Math.round(p * 100);
+            const near1 = p >= 0.995, near0 = p <= 0.005;
+            cls += ' say-prob ' + (near1 || (!near0 && pct >= 67) ? 'prob-hi' : (near0 || pct < 33) ? 'prob-lo' : 'prob-mid');
+            badge = near1 ? '≈1' : near0 ? '≈0' : pct + '%';
           }
           if (res.pick && res.pick.i === i) cls += ' pick';
           if (S.cursor === i) cls += ' cursor';
