@@ -225,30 +225,25 @@
     const { rows, cols, grid } = S;
     // 游戏模式下不叠加任何分析标记（否则会把上一次分析的结果画到游戏盘上）
     const res = S.game ? null : S.result;
-    const hasClue = (() => {
-      for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) { const v = grid[r][c]; if (typeof v === 'number' && v >= 0 && Number.isFinite(v)) return true; }
-      return false;
-    })();
+    const hasClue = boardHasClue();
     const showProb = hasClue && parseFloat(getComputedStyle(el.board).getPropertyValue('--cell')) >= 26;
-    // 只给「紧挨着数字的边界格」画虚线概率框：离线索很远的格子概率就是基准值，
-    // 全画上会是一堆若隐若现的虚线，反而看不清重点
-    const frontier = new Uint8Array(rows * cols);
-    if (showProb) {
-      for (let r = 0; r < rows; r++) {
-        for (let c = 0; c < cols; c++) {
-          const v = grid[r][c];
-          if (typeof v !== 'number' || !(v >= 0) || !Number.isFinite(v)) continue;   // NaN/负数都不是线索
-          for (let dr = -1; dr <= 1; dr++) {
-            for (let dc = -1; dc <= 1; dc++) {
-              if (!dr && !dc) continue;
-              const rr = r + dr, cc = c + dc;
-              if (rr < 0 || cc < 0 || rr >= rows || cc >= cols) continue;
-              frontier[rr * cols + cc] = 1;
-            }
-          }
-        }
+    // 概率画在"没有数字线索的格子"上（未翻开且不是数字/钻石/×）：概率本身就只是这些格子的性质
+    const isClue = new Uint8Array(rows * cols);
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        const v = grid[r][c];
+        if (typeof v === 'number' && v >= 0 && Number.isFinite(v)) isClue[r * cols + c] = 1;
       }
     }
+    const clueLess = (i) => !isClue[i];
+    // 高亮闪烁提示"点这一格"：有确定建议就用建议格，没有（例如空盘）用棋盘中心
+    let hot = -1;
+    if (!S.game) {
+      const center = Math.round((rows - 1) / 2) * cols + Math.round((cols - 1) / 2);
+      if (S.filledCount === 0 || !hasClue) hot = center;      // 空盘/无线索：提示第一手
+      else if (res && res.pick && typeof res.pick.r === 'number' && res.pick.i != null) hot = res.pick.i;
+    }
+
     let filled = 0;
 
     for (let r = 0; r < rows; r++) {
@@ -270,8 +265,9 @@
         else if (v === 'H') { cls += ' is-blank'; }             // 扫雷：没翻开的格子 ■
         else if (typeof v === 'number' && v >= 0) {
           cls += ' is-open';
-          if (v > 0) { cls += ' n' + v; text = String(v); }
+          cls += ' n' + v; text = String(v);      // 0 也显示（灰色，最不显眼）
         }
+        if (i === hot) cls += ' is-hot';
         if (S.aiCells.has(i)) cls += ' is-ai';
         if (S.unsure.has(i)) cls += ' is-unsure';
         if (S.awaiting === i) cls += ' awaiting';
@@ -290,7 +286,7 @@
           } else if (res.knownSafe && res.knownSafe[i]) {
             cls += ' say-safe';
             content = '<span class="v-safe">×</span>';
-          } else if (res.probs && res.probs[i] != null && showProb && frontier[i]) {
+          } else if (res.probs && res.probs[i] != null && showProb && clueLess(i)) {
             const p = res.probs[i];
             // 分档以「显示出来的整数百分比」为准，避免出现"显示33%却是低概率蓝色"这种不一致
             const pct = Math.round(p * 100);
@@ -325,6 +321,17 @@
   }
 
   /* ---------- 分析 ---------- */
+  // 盘上有没有数字线索（没有任何数字时求解器给不出建议，只能提示"第一手点哪"）
+  function boardHasClue() {
+    for (let r = 0; r < S.rows; r++) {
+      for (let c = 0; c < S.cols; c++) {
+        const v = S.grid[r][c];
+        if (typeof v === 'number' && v >= 0 && Number.isFinite(v)) return true;
+      }
+    }
+    return false;
+  }
+
   function analyze() {
     // 游戏模式下不显示工具结论（不然等于直接给答案）
     if (S.game) { updateGameBar(); return; }
@@ -369,7 +376,17 @@
   /** 一行建议条（始终显示在棋盘下方） */
   function adviceLine(res) {
     const c = res.counts;
-    if (S.filledCount === 0) return { kind: '', text: '先把残局填进来，或点右上角「随机玩一盘」体验一下。' };
+    if (S.filledCount === 0 || !boardHasClue()) {
+      // 空盘 / 还没有数字线索：求解器给不出建议，直接告诉他第一手点哪
+      const cr = Math.round((S.rows - 1) / 2) + 1, cc = Math.round((S.cols - 1) / 2) + 1;
+      const where = S.rows >= 9 ? `9×9 范围的中心格（${cr}行${cc}列）` : `棋盘中心（${cr}行${cc}列）`;
+      return {
+        kind: 'safe',
+        text: S.filledCount === 0
+          ? `这张图还没开过：先点 ${where} —— 翻开后再把盘面抄进来（或直接截图识别）`
+          : `还没有数字线索：先点 ${where} 打开局面，再把翻开的数字填进来`,
+      };
+    }
     if (c.hiddenCells === 0) return { kind: '', text: '棋盘已填满，没有未翻开的格子了。' };
     const pick = res.pick;
     if (!pick) return { kind: '', text: '还没有数字线索：先把已翻开的格子和钻石填进来。' };
@@ -1959,11 +1976,17 @@
     let filledN = 0;
     for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) if (S.grid[r][c] !== -1) filledN++;
     const cov = (typeof data.coverage === 'number') ? data.coverage : null;
-    const weak = how === 'local'
+    const unopened = data.unopened === true;   // 整盘都没翻开：不是识别失败，是"还没开过的图"
+    const weak = unopened ? false : (how === 'local'
       ? (filledN === 0 || data.thin === true)
-      : (filledN === 0 || data.thin === true || filledN < Math.max(6, Math.round(rows * rows * 0.05)) || (cov != null && cov < 0.6));
+      : (filledN === 0 || data.thin === true || filledN < Math.max(6, Math.round(rows * rows * 0.05)) || (cov != null && cov < 0.6)));
     const missN = rows * cols - filledN;   // 没读出的空格（未翻开 + 空著）
-    if (weak) {
+    if (unopened) {
+      const cr = Math.round((rows - 1) / 2) + 1, cc = Math.round((cols - 1) / 2) + 1;
+      const where = rows >= 9 ? `9×9 范围的中心格（${cr}行${cc}列）` : `棋盘中心（${cr}行${cc}列）`;
+      setImportStatus(`这张图还没开过：先点 ${where}`, '');
+      toast(`没开过的图：先点 ${where}`, 'gold');
+    } else if (weak) {
       setImportStatus('识别完成，但几乎没有读出内容，请重试或手工填写。', 'err');
       openModal(`
         <div class="modal-head">

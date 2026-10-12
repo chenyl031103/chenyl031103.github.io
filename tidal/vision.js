@@ -1314,7 +1314,7 @@
     const sp = otsuSplit(lums);
     const separable = sp.sep > CFG.OTSUSPLIT_SEP_MIN && sp.nB > 0 && sp.nD > 0;
 
-    let filled = 0;
+    let filled = 0, openedCount = 0;
     for (let r = 0; r < n; r++) {
       for (let c = 0; c < n; c++) {
         const cell = cells[r * n + c];
@@ -1325,6 +1325,7 @@
         if (cell.orangeFrac > CFG.ORANGE_FRAC_MIN) { outCells[r][c] = 9; filled++; continue; }
         // 未翻开 = 亮蓝底（亮），已翻开 = 深色底（暗）；不满足可分条件时用绝对亮度兜底
         const isOpen = separable ? cell.meanLum < sp.thr : cell.meanLum < CFG.OPEN_LUM_FALLBACK;
+        if (isOpen) openedCount++;
         if (isOpen) {
           const gl = extractGlyph(id, px, py, Math.round(grid.cellX), Math.round(grid.cellY));
           if (gl) {
@@ -1373,6 +1374,8 @@
       note: `识别出 ${filled} 个已填格${unsure.length ? '，' + unsure.length + ' 处待核对' : ''}${gridIn.note ? '；' + gridIn.note : ''}`,
       badRows: 0,
       thin,
+      openedCount,          // 判为"已翻开"的格子数
+      unopened: openedCount <= 1 && filled === 0,   // 整盘都没翻开（新图）：不是识别失败
       model: 'local',
       usedBackup: false,
       elapsedMs: Math.round(done - t0),
