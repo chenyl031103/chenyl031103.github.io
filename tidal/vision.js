@@ -60,6 +60,8 @@
     X_MINCOV_OPEN: 0.75,        // 已翻开分支（误判代价大）
     RETRY_R: 3, RETRY_R_SMALL: 2,
     RETRY_R_UNOPENED: 1,        // 未翻开格只需查 X 标记（纹样不参与数字投票），半径可小
+    UPSCALE_BELOW: 62,          // 格宽小于此值（微信压缩图）先放大再读数
+    UPSCALE_MAX: 2,             // 放大幅度上限
     RETRY_R_SMALL_FRAC: 0.5,
     RETRY_VOTE_MIN: 4, RETRY_VOTE_FRAC: 0.10, RETRY_VOTE_RATIO: 1.6,
     RETRY_HIT_MIN: 4,
@@ -118,6 +120,21 @@
     src.getContext('2d').putImageData(id, 0, 0);
     const dst = makeCanvas(nw, nh);
     const ctx = dst.getContext('2d', { willReadFrequently: true });
+    ctx.drawImage(src, 0, 0, nw, nh);
+    return ctx.getImageData(0, 0, nw, nh);
+  }
+
+  // 等比缩放（k>1 为放大；小图增强用：微信二次压缩的截图格子只有 45px 左右，
+  // 放大到 60px+ 再读数，阈值分割与字形 bbox 会稳很多）
+  function scaleImage(id, k) {
+    const { width: w, height: h } = id;
+    const nw = Math.max(1, Math.round(w * k)), nh = Math.max(1, Math.round(h * k));
+    const src = makeCanvas(w, h);
+    src.getContext('2d').putImageData(id, 0, 0);
+    const dst = makeCanvas(nw, nh);
+    const ctx = dst.getContext('2d', { willReadFrequently: true });
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
     ctx.drawImage(src, 0, 0, nw, nh);
     return ctx.getImageData(0, 0, nw, nh);
   }
@@ -377,36 +394,59 @@
     return { rows: rowBands, cols: bands(colRun, maxC) };
   }
 
-  // 用外框亮边 + 亮蓝区域定出棋盘矩形（取亮带内缘 = 网格边界，扫描窗内缩后落在格内）
-  function frameGrid(fb, bb, n) {
-    const pick = (arr, lo, hi, needInside) => {
-      if (!arr.length) return null;
-      if (needInside && lo >= 0 && hi >= 0) {
-        let a = null, b = null;
-        for (const bd of arr) {
-          if (bd.mid < lo && (!a || bd.mid > a.mid)) a = bd;
-          if (bd.mid > hi && (!b || bd.mid < b.mid)) b = bd;
-        }
-        if (a && b) return [a, b];
-      }
-      // 无蓝带参考：取 run 最长（用长度近似：带越厚越长）且相距最远的一对
+  // 枚举上下/左右亮带的所有配对，按"越接近正方形越靠前"排序。
+  // 亮带可能多于 4 条（图缩小后上方两个 UI 面板的高光会连成长亮带），
+  // 所以不能只认"最长的那两条"——交给调用方用暗缝间距/频谱去校验。
+  function frameCandidates(fb) {
+    const pairs = (arr) => {
       const s = arr.slice().sort((p, q) => p.mid - q.mid);
-      if (s.length < 2) return null;
-      let best = null, bd2 = -1;
-      for (let i = 0; i < s.length; i++) for (let j = i + 1; j < s.length; j++) {
-        const gap = s[j].mid - s[i].mid;
-        if (gap > bd2) { bd2 = gap; best = [s[i], s[j]]; }
-      }
-      return best;
+      const out = [];
+      for (let i = 0; i < s.length; i++) for (let j = i + 1; j < s.length; j++) out.push([s[i], s[j]]);
+      return out;
     };
+    const rp = pairs(fb.rows), cp = pairs(fb.cols);
+    const cands = [];
+    for (const r of rp) {
+      const y0 = r[0].end + 0.5, y1 = r[1].start - 0.5;
+      const h = y1 - y0;
+      if (h <= 0) continue;
+      for (const c of cp) {
+        const x0 = c[0].end + 0.5, x1 = c[1].start - 0.5;
+        const w = x1 - x0;
+        if (w <= 0) continue;
+        cands.push({ x0, y0, x1, y1, w, h,
+          // 正方形程度为主，再加一点"越大越像棋盘"的弱先验（大矩形少，凑巧方的小矩形多）
+          score: Math.abs(Math.log(w / h)) - 0.04 * Math.log(Math.min(w, h) / (0.5 * (w + h))) });
+      }
+    }
+    cands.sort((a, b) => a.score - b.score);
+    return cands;
+  }
+
+  // 用外框亮边 + 亮蓝区域定出棋盘矩形（取亮带内缘 = 网格边界，扫描窗内缩后落在格内）
+  // 返回"最像正方形"的那个候选；调用方再用频谱/暗缝校验（见 detectBoard*）
+  function frameGrid(fb, bb, n) {
+    const cands = frameCandidates(fb);
+    if (!cands.length) return null;
     const hasB = bb && bb.rowStart >= 0 && bb.colStart >= 0;
-    const rp = pick(fb.rows, hasB ? bb.rowStart : -1, hasB ? bb.rowEnd : -1, hasB);
-    const cp = pick(fb.cols, hasB ? bb.colStart : -1, hasB ? bb.colEnd : -1, hasB);
-    if (!rp || !cp) return null;
-    const y0 = rp[0].end + 0.5, y1 = rp[1].start - 0.5;
-    const x0 = cp[0].end + 0.5, x1 = cp[1].start - 0.5;
-    if (!(x1 - x0 > 0) || !(y1 - y0 > 0)) return null;
-    return { x0, y0, x1, y1, cellX: (x1 - x0) / n, cellY: (y1 - y0) / n };
+    let best = cands[0], bestScore = cands[0].score + frameBlueBonus(cands[0], bb, hasB);
+    for (let i = 1; i < Math.min(cands.length, 6); i++) {
+      const s = cands[i].score + frameBlueBonus(cands[i], bb, hasB);
+      if (s < bestScore) { bestScore = s; best = cands[i]; }
+    }
+    return { x0: best.x0, y0: best.y0, x1: best.x1, y1: best.y1,
+      cellX: best.w / n, cellY: best.h / n, skew: Math.abs(best.w - best.h) / Math.max(best.w, best.h) };
+  }
+
+  // 亮蓝落在矩形内的加权（软先验，仅微调排序：亮蓝带本身可能被上方 UI 面板污染）
+  function frameBlueBonus(c, bb, hasB) {
+    if (!hasB) return 0;
+    let s = 0;
+    const inRow = bb.rowStart > c.y0 && bb.rowEnd < c.y1;
+    const inCol = bb.colStart > c.x0 && bb.colEnd < c.x1;
+    if (inRow && inCol) s -= 0.02;
+    else if (!inRow && !inCol) s += 0.02;
+    return s;
   }
 
   // 棋盘定位主函数
@@ -427,39 +467,46 @@
     try {
       const rough = minWH * 0.075;    // 先验格宽：8~12 格棋盘约占短边的 60%~90%
       const fb0 = frameBands(id, W, H, 12, rough, rough);
-      // 上下/左右各只有一条贯穿亮线时无需再扫亮蓝（省一大圈像素扫描）
-      let rect = (fb0.rows.length === 2 && fb0.cols.length === 2) ? frameGrid(fb0, null, 12) : null;
-      if (!rect) rect = frameGrid(fb0, blueBounds(id, rough, rough), 12);
-      if (rect && blueFracIn(id, rect) >= 0.25) {
-        const py = pitchFromSeams(L, W, H, rect.x0, rect.x1, rect.y0, rect.y1, false, rough);
-        const px = pitchFromSeams(L, W, H, rect.x0, rect.x1, rect.y0, rect.y1, true, rough);
-        const nX = px ? Math.round((rect.x1 - rect.x0) / px) : 0;
-        const nY = py ? Math.round((rect.y1 - rect.y0) / py) : 0;
-        let n = nX && nY ? (nX === nY ? nX : 0) : (nX || nY);
-        if (n) {
-          let bestN = CFG.N_CANDIDATES[0], bd = 1e9;
-          for (const c of CFG.N_CANDIDATES) {
-            const d = Math.abs(c - n);
-            if (d < bd - 0.01) { bd = d; bestN = c; }
-            else if (Math.abs(d - bd) <= 0.01 && c > bestN) bestN = c;
-          }
-          n = bestN;
-        }
-        if (n) {
-          const rectN = opts && opts.forceN ? opts.forceN : n;
-          const g = { x0: rect.x0, y0: rect.y0, cellX: (rect.x1 - rect.x0) / rectN, cellY: (rect.y1 - rect.y0) / rectN, n: rectN, src: 'frame', note: '' };
-          // 交叉校验：格子应是正方形，格宽要落在合理范围（否则退回频谱法）
-          const cxm = Math.max(g.cellX, g.cellY);
-          if (g.cellX > Pmin && g.cellX < Pmax && g.cellY > Pmin && g.cellY < Pmax &&
-              Math.abs(g.cellX - g.cellY) <= 0.12 * cxm) {
-            grid = g;
-            if (opts && opts.forceN) grid.src = 'force';
-          }
+      // 候选按"越接近正方形越靠前"逐个校验：矩形里收集到的暗缝，只有真档位才排得整齐
+      // （落到格点上）——这是硬判据；光看亮带长短会被放缩后的 UI 面板高光骗到。
+      // 先把装不下一整个棋盘的碎矩形滤掉（否则一堆 40×40 的凑巧正方形会排在前面）。
+      const minSide = Pmin * 6;
+      const cands = frameCandidates(fb0).filter((c) => c.w >= minSide && c.h >= minSide);
+      for (let ci = 0, tried = 0; ci < cands.length && tried < 10; ci++) {
+        const c = cands[ci];
+        tried++;
+        if (blueFracIn(id, c) < 0.15) continue;                  // 一点亮蓝都没有 → 不是棋盘
+        const seamsX = collectSeams(L, W, H, c.x0, c.x1, c.y0, c.y1, true, rough);
+        const seamsY = collectSeams(L, W, H, c.x0, c.x1, c.y0, c.y1, false, rough);
+        const bx = bestNForAxis(seamsX, c.x0, c.w);
+        const by = bestNForAxis(seamsY, c.y0, c.h);
+        if (!bx || !by || bx.n !== by.n) continue;
+        let n = bx.n;
+        if (opts && opts.forceN) n = opts.forceN;
+        const rx = refineFromSeams(seamsX, c.x0, c.w / n);
+        const ry = refineFromSeams(seamsY, c.y0, c.h / n);
+        const g = {
+          x0: rx && Math.abs(rx.b - c.w / n) < 0.08 * c.w / n ? rx.a : c.x0,
+          y0: ry && Math.abs(ry.b - c.h / n) < 0.08 * c.h / n ? ry.a : c.y0,
+          cellX: rx && Math.abs(rx.b - c.w / n) < 0.08 * c.w / n ? rx.b : c.w / n,
+          cellY: ry && Math.abs(ry.b - c.h / n) < 0.08 * c.h / n ? ry.b : c.h / n,
+          n, src: 'frame', note: '',
+        };
+        if (g.cellX > Pmin && g.cellX < Pmax && g.cellY > Pmin && g.cellY < Pmax &&
+            Math.abs(g.cellX - g.cellY) <= 0.12 * Math.max(g.cellX, g.cellY)) {
+          grid = g;
+          if (opts && opts.forceN) grid.src = 'force';
+          break;
         }
       }
     } catch (e) { grid = null; }
 
-    if (!grid) return detectBoardSpectral(id, opts, L, W, H, Pmin, Pmax);
+    if (!grid) {
+      grid = detectBoardSpectral(id, opts, L, W, H, Pmin, Pmax);
+      // 频谱/蓝带回的网格再用暗缝精修一次（DFT 的格宽误差会累积到远端行）
+      if (grid && grid.src !== 'manual') grid = polishGrid(L, W, H, grid, minWH * 0.075);
+      return grid;
+    }
     // 边界修正：让网格完整落在图内
     if (grid.x0 < 0) grid.x0 = 0;
     if (grid.y0 < 0) grid.y0 = 0;
@@ -491,6 +538,103 @@
     return tot ? hit / tot : 0;
   }
 
+  // 在 [lo, hi] 内均匀取 count 个采样位置（落在区间内部，避开边界）
+  function samplePositions(lo, hi, count) {
+    const out = [];
+    if (hi <= lo) { out.push(Math.round((lo + hi) / 2)); return out; }
+    const step = (hi - lo) / (count + 1);
+    for (let i = 1; i <= count; i++) out.push(Math.round(lo + i * step));
+    return out;
+  }
+
+  // 收集暗缝中心，按扫描线分组返回：真格线会在很多扫描线上重复出现，
+  // 数字笔画/格子纹样造成的假缝只出现在个别扫描线上（后面用投票筛掉）
+  function collectSeamsByLine(L, W, H, x0, x1, y0, y1, vertical, guess) {
+    const maxw = Math.max(2, Math.round(guess * CFG.SEAM_MAXW));
+    const sLo = Math.round(vertical ? y0 + guess * 0.2 : x0 + guess * 0.2);
+    const sHi = Math.round(vertical ? y1 - guess * 0.2 : x1 - guess * 0.2);
+    const from = Math.max(0, Math.round(vertical ? x0 : y0));
+    const to = vertical ? Math.min(W - 1, Math.round(x1)) : Math.min(H - 1, Math.round(y1));
+    const groups = [];
+    for (const s of samplePositions(sLo, sHi, 12)) {
+      const get = vertical ? (i) => L[s * W + i] : (i) => L[i * W + s];
+      groups.push(seamCentersIn(get, from, to, maxw));
+    }
+    return groups;
+  }
+
+  // 多扫描线投票：只有被 ≥35% 扫描线命中的缝位才算真格线
+  function consensusSeams(groups, tol) {
+    const clusters = [];
+    for (const g of groups) {
+      for (const ctr of g) {
+        let hit = null;
+        for (const cl of clusters) if (Math.abs(cl.pos - ctr) <= tol) { hit = cl; break; }
+        if (hit) { hit.sum += ctr; hit.n++; hit.pos = hit.sum / hit.n; }
+        else clusters.push({ pos: ctr, sum: ctr, n: 1 });
+      }
+    }
+    if (!groups.length) return [];
+    const need = Math.max(2, Math.round(groups.length * 0.35));
+    return clusters.filter((c) => c.n >= need).map((c) => c.pos).sort((a, b) => a - b);
+  }
+
+  // 收集暗缝中心（棋盘矩形内按扫描线收集并投票；只取两侧是亮区、宽度合理的暗线）
+  function collectSeams(L, W, H, x0, x1, y0, y1, vertical, guess) {
+    return consensusSeams(collectSeamsByLine(L, W, H, x0, x1, y0, y1, vertical, guess), Math.max(2, guess * 0.18));
+  }
+
+  // 该轴上哪个档位最贴合暗缝：把缝心投影到 [起点, 起点+边长] 的格点栅格，
+  // 统计落在 ±0.18 格内的比例 —— 漏检/误检只影响个别点，真档位才对得齐。
+  function bestNForAxis(seams, a0, span) {
+    if (seams.length < 6) return null;
+    let bestN = 0, bestFrac = 0;
+    for (const n of CFG.N_CANDIDATES) {
+      const pitch = span / n;
+      let hit = 0;
+      for (const s of seams) {
+        const k = Math.round((s - a0) / pitch);
+        if (Math.abs(s - (a0 + k * pitch)) <= pitch * 0.18) hit++;
+      }
+      const frac = hit / seams.length;
+      if (frac > bestFrac + 0.02) { bestFrac = frac; bestN = n; }
+    }
+    return bestFrac >= 0.7 ? { n: bestN, frac: bestFrac } : null;
+  }
+
+  // 用对齐的缝心做最小二乘，精修 (起点, 格宽)：矩形内缘受高光/圆角影响有半像素级偏差，
+  // 缝心拟合能把格宽误差压到 0.1px 量级（否则 12 行累计会切到邻格）
+  function refineFromSeams(seams, a0, pitch) {
+    const pts = [];
+    for (const s of seams) {
+      const k = Math.round((s - a0) / pitch);
+      if (k >= 0 && k <= 64 && Math.abs(s - (a0 + k * pitch)) <= pitch * 0.25) pts.push([k, s]);
+    }
+    if (pts.length < 6) return null;
+    let sk = 0, sp = 0, skk = 0, skp = 0;
+    const N = pts.length;
+    for (const [k, p] of pts) { sk += k; sp += p; skk += k * k; skp += k * p; }
+    const den = N * skk - sk * sk;
+    if (Math.abs(den) < 1e-6) return null;
+    const b = (N * skp - sk * sp) / den;
+    const a = (sp - b * sk) / N;
+    if (!(b > 0)) return null;
+    return { a, b };
+  }
+
+  // 给定网格，用暗缝精修起点/格宽（两轴各自独立；拟合离谱就保留原值）
+  function polishGrid(L, W, H, g, guess) {
+    const x1 = g.x0 + g.n * g.cellX, y1 = g.y0 + g.n * g.cellY;
+    const seamsX = collectSeams(L, W, H, g.x0, x1, g.y0, y1, true, guess || g.cellX);
+    const seamsY = collectSeams(L, W, H, g.x0, x1, g.y0, y1, false, guess || g.cellY);
+    const rx = refineFromSeams(seamsX, g.x0, g.cellX);
+    const ry = refineFromSeams(seamsY, g.y0, g.cellY);
+    const out = { x0: g.x0, y0: g.y0, cellX: g.cellX, cellY: g.cellY, n: g.n, src: g.src, note: g.note };
+    if (rx && Math.abs(rx.b - g.cellX) < 0.08 * g.cellX) { out.x0 = rx.a; out.cellX = rx.b; }
+    if (ry && Math.abs(ry.b - g.cellY) < 0.08 * g.cellY) { out.y0 = ry.a; out.cellY = ry.b; }
+    return out;
+  }
+
   // 扫描线上找暗缝中心（要求缝两侧是亮区：只取夹在未翻开格之间的格线）
   function seamCentersIn(get, from, to, maxw) {
     const out = [];
@@ -507,28 +651,6 @@
       }
     }
     return out;
-  }
-
-  // 暗缝间距的中位数 = 格宽（只在棋盘矩形内统计，快且准；样本不足返回 0）
-  function pitchFromSeams(L, W, H, x0, x1, y0, y1, vertical, guess) {
-    const maxw = Math.max(2, Math.round(guess * CFG.SEAM_MAXW));
-    const lo = guess * 0.5, hi = guess * 1.6;
-    const sLo = Math.round(vertical ? y0 + guess * 0.2 : x0 + guess * 0.2);
-    const sHi = Math.round(vertical ? y1 - guess * 0.2 : x1 - guess * 0.2);
-    const from = Math.max(0, Math.round(vertical ? x0 : y0));
-    const toV = vertical ? Math.min(W - 1, Math.round(x1)) : Math.min(H - 1, Math.round(y1));
-    const diffs = [];
-    for (const s of samplePositions(sLo, sHi, 12)) {
-      const get = vertical ? (i) => L[s * W + i] : (i) => L[i * W + s];
-      const cs = seamCentersIn(get, from, toV, maxw);
-      for (let i = 1; i < cs.length; i++) {
-        const d = cs[i] - cs[i - 1];
-        if (d >= lo && d <= hi) diffs.push(d);
-      }
-    }
-    if (diffs.length < 3) return 0;
-    diffs.sort((a, b) => a - b);
-    return diffs[(diffs.length / 2) | 0];
   }
 
   // 频谱法（外框不可用时的完整定位流程）
@@ -582,8 +704,10 @@
     try {
       const fb = frameBands(id, W, H, n, cellX, cellY);
       const fg = frameGrid(fb, bb, n);
-      if (fg && fg.cellX > cellX * 0.75 && fg.cellX < cellX * 1.3 &&
-          fg.cellY > cellY * 0.75 && fg.cellY < cellY * 1.3) {
+      // 与频谱估计相差 20% 以内，且格子必须是正方形（否则说明亮带配错了对，宁可用下面的蓝带吸附）
+      if (fg && fg.skew <= 0.10 &&
+          fg.cellX > cellX * 0.8 && fg.cellX < cellX * 1.25 &&
+          fg.cellY > cellY * 0.8 && fg.cellY < cellY * 1.25) {
         grid = { x0: fg.x0, y0: fg.y0, cellX: fg.cellX, cellY: fg.cellY, n, src: 'frame', note: '' };
       }
     } catch (e) { grid = null; }
@@ -1037,23 +1161,148 @@
     return Math.min(cov1, cov2) >= minCov;
   }
 
+  /* ---------- 宝钻计数器（棋盘上方"剩余/总数"徽章，辅助交叉验证） ---------- */
+  // 读"💎 22/45"。只在"总数 == 本尺寸标准总数（20/30/45）"且两个数自洽时才采信 ——
+  // 计数器一旦读错会把"钻石总数"带偏（错的总数会推出错误结论），宁可不采信。
+  function detectGemCounter(id, grid) {
+    const { width: W, height: H } = id;
+    const yA = Math.max(0, Math.round(grid.y0 - 0.082 * H));
+    const yB = Math.max(0, Math.round(grid.y0 - 0.012 * H));
+    if (yB - yA < 12) return null;
+    const d = id.data;
+    const isInk = (x, y) => {
+      const p = (y * W + x) * 4, r = d[p], g = d[p + 1], b = d[p + 2];
+      return r > 140 && g > 140 && b > 140;      // 白字（面板边框是青色、宝石是橙色，都被这条排除）
+    };
+    const colInk = new Int32Array(W);
+    for (let x = 0; x < W; x++) {
+      let n = 0;
+      for (let y = yA; y < yB; y++) if (isInk(x, y)) n++;
+      colInk[x] = n;
+    }
+    // 墨迹列 → 连续段（允许 2px 小缝）
+    const runs = [];
+    let s = -1, gap = 0;
+    for (let x = 0; x < W; x++) {
+      if (colInk[x] > 0) { if (s < 0) s = x; gap = 0; }
+      else if (s >= 0) {
+        gap++;
+        if (gap > 2) { const e = x - gap; if (e - s >= 3) runs.push([s, e]); s = -1; gap = 0; }
+      }
+    }
+    if (s >= 0 && W - 1 - s >= 3) runs.push([s, W - 1]);
+    if (runs.length < 2) return null;
+    // 段高度（同一带里所有白字高度接近；用整带的行范围做上限）
+    const boxOf = (r) => {
+      let mnY = yB, mxY = yA - 1;
+      for (let x = r[0]; x <= r[1]; x++) {
+        for (let y = yA; y < yB; y++) {
+          if (isInk(x, y)) { if (y < mnY) mnY = y; if (y > mxY) mxY = y; }
+        }
+      }
+      return { x0: r[0], x1: r[1], y0: mnY, y1: mxY, w: r[1] - r[0] + 1, h: mxY - mnY + 1 };
+    };
+    const boxes = runs.map(boxOf).filter((b) => b.h >= 8);
+    if (boxes.length < 2) return null;
+    const medH = boxes.map((b) => b.h).sort((a, b) => a - b)[(boxes.length / 2) | 0];
+    // 斜杠：比数字窄、高度接近，且左右紧邻的都是"同高的数字块" ——
+    // 用邻居高度兜住，免得把别的 UI 里的小图标（也可能是窄条）当成斜杠。
+    let slash = -1, slashScore = Infinity;
+    for (let i = 1; i < boxes.length - 1; i++) {
+      const b = boxes[i];
+      if (b.h < medH * 0.7 || b.w > 0.62 * medH) continue;
+      const a = boxes[i - 1], c = boxes[i + 1];
+      if (b.x0 - a.x1 > medH * 0.45 || c.x0 - b.x1 > medH * 0.45) continue;
+      if (Math.abs(a.h - b.h) > b.h * 0.3 || Math.abs(c.h - b.h) > b.h * 0.3) continue;
+      const score = Math.abs(a.h - b.h) + Math.abs(c.h - b.h) + (b.w / medH);
+      if (score < slashScore) { slashScore = score; slash = i; }
+    }
+    if (slash <= 0 || slash >= boxes.length - 1) return null;
+    // 左/右各取紧邻斜杠的那一"组"数字（可能被 2px 小缝拆成多段 → 按间距合并）
+    const groupOf = (idx, dir) => {
+      const group = [boxes[idx]];
+      let cur = boxes[idx];
+      for (let i = idx + dir; i >= 0 && i < boxes.length; i += dir) {
+        const b = boxes[i];
+        const gapPx = dir < 0 ? cur.x0 - b.x1 : b.x0 - cur.x1;
+        if (gapPx > medH * 0.42) break;                 // 间距过大 = 另一个东西（星形/宝石）
+        group.push(b);
+        cur = b;
+      }
+      return group;
+    };
+    const readGroup = (group) => {
+      const x0 = Math.min(...group.map((b) => b.x0)), x1 = Math.max(...group.map((b) => b.x1));
+      const y0 = Math.min(...group.map((b) => b.y0)), y1 = Math.max(...group.map((b) => b.y1));
+      const w = x1 - x0 + 1, h = y1 - y0 + 1;
+      if (h < 8) return null;
+      // 数字个数 = 宽度 / 单字宽（数字宽高比约 0.55~0.75）
+      const cnt = Math.max(1, Math.min(3, Math.round(w / (h * 0.66))));
+      const cwEach = w / cnt;
+      let num = '';
+      for (let k = 0; k < cnt; k++) {
+        const cx0 = Math.round(x0 + k * cwEach), cx1 = Math.round(x0 + (k + 1) * cwEach) - 1;
+        const gl = glyphOfThreshold(id, cx0, y0, cx1 - cx0 + 1, h, 170);
+        if (!gl) return null;
+        const { d: dg, conf } = ocrDigit(gl);
+        if (conf < 0.72) return null;
+        num += String(dg);
+      }
+      return { num: Number(num), conf: 0.8 };
+    };
+    const left = readGroup(groupOf(slash - 1, -1).slice().reverse());
+    const right = readGroup(groupOf(slash + 1, 1));
+    if (!left || !right) return null;
+    return { left: left.num, right: right.num, box: boxes[slash] };
+  }
+
+  // 用给定阈值从指定区域抽字形（计数器是纯白字，Otsu 反而会被面板渐变带偏）
+  function glyphOfThreshold(id, x0, y0, w, h, thr) {
+    if (w < 3 || h < 5) return null;
+    return glyphOf(id, x0, y0, w, h, thr);
+  }
+
   /* ---------- 全盘识别流程 ---------- */
   function recognize(input, opts) {
     const t0 = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
     opts = opts || {};
-    let id = toImageData(input);
-    id = safeScale(id);
+    const raw = toImageData(input);
+    let id = safeScale(raw);
+    let sc = id.width / raw.width;      // 输入图 → 工作图的缩放比（>1 只可能来自下面的小图增强）
 
-    const grid = detectBoard(id, opts);
+    let grid = detectBoard(id, opts);
     if (!grid) {
       const e = new Error('未能自动识别棋盘，请手动调整或改用服务器识别');
       e.code = 'NO_BOARD';
       throw e;
     }
+    // 手动微调路径：调用方给的网格是"输入图坐标"，换算到工作图
+    if (opts.grid) {
+      const g = opts.grid;
+      grid = { x0: g.x0 * sc, y0: g.y0 * sc, cellX: g.cellX * sc, cellY: g.cellY * sc, n: g.n, src: 'manual', note: '' };
+    } else if (grid.cellX < CFG.UPSCALE_BELOW) {
+      // 小图增强：格子小于 ~60px 时（微信二次压缩的截图）放大后读数更稳
+      const k = Math.min(CFG.UPSCALE_MAX, CFG.UPSCALE_BELOW / grid.cellX);
+      if (id.width * id.height * k * k <= CFG.MAX_PIXELS) {
+        const up = scaleImage(id, k);
+        grid = { x0: grid.x0 * k, y0: grid.y0 * k, cellX: grid.cellX * k, cellY: grid.cellY * k, n: grid.n, src: grid.src, note: grid.note };
+        id = up;
+        sc *= k;
+      }
+    }
     const { n } = grid;
+    const gridIn = { x0: grid.x0 / sc, y0: grid.y0 / sc, cellX: grid.cellX / sc, cellY: grid.cellY / sc, n, src: grid.src, note: grid.note };   // 报给外部的始终是输入图坐标
     // 尺寸文字交叉验证（只记入 note）
     const textN = detectMapSizeText(lumMap(id), id.width, id.height, grid);
-    if (textN && textN !== n) grid.note = `另有线索指向 ${textN}×${textN}，已按格子周期取 ${n}×${n}`;
+    if (textN && textN !== n) gridIn.note = `另有线索指向 ${textN}×${textN}，已按格子周期取 ${n}×${n}`;
+    // 宝钻计数器（辅助线索）：总数必须等于本尺寸标准总数才采信（防误读带偏总数推断）
+    let gemCounter = null;
+    try {
+      const gc = detectGemCounter(id, grid);
+      if (gc && gc.right === (CFG.GEM_TOTAL[n] || 0) && gc.left >= 0 && gc.left <= gc.right) {
+        gemCounter = { left: gc.left, right: gc.right };
+      }
+    } catch (e) { gemCounter = null; }
 
     const cells = resample(id, grid);
     const unsure = [];
@@ -1117,17 +1366,18 @@
       cells: outCells,
       unsure,
       gemTotal: CFG.GEM_TOTAL[n] || 0,
+      gemCounter,          // 截图里读到的"剩余/总数"（校验通过才有；不参与判定，仅供前端参考）
       coverage: filled / total,
       reported: filled,
       total,
-      note: `识别出 ${filled} 个已填格${unsure.length ? '，' + unsure.length + ' 处待核对' : ''}${grid.note ? '；' + grid.note : ''}`,
+      note: `识别出 ${filled} 个已填格${unsure.length ? '，' + unsure.length + ' 处待核对' : ''}${gridIn.note ? '；' + gridIn.note : ''}`,
       badRows: 0,
       thin,
       model: 'local',
       usedBackup: false,
       elapsedMs: Math.round(done - t0),
       // 调试信息（不入契约，前端忽略）
-      debug: { grid },
+      debug: { grid: gridIn, scale: sc, gemCounter },
     };
   }
 
@@ -1191,5 +1441,5 @@
     }
   }
 
-  return { CFG, configure, recognize, detectBoard, ocrDigit, extractGlyph, detectXMark, holesOf, _internal: { lumMap, safeScale, otsuSplit, buildTemplates } };
+  return { CFG, configure, recognize, detectBoard, ocrDigit, extractGlyph, detectXMark, holesOf, _internal: { lumMap, safeScale, otsuSplit, buildTemplates, frameBands, frameCandidates, collectSeams, bestNForAxis, refineFromSeams, polishGrid, blueFracIn, detectBoardSpectral, detectGemCounter, glyphOfThreshold } };
 });

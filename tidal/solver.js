@@ -664,7 +664,7 @@
     const s = S.history.pop();
     S.rows = s.rows; S.cols = s.cols;
     S.gemTotal = s.gemTotal;
-    if (el.gemTotalText) el.gemTotalText.textContent = S.gemTotal;
+    setGemTotalDisplay();
     if (el.sizeSeg) el.sizeSeg.querySelectorAll('.seg-btn').forEach((b) => b.classList.toggle('is-on', Number(b.dataset.size) === S.rows));
     S.grid = s.grid.map((row) => row.slice());
     S.aiCells = new Set(s.ai);
@@ -977,7 +977,7 @@
     S.rows = n;
     S.cols = n;
     S.gemTotal = GEM_TOTAL[n];
-    el.gemTotalText.textContent = S.gemTotal;
+    setGemTotalDisplay();
     el.sizeSeg.querySelectorAll('.seg-btn').forEach((b) => b.classList.toggle('is-on', Number(b.dataset.size) === n));
     resetHistory();   // 换了尺寸，旧盘面的撤销记录对不上行列，直接丢掉
     clearAll();
@@ -1063,7 +1063,7 @@
     S.rows = rows;
     S.cols = cols;
     S.gemTotal = (rows === cols && GEM_TOTAL[rows] != null) ? GEM_TOTAL[rows] : null;
-    if (el.gemTotalText) el.gemTotalText.textContent = S.gemTotal == null ? '—' : S.gemTotal;
+    setGemTotalDisplay();
     el.sizeSeg.querySelectorAll('.seg-btn').forEach((b) => b.classList.toggle('is-on', Number(b.dataset.size) === rows && rows === cols));
     resetHistory();
     S.grid = newGrid(rows, cols);
@@ -1421,6 +1421,11 @@
   }
 
   /* ---------- 截图识别 ---------- */
+  // 顶部"钻石"小标签（总数由地图尺寸固定；截图里读到的计数只用于交叉核对）
+  function setGemTotalDisplay() {
+    if (el.gemTotalText) el.gemTotalText.textContent = S.gemTotal == null ? '—' : S.gemTotal;
+  }
+
   function setImportStatus(text, kind) {
     const el2 = $('#import-status');
     if (!el2) return;
@@ -1766,6 +1771,10 @@
           </div>
           <p class="card-foot">红线偏了（压到数字上/切到相邻格）就点上面的微调按钮，每次挪 1/4 格；点完会立刻重算。</p>
         </section>
+        <section id="ocr-cross-sec" hidden>
+          <h4>和游戏里的计数对一下</h4>
+          <p class="card-foot" id="ocr-cross"></p>
+        </section>
         <section>
           <h4>没问题就填进棋盘</h4>
           <div class="go-row">
@@ -1820,6 +1829,10 @@
         g.fill();
       }
     }
+    const gh = $('#ocr-cross');
+    if (gh) gh.innerHTML = ocrPrev.crossCheck || '';
+    const gsec = $('#ocr-cross-sec');
+    if (gsec) gsec.hidden = !ocrPrev.crossCheck;
     const st = $('#ocr-prev-stats');
     if (st) {
       const unsureN = (data.unsure || []).length;
@@ -1853,6 +1866,20 @@
       data,
     };
     delete data.image;
+    // 交叉核对：截图里的「已收集/总数」vs 识别结果（钻石数、地图总数）
+    const gc = data.gemCounter;
+    const gemInBoard = data.cells.flat().filter((v) => v === 9).length;
+    const fixedTotal = GEM_TOTAL[data.rows] || 0;
+    if (!gc) ocrPrev.crossCheck = '';
+    else if (gc.right !== fixedTotal) {
+      ocrPrev.crossCheck = `<b>尺寸可能选错了</b>：截图里写的是 ${gc.left}/${gc.right}，而 ${data.rows}×${data.rows} 的总数应该是 ${fixedTotal}。`
+        + `请核对地图档位后重新识别。`;
+    } else if (gc.left === gemInBoard) {
+      ocrPrev.crossCheck = `截图里写着 <b>${gc.left}/${gc.right}</b>（已收集/总数）：识别出 <b>${gemInBoard}</b> 颗钻石、总数 ${gc.right} —— 两边对得上，交叉核对通过。`;
+    } else {
+      ocrPrev.crossCheck = `截图里写着 <b>${gc.left}/${gc.right}</b>，但识别出 <b>${gemInBoard}</b> 颗钻石，两者不一致 ——`
+        + ` 可能有格子读错了，重点核对钻石格（金框）。`;
+    }
     openModal(ocrPreviewHtml());
     const box = $('.modal-box');
     if (box) {
@@ -1897,8 +1924,8 @@
     mark();   // 整次识别算一步：识别错了可以一键退回识别前的盘面
     S.rows = rows; S.cols = cols;
     el.sizeSeg.querySelectorAll('.seg-btn').forEach((b) => b.classList.toggle('is-on', Number(b.dataset.size) === rows));
-    S.gemTotal = GEM_TOTAL[rows];      // 钻石总数由尺寸固定
-    el.gemTotalText.textContent = S.gemTotal;
+    S.gemTotal = GEM_TOTAL[rows];      // 钻石总数由尺寸固定（截图里的计数只用来交叉核对，见预览面板）
+    setGemTotalDisplay();
 
     S.grid = newGrid(rows, cols);
     S.aiCells.clear();
@@ -2078,7 +2105,7 @@
     // 静态托管版：隐藏截图识别入口；两种版本都在页脚上方列出对应网址
     renderSiteLinks();
     S.grid = newGrid(S.rows, S.cols);
-    el.gemTotalText.textContent = S.gemTotal;
+    setGemTotalDisplay();
     el.sizeSeg.querySelectorAll('.seg-btn').forEach((b) => b.classList.toggle('is-on', Number(b.dataset.size) === S.rows));
     el.palette.querySelectorAll('.brush').forEach((b) => b.classList.toggle('is-on', b.dataset.brush === S.brush));
     buildBoard();
