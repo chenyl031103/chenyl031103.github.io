@@ -309,8 +309,13 @@
     };
     // 主结论：把玩家的 × 当作「确定没有钻石」一起推理
     const res = window.TidalSolver.solve(Object.assign({}, base, { trustMarks: true }));
-    // 再算一遍「不信任 ×」，用来发现标错的 × 和数字证明不了的 ×
-    S.resultNoMarks = window.TidalSolver.solve(Object.assign({}, base, { trustMarks: false }));
+    // 再算一遍「不信任 ×」，用来发现标错的 × 和数字证明不了的 ×；
+    // 盘上没有 × 标记时两次结果完全相同，直接复用省一半计算
+    const hasMarks = (() => {
+      for (let r = 0; r < S.rows; r++) for (let c = 0; c < S.cols; c++) if (S.grid[r][c] === 'X') return true;
+      return false;
+    })();
+    S.resultNoMarks = hasMarks ? window.TidalSolver.solve(Object.assign({}, base, { trustMarks: false })) : res;
     S.result = res;
     paint();
     renderPanels(res);

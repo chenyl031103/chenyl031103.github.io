@@ -236,6 +236,17 @@
       // 每个分量的方案统计
       const compStats = [];
       for (const cells of comps) {
+        // 按"被约束次数"从多到少排序：枚举时先放约束最紧的格子，剪枝更早、大分量也不怕
+        const touchCount = new Map();
+        for (const i of cells) touchCount.set(i, 0);
+        for (const k of cs) {
+          let inComp = true;
+          for (const h of k.hidden) if (!touchCount.has(h)) { inComp = false; break; }
+          if (!inComp) continue;
+          for (const h of k.hidden) touchCount.set(h, touchCount.get(h) + 1);
+        }
+        cells.sort((a, b) => touchCount.get(b) - touchCount.get(a));
+
         const pos = new Map();
         cells.forEach((c, ix) => pos.set(c, ix));
         const rel = cs
@@ -268,8 +279,7 @@
           }
         };
 
-        const EXACT_MAX = 26;          // 超过这个规模才走启发式（多数残局不会到）
-        const STEP_BUDGET = 8000000;   // 枚举步数预算，超了就退回启发式，保证不卡页面
+        const EXACT_MAX = 40;          // 分量规模上限（配合约束优先排序，实测上千格也能秒算；超了走启发式）
         if (k > EXACT_MAX) {
           heuristic();
           compStats.push(stat);
@@ -281,13 +291,28 @@
         for (const kk of rel) for (const ix of kk.ix) inc[ix].push(kk);
 
         let steps = 0, overflow = false;
-        (function rec(t, gemCount) {
+        const t0 = Date.now();
+        const TIME_BUDGET = 150;   // 单分量枚举最多 150ms，超时退回启发式（保证点格子不卡）
+        // 回溯枚举，动态选格（MRV 变体）：每次优先展开"与已赋值格共同约束最多"的未定格，
+        // 让约束尽早完整以便剪枝，大分量也能快速精确求解
+        (function rec(depth, gemCount) {
           if (overflow) return;
-          if (++steps > STEP_BUDGET) { overflow = true; return; }
-          if (t === k) {
+          if ((++steps & 511) === 0 && Date.now() - t0 > TIME_BUDGET) { overflow = true; return; }
+          if (depth === k) {
             stat.perCount[gemCount] += 1;
             for (let z = 0; z < k; z++) if (assign[z] === 1) stat.cellGem[z][gemCount] += 1;
             return;
+          }
+          let t = -1, bestScore = -1;
+          for (let i = 0; i < k; i++) {
+            if (assign[i] >= 0) continue;
+            let score = 0;
+            for (const kk of inc[i]) {
+              let done = 0;
+              for (const ix of kk.ix) if (assign[ix] >= 0) done++;
+              score += done * done + 1;
+            }
+            if (score > bestScore) { bestScore = score; t = i; }
           }
           for (const v of [0, 1]) {
             assign[t] = v;
@@ -300,7 +325,7 @@
               }
               if (done && g !== kk.need) { ok = false; break; }
             }
-            if (ok) rec(t + 1, gemCount + v);
+            if (ok) rec(depth + 1, gemCount + v);
             assign[t] = -1;
           }
         })(0, 0);
