@@ -187,6 +187,7 @@
     el.board.style.setProperty('--gap', gap + 'px');
     el.board.style.setProperty('--cell', cell + 'px');
     el.board.style.setProperty('--font', Math.round(cell * 0.54) + 'px');
+    renderAuxLines();          // 格子尺寸变了，辅助虚线要跟着摆
     return cell;
   }
 
@@ -214,7 +215,57 @@
     S.nodes = nodes;
     el.cellTotal.textContent = rows * cols;
     fitBoard();
+    renderAuxLines();
     paint();
+  }
+
+  /**
+   * 棋盘辅助虚线：把棋盘三等分（12×12 → 4+4+4，即 4×4 的九宫格）。
+   * 用"格子的实际位置"算线位，所以和格子大小、间距无关，窗口缩放后也准。
+   */
+  function renderAuxLines() {
+    const { rows, cols } = S;
+    if (!el.board) return;
+    let aux = el.board.querySelector('.aux-lines');
+    if (!aux) {
+      aux = document.createElement('div');
+      aux.className = 'aux-lines';
+      aux.setAttribute('aria-hidden', 'true');
+      el.board.appendChild(aux);
+    }
+    aux.textContent = '';
+    if (rows < 6 || cols < 6) return;
+    const at = (r, c) => S.nodes[r * cols + c];
+    const boundX = (k) => {                    // 第 k 列左边界的 x（px，相对棋盘左上角）
+      if (k <= 0) return 0;
+      if (k >= cols) return el.board.clientWidth;
+      const a = at(0, k - 1), b = at(0, k);
+      const ae = a.offsetLeft + a.offsetWidth;
+      return ae + (b.offsetLeft - ae) / 2;
+    };
+    const boundY = (k) => {
+      if (k <= 0) return 0;
+      if (k >= rows) return el.board.clientHeight;
+      const a = at(k - 1, 0), b = at(k, 0);
+      const ae = a.offsetTop + a.offsetHeight;
+      return ae + (b.offsetTop - ae) / 2;
+    };
+    const outerC = Math.max(1, Math.round(cols / 3));
+    const outerR = Math.max(1, Math.round(rows / 3));
+    for (const k of [outerC, cols - outerC]) {
+      if (k <= 0 || k >= cols) continue;
+      const i = document.createElement('i');
+      i.className = 'aux-v';
+      i.style.left = boundX(k) + 'px';
+      aux.appendChild(i);
+    }
+    for (const k of [outerR, rows - outerR]) {
+      if (k <= 0 || k >= rows) continue;
+      const i = document.createElement('i');
+      i.className = 'aux-h';
+      i.style.top = boundY(k) + 'px';
+      aux.appendChild(i);
+    }
   }
 
   function newGrid(rows, cols) {
@@ -463,7 +514,8 @@
     // 赌的目标要和金色闪烁用同一格（并列时优先"未打开 3×3 的正中心"）
     const hiIdx = pickHotCell(res);
     const hi = (hiIdx >= 0 && (res.undecided || []).find((u) => u.i === hiIdx)) || pick;
-    const lo = hi === pick ? pick.alt : pick;
+    // 注意比下标、别比对象（pick 是展开出来的新对象，引用永远不会相等）
+    const lo = (hi.i === pick.i) ? (pick.alt || (res.undecided || [])[0]) : pick;
     const why = isOpenCenter(hi.r, hi.c) ? '，这格周围 9 格全没翻开，一翻就能带出新线索' : '';
     return {
       kind: 'warn',

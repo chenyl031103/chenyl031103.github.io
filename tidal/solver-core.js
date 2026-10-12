@@ -286,6 +286,9 @@
         const rel = cs
           .filter((k) => k.hidden.length && k.hidden.every((h) => pos.has(h)))
           .map((k) => ({ need: k.need, ix: k.hidden.map((h) => pos.get(h)) }));
+        // 与任何数字都不相交的孤立格：这里不枚举（否则"0 或 1 颗"会给出固定的 50%），
+        // 交给后面的「密度先验」= 剩余钻石 / 未翻开格数
+        if (!rel.length) continue;
         const touch = new Set();
         for (const k of rel) for (const ix of k.ix) touch.add(ix);
 
@@ -388,6 +391,20 @@
           let num = 0;
           for (let g = 0; g < st.cellGem[t].length; g++) num += st.cellGem[t][g];
           probs[st.cells[t]] = num / denom;
+        }
+      }
+
+      // 没有任何数字线索约束的格子（与线索不相交的孤立格）：用「盘面密度」当先验 ——
+      //   剩余钻石 / 还没翻开的格子数。
+      // 它只随"场上还剩几颗钻石、还剩几格没开"变化（开掉钻石、翻开格子都会更新），
+      // 和"放/改哪个数字"无关 —— 这样既反映盘面剩余，又保持局部模型的稳定性。
+      if (gTotal != null) {
+        const knownN = knownGem.reduce((a, b) => a + b, 0);
+        let unknownN = 0;
+        for (let i = 0; i < total; i++) if (clue[i] < 0 && !knownGem[i] && !knownSafe[i]) unknownN++;
+        if (unknownN > 0) {
+          const prior = Math.max(0, Math.min(1, (gTotal - knownN) / unknownN));
+          for (const i of cand) if (probs[i] == null) probs[i] = prior;
         }
       }
 

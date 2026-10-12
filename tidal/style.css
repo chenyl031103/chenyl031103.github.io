@@ -12,6 +12,7 @@
   --bg-hover: #253545;
   --bg-input: #162231;
   --border: #2a3a4a;
+  --aux-line: rgba(150, 185, 215, 0.45);   /* 棋盘辅助虚线（三等分） */
 
   --text-primary: #e0e6ed;
   --text-secondary: #8899aa;
@@ -72,6 +73,7 @@
   --bg-hover: #f5f7fa;
   --bg-input: #ffffff;
   --border: #dde1e6;
+  --aux-line: rgba(90, 125, 160, 0.45);
 
   --text-primary: #1a1a2e;
   --text-secondary: #555770;
@@ -1163,4 +1165,17 @@ body.is-game .board-scroll { display: flex; justify-content: center; align-items
 @media (prefers-reduced-motion: reduce) {
   .cell.is-hot { animation: none; }
   .cell.is-hot::before { animation: none; }
+}
+
+/* 棋盘辅助虚线：把棋盘三等分（12×12 → 4×4 九宫格），帮玩家分区数钻石 */
+.board { position: relative; }
+.aux-lines { position: absolute; inset: 0; pointer-events: none; z-index: 4; }
+.aux-lines i { position: absolute; display: block; }
+.aux-lines .aux-v {
+  top: 0; bottom: 0; width: 2px; margin-left: -1px;
+  background-image: repeating-linear-gradient(to bottom, var(--aux-line) 0 6px, transparent 6px 13px);
+}
+.aux-lines .aux-h {
+  left: 0; right: 0; height: 2px; margin-top: -1px;
+  background-image: repeating-linear-gradient(to right, var(--aux-line) 0 6px, transparent 6px 13px);
 }
