@@ -190,7 +190,12 @@
 
       const probs = new Array(total).fill(null);
       let approx = false;
-      if (!cand.length) return { probs, approx };
+      if (!cand.length) {
+        // 没有待定格了：只可能是"整盘都已判定"，此时唯一能矛盾的是已标钻石数超过总数
+        let knownN = 0;
+        for (let i = 0; i < total; i++) if (knownGem[i]) knownN++;
+        return { probs, approx, impossible: gTotal != null && knownN > gTotal };
+      }
 
       const cs = buildConstraints();
       const candSet = new Set(cand);
@@ -269,6 +274,7 @@
 
       // 每个分量的方案统计
       const compStats = [];
+      let freeCells = 0;      // 没有任何线索约束的格子数（容量上界要用）
       for (const cells of comps) {
         // 按"被约束次数"从多到少排序：枚举时先放约束最紧的格子，剪枝更早、大分量也不怕
         const touchCount = new Map();
@@ -287,8 +293,9 @@
           .filter((k) => k.hidden.length && k.hidden.every((h) => pos.has(h)))
           .map((k) => ({ need: k.need, ix: k.hidden.map((h) => pos.get(h)) }));
         // 与任何数字都不相交的孤立格：这里不枚举（否则"0 或 1 颗"会给出固定的 50%），
-        // 交给后面的「密度先验」= 剩余钻石 / 未翻开格数
-        if (!rel.length) continue;
+        // 交给后面的「密度先验」= 剩余钻石 / 未翻开格数。
+        // 但它们的"容量"要记下来：剩余钻石也可以藏在这些格子里（见下面的总数一致性检查）。
+        if (!rel.length) { freeCells += cells.length; continue; }
         const touch = new Set();
         for (const k of rel) for (const ix of k.ix) touch.add(ix);
 
@@ -423,7 +430,9 @@
           if (mn < 0) return { probs, approx, impossible: true };
           minSum += mn; maxSum += mx;
         }
-        if (needLeft < minSum || needLeft > maxSum) return { probs, approx, impossible: true };
+        // 上界要把"没有任何线索约束的孤立格"也算进去：剩余钻石本来就允许藏在那些格子里
+        // （漏掉它们会导致"新开一盘、只有几个数字"的盘面被误判成矛盾）
+        if (needLeft < minSum || needLeft > maxSum + freeCells) return { probs, approx, impossible: true };
       }
       return { probs, approx };
     }
@@ -434,7 +443,7 @@
     let promoted = true;
     for (let pass = 0; pass < 3 && promoted; pass++) {
       promoted = false;
-      if (!res.probs) break;
+      if (!res.probs || res.impossible) break;   // 已经是矛盾盘面：别再提升、保留矛盾标记
       for (let i = 0; i < total; i++) {
         const p = res.probs[i];
         if (p == null) continue;
