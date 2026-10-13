@@ -759,11 +759,16 @@ main {
   .topbar-nav { flex: none; max-width: 58%; overflow-x: auto; flex-wrap: nowrap; }
   .topbar-nav .ghost-btn { flex: none; padding: 6px 10px; font-size: 12px; }
   .map-chip-quiet { margin-left: 0; }
-  /* 笔刷排成一行可横向滚动，省掉换行占的高度 */
-  .palette { flex-wrap: nowrap; overflow-x: auto; padding: 8px 12px; }
+  /* 笔刷栏：手机上换行显示（不横向滚动）——0~8 单独占一行，其余在第一行 */
+  .palette { flex-wrap: wrap; overflow-x: visible; padding: 8px 10px; gap: 5px 6px; }
   .palette > * { flex: none; }
+  .palette-label { display: none; }              /* 「单击涂」标签省掉，腾地方 */
+  .palette #brush-nums { order: 9; flex-basis: 100%; gap: 3px; }
+  .palette .rec-auto { margin-left: auto; }      /* 自动跳转留在第一行右侧 */
   .palette-tip { display: none; }
-  .brush { height: 30px; }
+  .brush { height: 30px; min-width: 30px; padding: 0 8px; }
+  .brush-num { width: 28px; }
+  .brush-icon { width: 30px; }
   .advice { font-size: 0.8rem; padding: 8px 11px; }
   .verdict-bar { gap: 6px 12px; font-size: 0.8rem; padding: 8px 12px; }
   .vb-err { margin-left: 0; }
@@ -1245,6 +1250,9 @@ body.is-mine-game #chip-gem-progress, body.is-mine-game #chip-cost { display: no
 
 /* 素材图标铺满整格；用了素材后，格子底色/边框交给图标自己画（只覆盖棋盘内的变量，扫雷模式除外） */
 .cell .tileico.tile-full { width: 100%; height: 100%; }
+/* 数字格：原画瓦片底 + 文字数字（字重/配色与笔刷栏那一排一致），叠在瓦片正中 */
+.cell .v-num { position: absolute; inset: 0; display: grid; place-items: center; line-height: 1; }
+
 body.use-tile-art:not(.is-mine-game) #board {
   --tile-closed: transparent;
   --tile-open: transparent;
@@ -1253,4 +1261,38 @@ body.use-tile-art:not(.is-mine-game) #board {
   --p-hi-tint: transparent;
   --p-mid-tint: transparent;
   --p-lo-tint: transparent;
+}
+
+/* ---------- 手机：首屏尽量放下（顶栏一行、页脚收紧、信息条紧凑） ---------- */
+@media (max-width: 640px) {
+  body:not(.is-game) .topbar { flex-wrap: nowrap; padding: 7px 10px; gap: 6px; }
+  body:not(.is-game) .brand { flex: 1 1 auto; min-width: 0; }
+  body:not(.is-game) .topbar-nav { max-width: 64%; }
+  body:not(.is-game) .map-bar { padding: 7px 10px; gap: 5px 10px; }
+  body:not(.is-game) .map-chip { font-size: 0.8rem; }
+  body:not(.is-game) .credit { margin: 2px 0 2px; font-size: 0.8rem; }
+  body:not(.is-game) .credit-wx { margin: 0 0 6px; }
+}
+
+/* ---------- 按用户反馈调整：数字游戏化 + 空心描边 X + 角标可读性 ---------- */
+.cell .v-num {
+  color: #fff;
+  font-size: calc(var(--font) * 1.18);
+  font-weight: 800;
+  text-shadow: 0 1px 2px rgba(0, 8, 24, .7), 0 0 3px rgba(0, 8, 24, .45);
+}
+.cell.n0 .v-num { color: #c6d5e4; }                 /* 翻开的空白格（0）：浅灰白，不抢视线 */
+.cell[data-badge]::after {                          /* 概率角标压在海蓝瓦片上：加描边投影 */
+  text-shadow: 0 1px 2px rgba(0, 8, 24, .85), 0 0 3px rgba(0, 8, 24, .5);
+}
+
+/* ---------- 用户反馈：钻石/数字/概率的素材底要露出来（游戏原色） ---------- */
+body.use-tile-art:not(.is-mine-game) #board {
+  --flat-bg: #0d4682;           /* 已翻开格底＝游戏原色深蓝（钻石/数字坐在这上面） */
+  --flat-line: #12559a;
+  --badge-prob-bg: transparent; /* 概率角标不再用白纸盖住瓦片 */
+  --p-lo-ink: #9fd8ff;          /* 低概率的蓝字在蓝瓦片上提亮，不然看不见 */
+}
+body.use-tile-art:not(.is-mine-game) #board .cell[data-badge]::after {
+  text-shadow: 0 1px 2px rgba(0, 8, 24, .85), 0 0 3px rgba(0, 8, 24, .5);
 }

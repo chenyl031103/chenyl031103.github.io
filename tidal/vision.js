@@ -25,6 +25,10 @@
     LONGEST_RUN_THS: [1.30, 1.20, 1.10, 1.00, 0.90, 0.80],
     OTSUSPLIT_SEP_MIN: 15,      // 亮/暗两组可分离的最小均值差
     OPEN_LUM_FALLBACK: 92,      // 不可分时的"已翻开"亮度上限（暗=已翻开）
+    // 浅色主题/白底图里"已翻开格"是白或浅灰瓦片（亮、几乎无色）：亮蓝的未翻开格饱和度很高，
+    // 所以用"够亮 + 低饱和"把白瓦片和亮蓝瓦片分开（否则白瓦片会被判成未翻开，数字全丢）
+    OPEN_WHITE_LUM: 228,
+    OPEN_WHITE_SAT: 0.12,
     SEAM_DARK: 62,              // 格缝（暗线）亮度上限
     SEAM_BRIGHT: 92,            // 格缝两侧"未翻开格"的最低亮度
     SEAM_MAXW: 0.35,            // 格缝最大宽度（相对格宽）
@@ -890,15 +894,29 @@
     const offs = [[0.42, 0.18], [0.42, 0.82], [0.58, 0.18], [0.58, 0.82],
                   [0.18, 0.42], [0.82, 0.42], [0.18, 0.58], [0.82, 0.58]];
     const vals = [];
+    const sats = [];
     for (const [fx, fy] of offs) {
       const sx = Math.round(cx + cw * fx), sy = Math.round(cy + ch * fy);
       if (sx < 0 || sy < 0 || sx >= W || sy >= H) continue;
       const p = (sy * W + sx) * 4;
-      vals.push(0.299 * data[p] + 0.587 * data[p + 1] + 0.114 * data[p + 2]);
+      const R = data[p], G = data[p + 1], B = data[p + 2];
+      vals.push(0.299 * R + 0.587 * G + 0.114 * B);
+      const hi = Math.max(R, G, B);
+      sats.push(hi ? (hi - Math.min(R, G, B)) / hi : 0);   // 饱和度：0=灰/白，越高越"有色"
     }
-    vals.sort((a, b) => a - b);
-    const bgLum = vals.length ? vals[vals.length >> 1] : 0;
-    return { meanLum: n ? sum / n : 0, bgLum, orangeFrac: total ? orange / total : 0, mn, mx, n };
+    // 取中位数那一处采样点（亮度/饱和度必须是同一块底色的，否则互相打架）
+    const order = vals.map((_, i) => i).sort((a, b) => vals[a] - vals[b]);
+    const med = order.length ? order[order.length >> 1] : -1;
+    const bgLum = med >= 0 ? vals[med] : 0;
+    const bgSat = med >= 0 ? sats[med] : 0;
+    return { meanLum: n ? sum / n : 0, bgLum, bgSat, orangeFrac: total ? orange / total : 0, mn, mx, n };
+  }
+
+  // 判"已翻开"：① 深色底（游戏盘面 / 深色主题素材瓦片）② 够亮且几乎无色的白瓦片（浅色主题）
+  // 亮蓝的未翻开格饱和度很高，被 ② 的条件挡住
+  function isOpenBg(lum, sat, thr) {
+    if (lum < thr) return true;
+    return lum >= CFG.OPEN_WHITE_LUM && sat <= CFG.OPEN_WHITE_SAT;
   }
 
   // 全盘亮度 Otsu 分成亮/暗两组（取方差最大平台中点）
@@ -1056,7 +1074,7 @@
   }
 
   // 从格子采样数据抽字形（对照 §6.5：裁 5% 边缘、对比度闸、双通道）
-  function extractGlyph(id, x0, y0, w, h) {
+  function extractGlyph(id, x0, y0, w, h, darkInk) {
     const m = CFG.GLYPH_MARGIN;
     const cw = w - 2 * Math.floor(w * m), chh = h - 2 * Math.floor(h * m);
     const cx = x0 + Math.floor(w * m), cy = y0 + Math.floor(h * m);
@@ -1079,12 +1097,16 @@
     const otsu = otsuSplitOf(id, cx, cy, cw, chh);
     if (otsu >= mn + CFG.GLYPH_TH_MIN_ADD * span && otsu <= mn + CFG.GLYPH_TH_MAX_ADD * span) thr = otsu;
 
-    const main = buildGlyph(id, cx, cy, cw, chh, thr, false, CFG.GLYPH_BBOX_MAXFRAC);
+    const main = buildGlyph(id, cx, cy, cw, chh, thr, !!darkInk, CFG.GLYPH_BBOX_MAXFRAC);
     if (main) return { ...main, channel: 'main' };
-    // 降级通道：浅灰笔画数字
-    const fb = buildGlyph(id, cx, cy, cw, chh, mn + CFG.GLYPH_FALLBACK_TH_ADD * span, false, CFG.GLYPH_BBOX_MAXFRAC_FB);
+    // 降级通道：浅灰笔画数字（同样按底色决定是"暗笔画"还是"亮笔画"）
+    const fb = buildGlyph(id, cx, cy, cw, chh, mn + CFG.GLYPH_FALLBACK_TH_ADD * span, !!darkInk, CFG.GLYPH_BBOX_MAXFRAC_FB);
     if (fb) return { ...fb, channel: 'fallback' };
-    return null;
+    // 白底图里也可能是亮色数字（深色主题素材贴到白瓦片上）：反过来再试一次
+    if (darkInk) {
+      const alt = buildGlyph(id, cx, cy, cw, chh, thr, false, CFG.GLYPH_BBOX_MAXFRAC);
+      if (alt) return { ...alt, channel: 'main' };
+    }    return null;
   }
 
   function otsuSplitOf(id, cx, cy, cw, chh) {
@@ -1522,12 +1544,11 @@
     const raw = toImageData(input);
     let first = null, solidBest = null;
     for (const deg of [0, 90, 180, 270]) {
+      if (solidBest) break;                              // 正立截图第一次就中：先判再算，别白跑 90°
       try {
         const t = tryOrient(raw, deg, opts);
-        if (!solidBest) {
-          if (t.solid) solidBest = t;                    // 找到"像样的盘面"就定下来
-          else if (!first) first = t;                    // 都不像样时保留原方向（deg=0 版）
-        } else break;                                    // 已定下来就不用再算别的方向（正立截图通常第一次就中）
+        if (t.solid) solidBest = t;                      // 找到"像样的盘面"就定下来
+        else if (!first) first = t;                       // 都不像样时保留原方向（deg=0 那版）
       } catch (e) { /* 这个方向不行，继续 */ }
     }
     const best = solidBest || first;
@@ -1615,10 +1636,12 @@
         // 未翻开 = 亮蓝底（亮），已翻开 = 深色底（暗）；不满足可分条件时用绝对亮度兜底
         // 注意：阈值 sp.thr 是用 bgLum 分的组，这里也必须拿 bgLum 比（量纲一致）
         const bgLum = cell.bgLum != null ? cell.bgLum : cell.meanLum;
-        const isOpen = separable ? bgLum < sp.thr : bgLum < CFG.OPEN_LUM_FALLBACK;
+        const bgSat = cell.bgSat != null ? cell.bgSat : 0;
+        const isOpen = isOpenBg(bgLum, bgSat, separable ? sp.thr : CFG.OPEN_LUM_FALLBACK);
         if (isOpen) { openedCount++; openFlag[i] = 1; }
         if (isOpen) {
-          const gl = extractGlyph(id, px, py, cw, chh);
+          // 白瓦片（浅色主题）上是深色笔画，用暗笔画通道提字形；深底用原来的亮笔画通道
+          const gl = extractGlyph(id, px, py, cw, chh, bgLum >= CFG.OPEN_WHITE_LUM);
           if (gl) {
             const res = ocrDigit(gl);
             reads[i] = { gl, d: res.d, conf: res.conf, holesOk: res.holesOk };
@@ -1763,7 +1786,9 @@
         // 未翻开（亮蓝底）格子上只有 X 标记，绝不出数字——纹样容易被误读成 8/0
         const cell = cells && cells[r * n + c];
         const bgLum = cell ? (cell.bgLum != null ? cell.bgLum : cell.meanLum) : 0;
-        const isOpen = cell ? bgLum < openThr : true;
+        const bgSat = cell && cell.bgSat != null ? cell.bgSat : 0;
+        const isOpen = cell ? isOpenBg(bgLum, bgSat, openThr) : true;
+        const darkInk = bgLum >= CFG.OPEN_WHITE_LUM;
         const Rr = isOpen ? R : Math.min(R, CFG.RETRY_R_UNOPENED);
         const lim = (wl && wl.ok && wl.limits[r * n + c]) || null;
         const bx = Math.round(x0 + c * cellX), by = Math.round(y0 + r * cellY);
@@ -1775,7 +1800,7 @@
             if (px < 0 || py < 0 || px + cw >= id.width || py + chh >= id.height) continue;
             pos++;
             if (isOpen) {
-              const gl = extractGlyph(id, px, py, cw, chh);
+              const gl = extractGlyph(id, px, py, cw, chh, darkInk);
               if (gl) {
                 const res = ocrDigit(gl);
                 const d = res.d;
@@ -1801,5 +1826,5 @@
     }
   }
 
-  return { CFG, configure, recognize, detectBoard, ocrDigit, extractGlyph, detectXMark, holesOf, _internal: { lumMap, safeScale, otsuSplit, buildTemplates, normGrid, normGridFit, buildConstraintMap, frameBands, frameCandidates, collectSeams, bestNForAxis, refineFromSeams, polishGrid, blueFracIn, detectBoardSpectral, detectGemCounter, findGemIcon, glyphOfThreshold } };
+  return { CFG, configure, recognize, detectBoard, ocrDigit, extractGlyph, detectXMark, holesOf, _internal: { lumMap, safeScale, otsuSplit, buildTemplates, normGrid, normGridFit, buildConstraintMap, frameBands, frameCandidates, collectSeams, bestNForAxis, refineFromSeams, polishGrid, blueFracIn, detectBoardSpectral, detectGemCounter, findGemIcon, glyphOfThreshold, cellStats, isOpenBg } };
 });

@@ -61,6 +61,37 @@
   <ellipse cx="15.5" cy="13.5" rx="5" ry="3.6" transform="rotate(-38 15.5 13.5)" fill="#ffffff" opacity=".9"/>
   <ellipse cx="70" cy="71" rx="5.5" ry="3.3" transform="rotate(-38 70 71)" fill="#e6f8ff" opacity=".85"/>
 </symbol>
+<symbol id="uw-tile-x-marked" viewBox="0 0 85 85">
+  <defs>
+    <linearGradient id="uw-tileRimM" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3ee6ff"/><stop offset="1" stop-color="#14c8f5"/></linearGradient>
+    <linearGradient id="uw-tileBodyM" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1285dd"/><stop offset="1" stop-color="#0b78d6"/></linearGradient>
+    <mask id="uw-xRingMask" maskUnits="userSpaceOnUse" x="0" y="0" width="85" height="85">
+      <rect x="0" y="0" width="85" height="85" fill="#ffffff"/>
+      <g stroke="#000000" stroke-width="9" stroke-linecap="round" fill="none">
+        <path d="M27 21 L58 65"/>
+        <path d="M58 21 L27 65"/>
+      </g>
+    </mask>
+  </defs>
+  <rect x="2" y="2" width="81" height="81" rx="13" fill="#0a1d46"/>
+  <rect x="4" y="4" width="77" height="77" rx="11" fill="url(#uw-tileRimM)"/>
+  <rect x="9" y="9" width="67" height="67" rx="9" fill="url(#uw-tileBodyM)"/>
+  <rect x="9" y="9" width="67" height="67" rx="9" fill="none" stroke="#38d3fb" stroke-width="1.2" opacity=".6"/>
+  <g stroke-linecap="round" fill="none">
+    <path d="M27 21 L58 65" stroke="rgba(255,255,255,.28)" stroke-width="22"/>
+    <path d="M58 21 L27 65" stroke="rgba(255,255,255,.28)" stroke-width="22"/>
+    <g stroke="var(--mk-inner, rgba(158,214,255,.55))" stroke-width="9">
+      <path d="M27 21 L58 65"/>
+      <path d="M58 21 L27 65"/>
+    </g>
+    <g mask="url(#uw-xRingMask)" stroke="var(--mk-edge, #ffffff)" stroke-width="15">
+      <path d="M27 21 L58 65"/>
+      <path d="M58 21 L27 65"/>
+    </g>
+  </g>
+  <ellipse cx="15.5" cy="13.5" rx="5" ry="3.6" transform="rotate(-38 15.5 13.5)" fill="#ffffff" opacity=".9"/>
+  <ellipse cx="70" cy="71" rx="5.5" ry="3.3" transform="rotate(-38 70 71)" fill="#e6f8ff" opacity=".85"/>
+</symbol>
 <symbol viewBox="0 0 85 85" id="uw-tile-check"><defs>
     <linearGradient id="uw-tileRimC" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3ee6ff"/><stop offset="1" stop-color="#14c8f5"/></linearGradient>
     <linearGradient id="uw-tileBodyC" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1285dd"/><stop offset="1" stop-color="#0b78d6"/></linearGradient>

@@ -446,7 +446,9 @@
 
     const rect = el.boardScroll.getBoundingClientRect();
     // 下方留给建议条 + 结论条，取值条浮在格子旁边（fixed 定位，不占文档流）
-    const below = (el.advice ? el.advice.offsetHeight : 30) +
+    const pal = document.querySelector('.palette');
+    const below = (pal ? pal.offsetHeight + 10 : 0) +          // 笔刷栏（手机上会换成两行）
+                  (el.advice ? el.advice.offsetHeight : 30) +
                   (document.querySelector('#rec-row') && !document.querySelector('#rec-row').hidden
                     ? document.querySelector('#rec-row').offsetHeight : 0) +
                   (document.querySelector('.verdict-bar') ? document.querySelector('.verdict-bar').offsetHeight : 48) + 96;
@@ -454,12 +456,26 @@
     const byH = Math.floor((availH - gap * (rows - 1)) / rows);
     if (byH > 0) cell = Math.min(cell, byH);
 
-    // 手机上格子太小看不清 —— 宁可让棋盘可滚动，也保证格子里数字够大
-    const minCell = cols >= 24 ? 22 : (window.innerWidth <= 640 ? 30 : 34);   // 宁可让棋盘可滚动，也别缩成一堆小方块
+    // 默认就让整盘完整放下（手机也一样）：宁可格子小一点，也不出现横向滚动。
+    // 想放大就用右下角「格子大小 ＋」——手动模式保持尺寸，放不下时才滚动。
+    const minCell = cols >= 24 ? 22 : (window.innerWidth <= 640 ? 16 : 34);   // 手机上"整盘放下"优先，桌面维持原来的 34px 下限
+    const applyCell = (v) => {
+      el.board.style.setProperty('--gap', gap + 'px');
+      el.board.style.setProperty('--cell', v + 'px');
+      el.board.style.setProperty('--font', Math.round(v * 0.54) + 'px');
+    };
     cell = clamp(cell, minCell, 78);
-    el.board.style.setProperty('--gap', gap + 'px');
-    el.board.style.setProperty('--cell', cell + 'px');
-    el.board.style.setProperty('--font', Math.round(cell * 0.54) + 'px');
+    applyCell(cell);
+    // 自纠：算完之后若仍出现横向滚动（常见于纵向滚动条刚出现、可用宽度又少了十几像素），
+    // 按多出来的宽度再缩一次（最多两轮）——手机端保证整盘放得下
+    for (let k = 0; k < 2; k++) {
+      const over = el.boardScroll.scrollWidth - el.boardScroll.clientWidth;
+      if (over <= 1) break;
+      const next = clamp(cell - (Math.floor(over / cols) + 1), minCell, 78);
+      if (next === cell) break;
+      cell = next;
+      applyCell(cell);
+    }
     renderAuxLines();          // 格子尺寸变了，辅助虚线要跟着摆
     return cell;
   }
@@ -638,8 +654,11 @@
             content = '<svg class="tileico tile-full" aria-hidden="true"><use href="#uw-tile-check"/></svg>';
           } else if (res.knownSafe && res.knownSafe[i]) {
             cls += ' say-safe';
-            // 工具推导的提示：红叉（不带瓦片）。自己点一下打上 × 之后变成蓝叉
-            content = hasMarkX() ? markXIco() : '<span class="v-safe">×</span>';
+            // 工具推导的提示：uw-tile-x 实心瓦片（默认红），与"必定是钻石"的绿勾瓦片对称；
+            // 自己点一下打上 × 之后换成空心描边 X（uw-tile-x-marked）
+            content = artReady()
+              ? '<svg class="tileico tile-full" aria-hidden="true"><use href="#uw-tile-x"/></svg>'
+              : (hasMarkX() ? markXIco() : '<span class="v-safe">×</span>');
           } else if (res.probs && res.probs[i] != null && showProb && clueLess(i)) {
             const p = res.probs[i];
             // 分档以「显示出来的整数百分比」为准，避免出现"显示33%却是低概率蓝色"这种不一致
@@ -684,16 +703,22 @@
   function artReady() { return typeof document !== 'undefined' && !!document.getElementById('uw-gem'); }
   // 素材叉（不带瓦片）：颜色由 CSS 的 --mk-* 决定 —— 工具推导的提示是红叉（素材默认色），
   // 自己打上的是蓝叉（.is-marked）
-  function markXIco(extra) { return `<svg class="tileico mark-x ${extra || ''}" aria-hidden="true"><use href="#uw-mark-x"/></svg>`; }
-  // 拿不到这个符号时（老缓存的 sweeper-icons.js / Node 测试）退回灰色 ×
+  function markXIco(extra) { return `<svg class="tileico mark-x ${extra || ''}" aria-hidden="true"><use href="#uw-mark-x"/></svg>`; }  // 拿不到这个符号时（老缓存的 sweeper-icons.js / Node 测试）退回灰色 ×
   function hasMarkX() { return typeof document !== 'undefined' && !!document.getElementById('uw-mark-x'); }
   function cellArt(v) {
     const full = (id) => `<svg class="tileico tile-full" aria-hidden="true"><use href="#${id}"/></svg>`;
     const flat = (id) => `<svg class="tileico tile-full" aria-hidden="true"><use href="#uw-flat"/><use href="#${id}"/></svg>`;
     if (v === -1) return full('uw-tile-unk');                  // 没翻开
-    if (v === 'X') return markXIco('is-marked');               // 玩家自己打上的 ×：蓝叉，不带瓦片
+    if (v === 'X') {                                           // 玩家自己打上的 ×：空心描边 X（点击确认态）
+      return `<svg class="tileico tile-full is-marked" aria-hidden="true"><use href="#uw-tile-x-marked"/></svg>`;
+    }
     if (v === 'G' || v === 'D') return flat('uw-gem');         // 钻石（已翻开底 + 钻石）
-    if (typeof v === 'number' && v >= 0 && v <= 8) return flat('uw-d' + v);   // 数字
+    if (typeof v === 'number' && v >= 0 && v <= 8) {
+      // 数字：原画瓦片底 + 文字数字 —— 字重/配色跟笔刷栏那一排一致
+      // （原画数字字形自带黑色投影，在 34~44px 的格子上又粗又糊，不用它）
+      return `<svg class="tileico tile-full" aria-hidden="true"><use href="#uw-flat"/></svg>`
+        + `<span class="v-num">${v}</span>`;
+    }
     return null;                                               // 其他（扫雷的 F/Q/B/H 等）交给原来的画法
   }
 
@@ -2978,6 +3003,13 @@
     analyze();
     updateUndoBtn();
     if (restored) toast('已恢复上次的盘面', 'gold');
+    // 版面变化（笔刷栏换行、页内滚动条出现/消失、手机地址栏收起、旋转屏幕）后重算格子大小，
+    // 保证整盘放得下始终成立；手动调过格子大小就不动（尊重用户选择）
+    const scheduleFit = () => { if (fitTimer) return; fitTimer = setTimeout(() => { fitTimer = null; if (!S.manualCell) fitBoard(); }, 120); };
+    window.fitTimer = null;
+    window.addEventListener('resize', scheduleFit);
+    window.addEventListener('orientationchange', scheduleFit);
+    if (typeof ResizeObserver !== 'undefined') { const ro = new ResizeObserver(scheduleFit); ro.observe(document.body); if (el.boardScroll) ro.observe(el.boardScroll); }
     window.addEventListener('pagehide', persistFlush);                       // 刷新 / 关闭：立刻落盘
     document.addEventListener('visibilitychange', () => { if (document.hidden) persistFlush(); });   // 切后台被回收前落盘
   }
