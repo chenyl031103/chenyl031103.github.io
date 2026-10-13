@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="description" content="潮汐秘境计算器 与 survivor-fh.top 的提示/出钻效率对比测试报告（1185 局自动对局模拟：1.0978 vs 1.0996 票/宝石）">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>潮汐秘境计算器 · 提示效率对比测试报告</title>
+<style>  :root { --bd:#31465e; --bg:#0b1420; --fg:#f2f6fb; --dim:#b7c7da; --ok:#57d98a; --gold:#ffd066; }  * { box-sizing:border-box; }  body { margin:0; padding:22px 18px 60px; background:var(--bg); color:var(--fg);         font:17.5px/1.8 -apple-system,"Segoe UI","Microsoft YaHei",sans-serif;         -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility; }  .wrap { max-width:1080px; margin:0 auto; }  h1 { font-size:28px; margin:0 0 8px; letter-spacing:0; }  h2 { font-size:22px; margin:30px 0 10px; color:var(--gold); }  p { margin:10px 0; }  .dim { color:var(--dim); font-size:15px; }  .tw { overflow-x:auto; -webkit-overflow-scrolling:touch; margin:12px 0 20px; border-radius:8px; }  table { border-collapse:collapse; width:100%; min-width:640px; font-size:16.5px; }  th,td { border:1px solid var(--bd); padding:10px 13px; text-align:right; white-space:nowrap; }  th:first-child, td:first-child { text-align:left; }  th { background:#1b2c40; font-weight:700; font-size:16px; }  tr:nth-child(even) td { background:#132033; }  td b, th b { font-weight:700; }  .big { font-size:19px; font-weight:700; }  .ok { color:var(--ok); } .gold { color:var(--gold); }  ul { padding-left:22px; } li { margin:6px 0; }  code { background:#10203a; padding:2px 7px; border-radius:5px; font-size:14.5px; }  .box { border:1px solid var(--bd); border-radius:12px; padding:16px 18px; background:#152238; margin:14px 0; font-size:18px; line-height:1.85; }  @media (max-width:760px) { body { font-size:16px; padding:16px 12px 50px; } h1 { font-size:22px; } h2 { font-size:18px; } }
+  @media print {
+    :root { --bg:#fff; --fg:#111; --dim:#555; --bd:#bbb; --gold:#8a6100; --ok:#0a7a3d; }
+    body { background:#fff !important; color:#111 !important; font-size:12.5pt; padding:0; }
+    .box, table, .tw { break-inside: avoid; }
+    th { background:#eee !important; color:#111; }
+    tr:nth-child(even) td { background:#f7f7f7 !important; }
+    code { background:#f0f0f0 !important; }
+  }
+</style></head><body><div class="wrap">
+<h1>潮汐秘境计算器 · 提示 / 出钻效率对比测试报告</h1>
+<p class="dim">对象：<b>潮汐秘境计算器</b>（本页） vs <b>survivor-fh.top</b> · 日期：2026-10-13 · 方式：自动对局模拟（非人工试玩）</p>
+<p class="dim">潮汐秘境计算器 vs 参考站 survivor-fh.top · 2026-10-13 · 对局模拟 1185 局 / 28,440 次跟点</p>
+
+<div class="box">
+  <b class="gold">结论</b>：两边提示在同一套概率模型下等价 ——
+  出钻率 <b class="big">91.1%</b>（我们） vs <b class="big">90.9%</b>（参考站），
+  差 <b>0.15 个百分点</b>；折合 <b class="big">1.10</b> vs <b class="big">1.10</b> 票/宝石。
+  配对比较 107 胜 / 983 平 / 95 负，<span class="ok">没有系统性差别</span>。
+</div>
+
+<h2>总表</h2>
+<div class="tw"><table><tr><th>配置</th><th>局数</th><th>我们·点击</th><th>我们·出钻</th><th>我们·出钻率</th><th>我们·票/宝石</th><th>参考站·出钻</th><th>参考站·出钻率</th><th>参考站·票/宝石</th><th>差异(百分点)</th><th>配对 胜/平/负</th></tr><tr><td>合计</td><td>1185</td><td>14220</td><td>12953</td><td>91.1%</td><td>1.10</td><td>12932</td><td>90.9%</td><td>1.10</td><td>0.1</td><td>107/983/95</td></tr></table></div>
+
+<h2>按地图尺寸</h2>
+<div class="tw"><table><tr><th>配置</th><th>局数</th><th>我们·点击</th><th>我们·出钻</th><th>我们·出钻率</th><th>我们·票/宝石</th><th>参考站·出钻</th><th>参考站·出钻率</th><th>参考站·票/宝石</th><th>差异(百分点)</th><th>配对 胜/平/负</th></tr><tr><td>8×8（总数 20）</td><td>600</td><td>7200</td><td>6400</td><td>88.9%</td><td>1.13</td><td>6397</td><td>88.8%</td><td>1.13</td><td>0.0</td><td>61/477/62</td></tr><tr><td>10×10（总数 30）</td><td>360</td><td>4320</td><td>3998</td><td>92.5%</td><td>1.08</td><td>3985</td><td>92.2%</td><td>1.08</td><td>0.3</td><td>33/303/24</td></tr><tr><td>12×12（总数 45）</td><td>225</td><td>2700</td><td>2555</td><td>94.6%</td><td>1.06</td><td>2550</td><td>94.4%</td><td>1.06</td><td>0.2</td><td>13/203/9</td></tr></table></div>
+
+<h2>按尺寸 × 阶段</h2>
+<div class="tw"><table><tr><th>配置</th><th>局数</th><th>我们·点击</th><th>我们·出钻</th><th>我们·出钻率</th><th>我们·票/宝石</th><th>参考站·出钻</th><th>参考站·出钻率</th><th>参考站·票/宝石</th><th>差异(百分点)</th><th>配对 胜/平/负</th></tr><tr><td>8×8 · 前盘</td><td>200</td><td>2400</td><td>1847</td><td>77.0%</td><td>1.30</td><td>1839</td><td>76.6%</td><td>1.31</td><td>0.3</td><td>39/130/31</td></tr><tr><td>8×8 · 中盘</td><td>200</td><td>2400</td><td>2178</td><td>90.8%</td><td>1.10</td><td>2185</td><td>91.0%</td><td>1.10</td><td>-0.3</td><td>16/158/26</td></tr><tr><td>8×8 · 后盘</td><td>200</td><td>2400</td><td>2375</td><td>99.0%</td><td>1.01</td><td>2373</td><td>98.9%</td><td>1.01</td><td>0.1</td><td>6/189/5</td></tr><tr><td>10×10 · 前盘</td><td>120</td><td>1440</td><td>1191</td><td>82.7%</td><td>1.21</td><td>1175</td><td>81.6%</td><td>1.23</td><td>1.1</td><td>27/78/15</td></tr><tr><td>10×10 · 中盘</td><td>120</td><td>1440</td><td>1367</td><td>94.9%</td><td>1.05</td><td>1370</td><td>95.1%</td><td>1.05</td><td>-0.2</td><td>6/105/9</td></tr><tr><td>10×10 · 后盘</td><td>120</td><td>1440</td><td>1440</td><td>100.0%</td><td>1.00</td><td>1440</td><td>100.0%</td><td>1.00</td><td>0.0</td><td>0/120/0</td></tr><tr><td>12×12 · 前盘</td><td>75</td><td>900</td><td>768</td><td>85.3%</td><td>1.17</td><td>766</td><td>85.1%</td><td>1.17</td><td>0.2</td><td>10/56/9</td></tr><tr><td>12×12 · 中盘</td><td>75</td><td>900</td><td>887</td><td>98.6%</td><td>1.01</td><td>884</td><td>98.2%</td><td>1.02</td><td>0.3</td><td>3/72/0</td></tr><tr><td>12×12 · 后盘</td><td>75</td><td>900</td><td>900</td><td>100.0%</td><td>1.00</td><td>900</td><td>100.0%</td><td>1.00</td><td>0.0</td><td>0/75/0</td></tr></table></div>
+
+<h2>方法</h2>
+<ul>
+  <li>两边共用同一套概率模型（我们的 <code>solver-core.js</code>；§19.3 已与参考站逐格对照，最大差 0）——只比"提示怎么选格"。</li>
+  <li>我们的平局规则：3×3 未翻开最多 → 5×5 → 离中心近（信息量优先）；参考站：边界格 → 离中心近 → 索引。</li>
+  <li>对局与游戏一致：翻开 0 连锁展开；每格 1 票；提示格是钻石则 +1 钻。</li>
+  <li>样本：8×8 5×40 局、10×10 4×30 局、12×12 3×25 局；每配置分前/中/后盘；每局跟提示走 12 步；同盘面配对比较。</li>
+</ul>
+<p class="dim">出钻率 95% 置信区间：我们 90.6~91.6%，参考站 90.5~91.4%（区间重叠，差异不显著）。</p>
+</div>
+<h2>八、同盘面提示一致性（按游戏模式真实规则）</h2>
+<p class="dim">同一个盘面、同一个局面，两边提示是否同一格？按「潮汐秘境」游戏模式的真实规则（随机洗牌布雷、一次只翻一格、无连锁展开）生成盘面；每一步在完全相同的盘面上分别问两边，再按我们的提示翻开一格推进。</p>
+<div class="tw"><table><tr><th>地图</th><th>局数</th><th>总步数</th><th>两边同格</th><th>同格率</th><th>不同格</th><th>其中"概率完全相同"</th><th>同概率占比</th></tr>
+<tr><td>8×8</td><td>180</td><td>2700</td><td>1098</td><td><b>40.7%</b></td><td>1602</td><td>1602</td><td>100.0%</td></tr><tr><td>10×10</td><td>100</td><td>1500</td><td>533</td><td><b>35.5%</b></td><td>967</td><td>967</td><td>100.0%</td></tr><tr><td>12×12</td><td>60</td><td>900</td><td>292</td><td><b>32.4%</b></td><td>608</td><td>608</td><td>100.0%</td></tr>
+<tr><td><b>合计</b></td><td>340</td><td>5100</td><td>1923</td><td><b>37.7%</b></td><td>3177</td><td>3177</td><td>100.0%</td></tr></table></div>
+<div class="tw"><table><tr><th>第几步</th><th>我们提示</th><th>我们的概率</th><th>参考站提示</th><th>它的概率</th><th>两边概率相同</th></tr>
+<tr><td>第 1 步</td><td>(5,5)</td><td>31.3%</td><td>(4,4)</td><td>31.3%</td><td>是（平局）</td></tr><tr><td>第 2 步</td><td>(3,5)</td><td>36.4%</td><td>(3,4)</td><td>36.4%</td><td>是（平局）</td></tr><tr><td>第 3 步</td><td>(6,3)</td><td>35.2%</td><td>(3,4)</td><td>35.2%</td><td>是（平局）</td></tr><tr><td>第 4 步</td><td>(3,3)</td><td>34.0%</td><td>(3,4)</td><td>34.0%</td><td>是（平局）</td></tr><tr><td>第 1 步</td><td>(5,5)</td><td>31.3%</td><td>(4,4)</td><td>31.3%</td><td>是（平局）</td></tr></table></div>
+<div class="box"><b class="gold">结论</b>：同格率约 <b>37.7%</b>（1923/5100 步），地图越大越容易分岔；但<b>所有分岔步里两格概率完全相同</b>（3177/3177）——只是从同一批"并列最优"里挑了不同的一格。概率相同 → <b>期望出钻率一样</b>（第二章 1185 局配对测试：1.0978 vs 1.0996 票/宝石）。</div>
+</body></html>
