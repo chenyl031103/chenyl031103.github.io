@@ -74,14 +74,14 @@
       'rec.label': '建议点击',
       'rec.auto': '自动跳转',
       'rec.auto.tip': '录入一个格子后自动选中下一个推荐格（点 0 展开一片时可以关掉，逐个点选）',
-      'vb.gem': '必定是钻石',
-      'vb.safe': '必定不是钻石',
+      'vb.gem': '钻石',
+      'vb.safe': '不是钻石',
       'vb.unknown': '待定',
       'vb.markSafe': '把可确认的格标上 ×',
-      'vb.undo': '撤销上一步',
+      'vb.undo': '撤销',
       'vb.undo.tip': '撤销上一步改动（Ctrl+Z）',
-      'vb.clear': '清空棋盘',
-      'vb.clear.tip': '清空整个棋盘（可撤销）',
+      'vb.clear': '重置',
+      'vb.clear.tip': '重置整个棋盘（会二次确认；可撤销）',
       'credit.by': '潮汐秘境计算器 · 海出品',
       'rb.opened': '翻开的',
       'rb.is': '是：',
@@ -132,13 +132,13 @@
       'rec.label': 'Suggested',
       'rec.auto': 'Auto-next',
       'rec.auto.tip': 'After entering a value, jump to the next suggested cell (turn off when opening a big 0 area)',
-      'vb.gem': 'certain gems',
-      'vb.safe': 'certain safe',
+      'vb.gem': 'gems',
+      'vb.safe': 'safe',
       'vb.unknown': 'undecided',
       'vb.markSafe': 'Mark all certain-safe as ×',
       'vb.undo': 'Undo',
       'vb.undo.tip': 'Undo last change (Ctrl+Z)',
-      'vb.clear': 'Clear board',
+      'vb.clear': 'Reset',
       'vb.clear.tip': 'Clear the whole board (undoable)',
       'credit.by': 'Tidal Realm Solver · by Hai',
       'rb.opened': 'Cell',
@@ -184,6 +184,11 @@
     const bz = document.getElementById('btn-lang-zh'), be = document.getElementById('btn-lang-en');
     if (bz) bz.classList.toggle('is-on', LANG === 'zh');
     if (be) be.classList.toggle('is-on', LANG === 'en');
+    const cb = document.getElementById('btn-clear');
+    if (cb && !cb.classList.contains('is-armed')) {
+      const lab = cb.querySelector('[data-i18n="vb.clear"]');
+      if (lab) lab.textContent = t('vb.clear');
+    }
     if (!S.game && S.grid && S.grid.length) analyze();   // 动态文案（建议条/结论条）重绘
   }
 
@@ -234,7 +239,6 @@
     rbTarget: $('#rb-target'),
     rbValues: $('#rb-values'),
     rbHint: $('#rb-hint'),
-    btnMarkSafe: $('#btn-mark-safe'),
     vbGem: $('#vb-gem'),
     vbSafe: $('#vb-safe'),
     vbUnknown: $('#vb-unknown'),
@@ -722,7 +726,6 @@
     el.vbGem.textContent = c.certainGems;
     el.vbSafe.textContent = c.certainSafe;
     el.vbUnknown.textContent = c.undecided;
-    el.btnMarkSafe.disabled = c.certainSafe === 0;
 
     /* 建议条 */
     const adv = adviceLine(res);
@@ -1223,21 +1226,6 @@
     });
 
     // 一键把推导出的「必定不是钻石」格标上 ×
-    el.btnMarkSafe.addEventListener('click', () => {
-      const res = S.result;
-      if (!res || !res.certainSafe.length) return;
-      mark();
-      let n = 0;
-      for (const cd of res.certainSafe) {
-        if (S.grid[cd.r][cd.c] !== 'X') { S.grid[cd.r][cd.c] = 'X'; n++; }
-        S.unsure.delete(cd.i);
-        S.aiCells.delete(cd.i);
-      }
-      analyze();
-      settle();
-      toast(`已标上 ${n} 个 ×`, 'gold');
-    });
-
     // 语言：中文 / EN
     const bz = $('#btn-lang-zh'), be = $('#btn-lang-en');
     if (bz) bz.addEventListener('click', () => setLang('zh'));
@@ -1246,11 +1234,31 @@
     // 顶栏
     $('#btn-help').addEventListener('click', openHelp);
     $('#btn-shot-open').addEventListener('click', openShotModal);
-    $('#btn-clear').addEventListener('click', () => {
+    // 重置：点第一次变成"再点一次确认"，3 秒没点就还原（防误触）
+    let resetArmed = 0;
+    const clearBtn = $('#btn-clear');
+    const resetLabel = () => {
+      const lab = clearBtn.querySelector('[data-i18n="vb.clear"]') || clearBtn;
+      lab.textContent = resetArmed ? '再点一次确认重置' : t('vb.clear');
+    };
+    clearBtn.addEventListener('click', () => {
+      const now = Date.now();
+      if (!resetArmed || now - resetArmed > 3000) {
+        resetArmed = now;
+        clearBtn.classList.add('is-armed');
+        resetLabel();
+        setTimeout(() => {
+          if (resetArmed && Date.now() - resetArmed >= 3000) { resetArmed = 0; clearBtn.classList.remove('is-armed'); resetLabel(); }
+        }, 3200);
+        return;
+      }
+      resetArmed = 0;
+      clearBtn.classList.remove('is-armed');
+      resetLabel();
       if (S.game) { S.game = null; updateGameBar(); }
       mark();
       clearAll();
-      toast(settle() ? '已清空棋盘 · 可撤销' : '棋盘本来就是空的');
+      toast(settle() ? '已重置棋盘 · 可撤销' : '棋盘本来就是空的');
     });
     $('#btn-undo').addEventListener('click', undo);
     $('#btn-sample').addEventListener('click', openGameChooser);
@@ -1948,7 +1956,7 @@
             <button class="seg-btn" data-size="10" type="button">10×10</button>
             <button class="seg-btn" data-size="12" type="button">12×12</button>
           </div>
-          <p class="card-foot">${LOCAL_OCR ? '默认「自动」：识别会自己判断是 8×8 / 10×10 / 12×12 并直接填入棋盘，不用先选档位。认不准时再手动指定。' : '默认「自动」；也可以手动指定档位。'}</p>
+          <p class="card-foot">${LOCAL_OCR ? '默认「自动」判尺寸，认不准时再手动指定。' : '默认「自动」；也可以手动指定档位。'}</p>
         </section>
         <section>
           <h4>3. 开始识别</h4>
@@ -1957,14 +1965,6 @@
             <button class="btn" id="btn-ocr-cancel" type="button" hidden>取消识别</button>
             <span class="import-status" id="import-status">先把截图拖进来或粘贴</span>
           </div>
-        </section>
-        <section>
-          <h4>识别完成后</h4>
-          <ul>
-            <li>本机识别先给一张<b>带红网格的预览</b>：红线要正好压在格缝上；偏了就点「左移/右移/上移/下移/格宽 ±」微调，看着对了再「应用到棋盘」。</li>
-            <li>结果填进棋盘后：识别到的格子打<b>金色虚框</b>，没把握的打<b>红虚框</b>，<b>请逐格核对</b>（错一格，后面结论就会跟着错）。</li>
-            <li>识别全靠本机完成，不联网、不花识图额度。</li>
-          </ul>
         </section>
       </div>`);
 

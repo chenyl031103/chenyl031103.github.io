@@ -1211,3 +1211,6 @@ body.is-mine-game #chip-gem-progress, body.is-mine-game #chip-cost { display: no
 /* 笔刷栏挪到棋盘下方后：顺手把"自动跳转"开关排好 */
 .palette .rec-auto { margin-left: auto; }
 @media (max-width: 640px) { .palette .rec-auto { margin-left: 0; } }
+
+/* 重置按钮：二次确认时的醒目态 */
+.ghost-btn.is-armed { background: var(--danger) !important; color: var(--ink-on-warn) !important; border-color: var(--danger) !important; }
