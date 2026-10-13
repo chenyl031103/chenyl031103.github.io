@@ -426,16 +426,23 @@ main {
 .cell.is-x { color: var(--x-mark); }
 .cell.is-x .ico { width: 58%; height: 58%; }
 
-/* 截图识别填进来的格子：金虚框提示核对；模型不确定的：红虚框 */
-.cell.is-ai { border-style: dashed; border-color: var(--gold); }
-.cell.is-unsure { border-style: dashed; border-color: var(--danger); }
+/* 识别导入的格子：右上角金色小圆点（原来是金虚框，太花）；没把握要核对的：实线红边 */
+.cell.is-ai { border-style: solid; border-color: transparent; }
+.cell .ai-dot {
+  position: absolute; top: 3px; right: 3px;
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--gold);
+  box-shadow: 0 0 3px rgba(0, 0, 0, .45);
+  pointer-events: none;
+}
+.cell.is-unsure { border-style: solid; border-width: 2px; border-color: var(--danger); }
 
 /* ---------- 7. 分析叠加 ---------- */
 /* 结论只用符号表达，不画框 */
 .cell.say-gem, .cell.say-safe { }
 .cell.say-prob { }
-/* 概率在整格居中显示（彩色，高=红 中=琥珀 低=蓝），比右上角小角标醒目得多 */
-.cell.say-prob { border-style: dashed; border-width: 1.5px; }
+/* 概率在整格居中显示（彩色，高=红 中=琥珀 低=蓝）；不再画虚线框（档位看字色就够，虚线太花） */
+.cell.say-prob { border-style: none; }
 .cell.say-prob.prob-hi { border-color: var(--p-hi-line); background: var(--p-hi-tint); }
 .cell.say-prob.prob-mid { border-color: var(--p-mid-line); background: var(--p-mid-tint); }
 .cell.say-prob.prob-lo { border-color: var(--p-lo-line); background: var(--p-lo-tint); }
@@ -1289,7 +1296,7 @@ body.use-tile-art:not(.is-mine-game) #board {
 /* ---------- 用户反馈：钻石/数字/概率的素材底要露出来（游戏原色） ---------- */
 body.use-tile-art:not(.is-mine-game) #board {
   --flat-bg: #0d4682;           /* 已翻开格底＝游戏原色深蓝（钻石/数字坐在这上面） */
-  --flat-line: #12559a;
+  --flat-line: #3a9ae0;         /* 已翻开格的边框提亮：深色主题下和棋盘底分得开，像一格一格 */
   --badge-prob-bg: transparent; /* 概率角标不再用白纸盖住瓦片 */
   --p-lo-ink: #9fd8ff;          /* 低概率的蓝字在蓝瓦片上提亮，不然看不见 */
 }
@@ -1300,6 +1307,6 @@ body.use-tile-art:not(.is-mine-game) #board .cell[data-badge]::after {
 /* ---------- 棋盘底：两个主题都用游戏同款深蓝 ----------
    浅色主题下原来是白底，格子缝里露白，看着像"贴纸"；垫上深蓝底后，深浅主题都像游戏棋盘。 */
 body.use-tile-art:not(.is-mine-game) #board {
-  background: #0a1d46;
+  background: #071a33;          /* 棋盘底再压暗一点：已翻开格（#0d4682）和它拉开层次 */
   border-radius: 12px;
 }
