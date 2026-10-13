@@ -55,6 +55,11 @@
     FIT_MARGIN: 1,
     // 候选白名单（用宝钻/×/已翻开格当锚点收窄数字候选）总开关，排查时可关掉对比（§18.2 ①）
     WHITELIST: true,
+    // 宝钻计数器里的"金色宝石图标"：色容差带比棋盘宝钻判据略宽（抗主题/亮度差异），
+    // 形状闸用于和金色实心按钮（"切换"）区分（§18.2 ④）
+    GEM_ICON: { r: 150, g: 95, b: 145, rb: 50 },
+    GEM_ICON_FILL_MAX: 0.75,
+    GEM_ICON_ASPECT: [0.7, 1.7],
     // 孔洞兜底（一个候选都没有、退回全字体参评）时不再直接采信的带孔数字（§18.3 问题 A）
     HOLE_DIGITS: [0, 4, 6, 8],
     TPL_FONTS: [
@@ -1233,6 +1238,62 @@
     return Math.min(cov1, cov2) >= minCov;
   }
 
+  // 金色宝石图标定位：颜色容差带 + 连通域 + 形状筛选（§18.2 ④）
+  // 返回靠左、且右边确实跟着白字（计数器）的那个图标；找不到返回 null
+  function findGemIcon(id, grid, yA, yB, isInk) {
+    const { width: W } = id, d = id.data;
+    const G = CFG.GEM_ICON;
+    const isGold = (x, y) => {
+      const p = (y * W + x) * 4, r = d[p], g = d[p + 1], b = d[p + 2];
+      return r > G.r && g > G.g && b < G.b && r - b > G.rb;
+    };
+    const h = yB - yA;
+    const seen = new Uint8Array(W * h);
+    const cellX = grid.cellX, cellY = grid.cellY;
+    const cand = [];
+    for (let y = yA; y < yB; y++) {
+      for (let x = 0; x < W; x++) {
+        const k = (y - yA) * W + x;
+        if (seen[k] || !isGold(x, y)) continue;
+        let n = 0, x0 = x, x1 = x, y0 = y, y1 = y;
+        const st = [k]; seen[k] = 1;
+        while (st.length) {
+          const i2 = st.pop(), yy = yA + ((i2 / W) | 0), xx = i2 % W;
+          n++;
+          if (xx < x0) x0 = xx; if (xx > x1) x1 = xx; if (yy < y0) y0 = yy; if (yy > y1) y1 = yy;
+          for (let dy = -1; dy <= 1; dy++) {
+            for (let dx = -1; dx <= 1; dx++) {
+              const nx = xx + dx, ny = yy + dy;
+              if (nx < 0 || ny < yA || nx >= W || ny >= yB) continue;
+              const k2 = (ny - yA) * W + nx;
+              if (!seen[k2] && isGold(nx, ny)) { seen[k2] = 1; st.push(k2); }
+            }
+          }
+        }
+        const bw = x1 - x0 + 1, bh = y1 - y0 + 1;
+        const fill = n / (bw * bh), aspect = bw / bh;
+        // 形状闸：实心大按钮（切换）填充率 ≈0.9、宽高比 ≈1.9，都被挡在外面
+        if (bh < cellY * 0.25 || bh > cellY * 1.3) continue;
+        if (bw < cellX * 0.25 || bw > cellX * 1.4) continue;
+        if (fill > CFG.GEM_ICON_FILL_MAX) continue;
+        if (aspect < CFG.GEM_ICON_ASPECT[0] || aspect > CFG.GEM_ICON_ASPECT[1]) continue;
+        cand.push({ x0, x1, y0, y1, h: bh });
+      }
+    }
+    cand.sort((a, b) => a.x0 - b.x0);
+    // 图标右边要真的有白字（一两百个墨迹点）才算数，免得把别的金色装饰当锚点
+    for (const c of cand) {
+      const xLo = c.x1 + 1, xHi = Math.min(W - 1, c.x1 + Math.round(c.h * 9));
+      const yMid = (c.y0 + c.y1) / 2, yTol = c.h * 0.75;
+      let ink = 0;
+      for (let y = Math.max(yA, Math.round(yMid - yTol)); y < Math.min(yB, Math.round(yMid + yTol)); y++) {
+        for (let x = xLo; x <= xHi; x++) if (isInk(x, y)) ink++;
+      }
+      if (ink >= 200) return c;
+    }
+    return null;
+  }
+
   /* ---------- 宝钻计数器（棋盘上方"剩余/总数"徽章，辅助交叉验证） ---------- */
   // 读"💎 22/45"。只在"总数 == 本尺寸标准总数（20/30/45）"且两个数自洽时才采信 ——
   // 计数器一旦读错会把"钻石总数"带偏（错的总数会推出错误结论），宁可不采信。
@@ -1274,7 +1335,21 @@
       }
       return { x0: r[0], x1: r[1], y0: mnY, y1: mxY, w: r[1] - r[0] + 1, h: mxY - mnY + 1 };
     };
-    const boxes = runs.map(boxOf).filter((b) => b.h >= 8);
+    const boxesAll = runs.map(boxOf).filter((b) => b.h >= 8);
+    if (boxesAll.length < 2) return null;
+    // ---- 金色宝石图标当锚点（§18.2 ④）----
+    // 颜色容差带 + 连通域找图标，再只读它右边的白字：
+    // 同一带里还有"地图：38（12×12）"的白字和金色"切换"按钮，
+    // 靠形状分辨（图标是多面体，填充率低、宽高比≈1；按钮是实心矩形，填充率≈0.9、宽高比≈1.9）。
+    // 找不到图标就退回"整条带 + 斜杠"老路径。
+    const icon = findGemIcon(id, grid, yA, yB, isInk);
+    let boxes = boxesAll, anchored = false;
+    if (icon) {
+      const xLo = icon.x1 + 1, xHi = icon.x1 + Math.max(4, Math.round(icon.h * 9));
+      const yMid = (icon.y0 + icon.y1) / 2, yTol = icon.h * 0.75;
+      const near = boxesAll.filter((b) => b.x0 >= xLo && b.x1 <= xHi && Math.abs((b.y0 + b.y1) / 2 - yMid) <= yTol);
+      if (near.length >= 2) { boxes = near; anchored = true; }
+    }
     if (boxes.length < 2) return null;
     const medH = boxes.map((b) => b.h).sort((a, b) => a - b)[(boxes.length / 2) | 0];
     // 斜杠：比数字窄、高度接近，且左右紧邻的都是"同高的数字块" ——
@@ -1333,7 +1408,7 @@
     if (!Number.isFinite(left.num) || !Number.isFinite(right.num)) return null;
     if (left.num < 0 || left.num > right.num) return null;
     if (std && right.num !== std) return null;
-    return { left: left.num, right: right.num, box: boxes[slash] };
+    return { left: left.num, right: right.num, box: boxes[slash], anchored };
   }
 
   // 用给定阈值从指定区域抽字形（计数器是纯白字，Otsu 反而会被面板渐变带偏）
@@ -1421,9 +1496,10 @@
     const textN = detectMapSizeText(lumMap(id), id.width, id.height, grid);
     if (textN && textN !== n) gridIn.note = `另有线索指向 ${textN}×${textN}，已按格子周期取 ${n}×${n}`;
     // 宝钻计数器（辅助线索）：总数必须等于本尺寸标准总数才采信（防误读带偏总数推断）
-    let gemCounter = null;
+    let gemCounter = null, gemAnchored = null;
     try {
       const gc = detectGemCounter(id, grid);
+      if (gc) gemAnchored = !!gc.anchored;
       if (gc && gc.right === (CFG.GEM_TOTAL[n] || 0) && gc.left >= 0 && gc.left <= gc.right) {
         gemCounter = { left: gc.left, right: gc.right };
       }
@@ -1572,7 +1648,7 @@
       usedBackup: false,
       elapsedMs: Math.round(done - t0),
       // 调试信息（不入契约，前端忽略）
-      debug: { grid: gridIn, scale: sc, gemCounter, constrained, whitelist: wl.ok ? { gemCount: wl.gemCount, remaining: wl.remaining, possible: wl.possible } : null },
+      debug: { grid: gridIn, scale: sc, gemCounter, gemAnchored, constrained, whitelist: wl.ok ? { gemCount: wl.gemCount, remaining: wl.remaining, possible: wl.possible } : null },
     };
   }
 
@@ -1643,5 +1719,5 @@
     }
   }
 
-  return { CFG, configure, recognize, detectBoard, ocrDigit, extractGlyph, detectXMark, holesOf, _internal: { lumMap, safeScale, otsuSplit, buildTemplates, normGrid, normGridFit, buildConstraintMap, frameBands, frameCandidates, collectSeams, bestNForAxis, refineFromSeams, polishGrid, blueFracIn, detectBoardSpectral, detectGemCounter, glyphOfThreshold } };
+  return { CFG, configure, recognize, detectBoard, ocrDigit, extractGlyph, detectXMark, holesOf, _internal: { lumMap, safeScale, otsuSplit, buildTemplates, normGrid, normGridFit, buildConstraintMap, frameBands, frameCandidates, collectSeams, bestNForAxis, refineFromSeams, polishGrid, blueFracIn, detectBoardSpectral, detectGemCounter, findGemIcon, glyphOfThreshold } };
 });

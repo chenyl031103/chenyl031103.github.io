@@ -160,6 +160,7 @@
       'ocr.crossSize': function (a, b, nx, tot) { return '<b>尺寸可能选错了</b>：截图里写的是 ' + a + '/' + b + '，而 ' + nx + '×' + nx + ' 的总数应该是 ' + tot + '。请核对地图档位后重新识别。'; },
       'ocr.crossBad': function (a, b, c) { return '截图里写着 <b>' + a + '/' + b + '</b>，但识别出 <b>' + c + '</b> 颗钻石，两者不一致 —— 可能有格子读错了，重点核对钻石格（金框）。'; },
       'ocr.doneAuto': function (nx, filled, miss, un) { return '识别完成（自动判定 ' + nx + '×' + nx + '）：读出 ' + filled + ' 格，未翻开 ' + miss + ' 格' + (un ? '，' + un + ' 处待核对' : ''); },
+      'ocr.constrained': function (n) { return '；其中 ' + n + ' 处按盘面约束复核过（红框，照着游戏画面确认一下）'; },
       'ocr.doneLocal': function (ms, nx, miss) { return '本机识别完成（' + ms + ' 毫秒，自动判定 ' + nx + '×' + nx + '），还有 ' + miss + ' 个没翻开的格子'; },
       'ocr.unopenedMsg': function (w) { return '这张图还没开过：先点 ' + w; },
       'ocr.unopenedToast': function (w) { return '没开过的图：先点 ' + w; },
@@ -281,6 +282,7 @@
       'ocr.crossSize': function (a, b, nx, tot) { return '<b>Wrong map size?</b> The screenshot says ' + a + '/' + b + ' but a ' + nx + '×' + nx + ' map has ' + tot + '. Please re-check the size and recognize again.'; },
       'ocr.crossBad': function (a, b, c) { return 'The screenshot says <b>' + a + '/' + b + '</b> but we read <b>' + c + '</b> gems — mismatch; double-check the gem cells (gold frames).'; },
       'ocr.doneAuto': function (nx, filled, miss, un) { return 'Done (auto-detected ' + nx + '×' + nx + '): ' + filled + ' cells read, ' + miss + ' unrevealed' + (un ? ', ' + un + ' to verify' : ''); },
+      'ocr.constrained': function (n) { return '; ' + n + ' re-checked against board constraints (red frames)'; },
       'ocr.doneLocal': function (ms, nx, miss) { return 'Recognized on-device in ' + ms + ' ms (auto ' + nx + '×' + nx + '), ' + miss + ' unrevealed cells left'; },
       'ocr.unopenedMsg': function (w) { return 'Fresh map: start with ' + w; },
       'ocr.unopenedToast': function (w) { return 'Fresh map: start with ' + w; },
@@ -2685,7 +2687,8 @@
         : null;
       toast(tip || (unsureN ? `识别完成，${unsureN} 处红框请重点核对` : '识别完成，请核对带红框的格子'), 'gold');
       if (how === 'local') {
-        setImportStatus(t('ocr.doneAuto', rows, filledN, missN, unsureN), '');
+        const consN = (data.debug && data.debug.constrained) ? data.debug.constrained.length : 0;
+        setImportStatus(t('ocr.doneAuto', rows, filledN, missN, unsureN) + (consN ? t('ocr.constrained', consN) : ''), '');
       }
     }
   }

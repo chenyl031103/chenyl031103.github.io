@@ -7,7 +7,7 @@
 <meta name="description" content="《弹壳特攻队》潮汐秘境计算器：把当前棋盘的数字、钻石、× 标记填进来，自动推出哪些格子必定是钻石、哪些必定不是钻石、下一步先点哪里。支持上传截图自动识别。">
 <meta name="theme-color" content="#0f1923">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext y='25' font-size='25'%3E%F0%9F%92%8E%3C/text%3E%3C/svg%3E">
-<link rel="stylesheet" href="style.css?vmv62n7sl">
+<link rel="stylesheet" href="style.css?vmv630o7o">
 <script>var t=localStorage.getItem('theme')||'light';document.documentElement.setAttribute('data-theme',t);</script>
 </head>
 <body>
@@ -159,7 +159,7 @@
         <span class="vb vb-unknown"><span data-i18n="vb.unknown">待定</span> <b id="vb-unknown">0</b></span>
         <span class="vb vb-err" id="vb-err-wrap" hidden><svg class="ico"><use href="#ico-warn"/></svg><b id="vb-err"></b></span>
       <span class="vb-actions">
-        <button class="ghost-btn" id="btn-clear-frames" type="button" hidden title="识别导入的格子核对完了：一键去掉金框/红框提示（格子内容不动）" data-i18n-title="vb.frames.tip"><span data-i18n="vb.frames">核对完成</span></button>
+        <button class="ghost-btn" id="btn-clear-frames" type="button" hidden title="识别导入的格子核对完了：一键去掉金框/红框提示（格子内容不动）" data-i18n-title="vb.frames.tip"><svg class="ico"><use href="#ico-check"/></svg><span data-i18n="vb.frames">核对完成</span></button>
         <button class="ghost-btn" id="btn-undo" type="button" disabled title="撤销上一步改动（Ctrl+Z）" data-i18n-title="vb.undo.tip">↶ <span data-i18n="vb.undo">撤销</span></button>
         <button class="ghost-btn is-danger" id="btn-clear" type="button" title="重置整个棋盘（会二次确认；可撤销）" data-i18n-title="vb.clear.tip"><span data-i18n="vb.clear">重置</span></button>
       </span>
@@ -192,8 +192,8 @@
 <script>window.TIDAL_OCR = false;/* 有没有同源服务器识别：静态托管版由构建脚本改成 false */</script>
 <script>window.TIDAL_OCR_MODE = 'local';/* 'local'（只本机识别）| 'server'（只服务器）| 'off'（关掉）；静态版构建时写成 local */</script>
 <script>window.TIDAL_OCR_URL = 'http://chenyl.free.idcfengye.com/';/* 静态版构建时填入「带截图识别的网址」 */</script>
-<script src="vision.js?vmv62n7sl"></script>
-<script src="solver-core.js?vmv62n7sl"></script>
-<script src="solver.js?vmv62n7sl"></script>
+<script src="vision.js?vmv630o7o"></script>
+<script src="solver-core.js?vmv630o7o"></script>
+<script src="solver.js?vmv630o7o"></script>
 </body>
 </html>
