@@ -868,7 +868,22 @@
         total++;
       }
     }
-    return { meanLum: n ? sum / n : 0, orangeFrac: total ? orange / total : 0, mn, mx, n };
+    // 底色亮度 bgLum：数字/钻石在格子中央、× 是两条对角线，
+    // 所以采样点取"靠边但避开两条对角线"的 8 个位置，再取中位数（个别点压到笔画也不怕）。
+    // 未翻开=亮蓝底（≈110-130）、已翻开=深底（≈60-80），用它做分组的阈值比整格平均稳得多
+    // （整格平均会被大号白字/钻石抬高，把亮蓝格误判成已翻开）。
+    const offs = [[0.42, 0.18], [0.42, 0.82], [0.58, 0.18], [0.58, 0.82],
+                  [0.18, 0.42], [0.82, 0.42], [0.18, 0.58], [0.82, 0.58]];
+    const vals = [];
+    for (const [fx, fy] of offs) {
+      const sx = Math.round(cx + cw * fx), sy = Math.round(cy + ch * fy);
+      if (sx < 0 || sy < 0 || sx >= W || sy >= H) continue;
+      const p = (sy * W + sx) * 4;
+      vals.push(0.299 * data[p] + 0.587 * data[p + 1] + 0.114 * data[p + 2]);
+    }
+    vals.sort((a, b) => a - b);
+    const bgLum = vals.length ? vals[vals.length >> 1] : 0;
+    return { meanLum: n ? sum / n : 0, bgLum, orangeFrac: total ? orange / total : 0, mn, mx, n };
   }
 
   // 全盘亮度 Otsu 分成亮/暗两组（取方差最大平台中点）
@@ -1309,8 +1324,10 @@
     const total = n * n;
     const outCells = Array.from({ length: n }, () => new Array(n).fill(-1));
 
-    // 全盘亮度 Otsu 分「未翻开/已翻开」
-    const lums = cells.map(c => c.meanLum);
+    // 全盘"底色亮度" Otsu 分「未翻开/已翻开」：
+    // 用四角底色而不是整格平均——整格平均会因为"白字/钻石格"很亮而把阈值抬高，
+    // 把亮蓝的未翻开格误判成已翻开（实测会把纹样认成 8）。
+    const lums = cells.map(c => (c.bgLum != null ? c.bgLum : c.meanLum));
     const sp = otsuSplit(lums);
     const separable = sp.sep > CFG.OTSUSPLIT_SEP_MIN && sp.nB > 0 && sp.nD > 0;
 
@@ -1324,7 +1341,9 @@
         // 宝钻
         if (cell.orangeFrac > CFG.ORANGE_FRAC_MIN) { outCells[r][c] = 9; filled++; continue; }
         // 未翻开 = 亮蓝底（亮），已翻开 = 深色底（暗）；不满足可分条件时用绝对亮度兜底
-        const isOpen = separable ? cell.meanLum < sp.thr : cell.meanLum < CFG.OPEN_LUM_FALLBACK;
+        // 注意：阈值 sp.thr 是用 bgLum 分的组，这里也必须拿 bgLum 比（量纲一致）
+        const bgLum = cell.bgLum != null ? cell.bgLum : cell.meanLum;
+        const isOpen = separable ? bgLum < sp.thr : bgLum < CFG.OPEN_LUM_FALLBACK;
         if (isOpen) openedCount++;
         if (isOpen) {
           const gl = extractGlyph(id, px, py, Math.round(grid.cellX), Math.round(grid.cellY));
@@ -1411,7 +1430,8 @@
         if (outCells[r][c] !== -1) continue;
         // 未翻开（亮蓝底）格子上只有 X 标记，绝不出数字——纹样容易被误读成 8/0
         const cell = cells && cells[r * n + c];
-        const isOpen = cell ? cell.meanLum < openThr : true;
+        const bgLum = cell ? (cell.bgLum != null ? cell.bgLum : cell.meanLum) : 0;
+        const isOpen = cell ? bgLum < openThr : true;
         const Rr = isOpen ? R : Math.min(R, CFG.RETRY_R_UNOPENED);
         const bx = Math.round(x0 + c * cellX), by = Math.round(y0 + r * cellY);
         const dVotes = {}, xVotes = { x: 0 };
