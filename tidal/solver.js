@@ -68,7 +68,9 @@
       'tools.auto.tip': '恢复自动适配屏幕',
       'tools.fs': '全屏',
       'tools.fs.tip': '整个工具区全屏（手机上格子更大好点）',
-      'chip.left': '剩余钻石',
+      'chip.left': '剩余宝石',
+      'chip.ticketsUnit': '票',
+      'chip.costUnit': '钻石',
       'chip.tickets': '用票',
       'chip.cost': '已用钻石',
       'chip.perGem': '平均',
@@ -193,6 +195,8 @@
       'tools.fs': 'Fullscreen',
       'tools.fs.tip': 'Fullscreen the whole tool area',
       'chip.left': 'Gems left',
+      'chip.ticketsUnit': 'tickets',
+      'chip.costUnit': 'diamonds',
       'chip.tickets': 'Tickets',
       'chip.cost': 'Diamonds spent',
       'chip.perGem': 'avg',
@@ -511,7 +515,7 @@
       S.auxObserver = new ResizeObserver(() => renderAuxLines());
       S.auxObserver.observe(el.board);
     }
-    el.cellTotal.textContent = rows * cols;
+    if (el.cellTotal) el.cellTotal.textContent = rows * cols;
     fitBoard();
     renderAuxLines();
     paint();
@@ -695,7 +699,7 @@
         else if (node.dataset.badge) { node.removeAttribute('data-badge'); }
       }
     }
-    el.filled.textContent = filled;
+    if (el.filled) el.filled.textContent = filled;
     S.filledCount = filled;
     updateCostChips(grid);
   }
@@ -1463,6 +1467,7 @@
       const b = e.target.closest('.brush');
       if (!b) return;
       const val = b.dataset.brush;
+      if (val == null) return;              // 撤销/重置这类动作按钮：只管自己的 click，不改笔刷
       S.brush = val;
       el.palette.querySelectorAll('.brush').forEach((x) => x.classList.toggle('is-on', x === b));
       // 点下方数字 / × / 钻石 = 立刻填进"当前目标格"（选中的格子；还没选就填推荐那格），

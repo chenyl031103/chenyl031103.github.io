@@ -1324,3 +1324,11 @@ body.use-tile-art:not(.is-mine-game) #board {
   .palette #brush-nums { gap: 3px; }
   .palette .brush-num { width: calc((100% - 24px) / 9); min-width: 0; font-size: 15px; }   /* 9 个数字刚好排满一行 */
 }
+
+/* ---------- 笔刷栏里的动作按钮（撤销 / 重置）：跟笔刷同尺寸，颜色区分，重置带二次确认高亮 ---------- */
+.palette .brush-act { color: var(--text-secondary); }
+.palette .brush-act.is-danger { color: var(--danger); }
+.palette .brush-act.is-armed { background: var(--danger); color: var(--ink-on-warn); border-color: var(--danger); }
+@media (max-width: 640px) {
+  .palette .brush-act { padding: 0 8px; font-size: 13px; }
+}
