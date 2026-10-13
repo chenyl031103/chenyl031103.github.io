@@ -672,8 +672,7 @@
         // 潮汐秘境用素材图标画格子（未翻开/数字/钻石/×），扫雷模式保持原来的方块风
         // 扫雷模式保持原来的方块风；潮汐秘境（含它的游戏模式）用素材图标
         const art = artReady() && (!S.game || S.game.kind !== 'mine') ? cellArt(v) : null;
-        const aiDot = S.aiCells.has(i) ? '<i class="ai-dot" aria-hidden="true"></i>' : '';   // 识别导入：右上角金点
-        const key = (aiDot ? 'ai|' : '') + (content ? 'v:' + content : (art || text || (typeof v === 'string' ? v : '')));
+        const key = content ? 'v:' + content : (art || text || (typeof v === 'string' ? v : ''));
         if (node.dataset.k !== key) {
           node.dataset.k = key;
           node.innerHTML = content ? content
@@ -686,7 +685,6 @@
             : v === 'B' ? '<span class="v-bomb">💣</span>'
             : v === 'H' ? '<span class="v-blank">■</span>'
             : text;
-          if (aiDot) node.insertAdjacentHTML('beforeend', aiDot);
         }
         if (badge) { if (node.dataset.badge !== badge) node.dataset.badge = badge; }
         else if (node.dataset.badge) { node.removeAttribute('data-badge'); }

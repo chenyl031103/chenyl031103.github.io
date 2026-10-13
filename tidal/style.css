@@ -426,15 +426,8 @@ main {
 .cell.is-x { color: var(--x-mark); }
 .cell.is-x .ico { width: 58%; height: 58%; }
 
-/* 识别导入的格子：右上角金色小圆点（原来是金虚框，太花）；没把握要核对的：实线红边 */
+/* 识别导入的格子不加任何标记（用户不要金点）；没把握要核对的：实线红边 */
 .cell.is-ai { border-style: solid; border-color: transparent; }
-.cell .ai-dot {
-  position: absolute; top: 3px; right: 3px;
-  width: 6px; height: 6px; border-radius: 50%;
-  background: var(--gold);
-  box-shadow: 0 0 3px rgba(0, 0, 0, .45);
-  pointer-events: none;
-}
 .cell.is-unsure { border-style: solid; border-width: 2px; border-color: var(--danger); }
 
 /* ---------- 7. 分析叠加 ---------- */
