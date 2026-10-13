@@ -1332,3 +1332,9 @@ body.use-tile-art:not(.is-mine-game) #board {
 @media (max-width: 640px) {
   .palette .brush-act { padding: 0 8px; font-size: 13px; }
 }
+
+/* ---------- 笔刷栏 0-8 的字色按主题走：深色主题白字、浅色主题深字 ----------
+   原来写死 #fff：深色主题（默认）配深底很清楚，但浅色主题的按钮底是白的 → 白字白底看不见。 */
+[data-theme="light"] { --brush-num-ink: #1a1a2e; }
+.palette .brush-num[data-brush] { color: var(--brush-num-ink, #fff); }
+.palette .brush-num[data-brush].is-on { color: var(--brush-num-ink, #fff); }
