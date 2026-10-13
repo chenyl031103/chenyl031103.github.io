@@ -625,20 +625,22 @@
         if (S.unsure.has(i)) cls += ' is-unsure';
         if (S.awaiting === i) cls += ' awaiting';
 
-        // 结论用「符号」表达，不再画框：绿 √ = 必定是钻石，黑 × = 必定不是钻石（灰色 × 是工具推导的提示）
+        // 结论用「符号」表达，不再画框：绿 √ = 必定是钻石，红 × = 工具推导的「不是钻石」提示（点一下确认后变成蓝瓦片上的 ×）
         let badge = '';
         let content = null;   // 覆盖格子内容（隐藏格才用）
         if (res) {
           const marked = v === 'X';
           if (marked) {
-            // 自己标了 ×（= 已确认没钻石），而且推导也支持 → 就是黑 ×，不再加东西
+            // 自己标了 ×（= 已确认没钻石），而且推导也支持 → 就是蓝瓦片上的 ×，不再加东西
             if (res.knownGem && res.knownGem[i]) { cls += ' say-conflict'; badge = '!'; }
           } else if (res.knownGem && res.knownGem[i] && v !== 'G') {
             cls += ' say-gem';
             content = '<svg class="tileico tile-full" aria-hidden="true"><use href="#uw-tile-check"/></svg>';
           } else if (res.knownSafe && res.knownSafe[i]) {
             cls += ' say-safe';
-            content = '<span class="v-safe">×</span>';
+            // 提示的 × 用素材红叉（不带瓦片）；点一下确认之后才变成蓝瓦片上的 ×
+            content = hasMarkX() ? '<svg class="tileico mark-x" aria-hidden="true"><use href="#uw-mark-x"/></svg>'
+                                 : '<span class="v-safe">×</span>';
           } else if (res.probs && res.probs[i] != null && showProb && clueLess(i)) {
             const p = res.probs[i];
             // 分档以「显示出来的整数百分比」为准，避免出现"显示33%却是低概率蓝色"这种不一致
@@ -681,6 +683,8 @@
   /* 潮汐秘境的格子画法：用 sweeper-icons.js 注入的 uw-* 精灵（和游戏原画同风格） */
   // 精灵注入后才有 #uw-gem；没有（例如 Node 测试）就退回原来的画法
   function artReady() { return typeof document !== 'undefined' && !!document.getElementById('uw-gem'); }
+  // 红叉提示用的符号；拿不到（老缓存的 sweeper-icons.js / Node 测试）时退回灰色 ×
+  function hasMarkX() { return typeof document !== 'undefined' && !!document.getElementById('uw-mark-x'); }
   function cellArt(v) {
     const full = (id) => `<svg class="tileico tile-full" aria-hidden="true"><use href="#${id}"/></svg>`;
     const flat = (id) => `<svg class="tileico tile-full" aria-hidden="true"><use href="#uw-flat"/><use href="#${id}"/></svg>`;
