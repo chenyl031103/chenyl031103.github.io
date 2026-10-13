@@ -1296,3 +1296,10 @@ body.use-tile-art:not(.is-mine-game) #board {
 body.use-tile-art:not(.is-mine-game) #board .cell[data-badge]::after {
   text-shadow: 0 1px 2px rgba(0, 8, 24, .85), 0 0 3px rgba(0, 8, 24, .5);
 }
+
+/* ---------- 棋盘底：两个主题都用游戏同款深蓝 ----------
+   浅色主题下原来是白底，格子缝里露白，看着像"贴纸"；垫上深蓝底后，深浅主题都像游戏棋盘。 */
+body.use-tile-art:not(.is-mine-game) #board {
+  background: #0a1d46;
+  border-radius: 12px;
+}
