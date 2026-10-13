@@ -30,6 +30,9 @@
     SEAM_MAXW: 0.35,            // 格缝最大宽度（相对格宽）
     ORANGE: { r: 165, g: 105, b: 125, rb: 65 },   // 宝钻橙色判据
     ORANGE_FRAC_MIN: 0.075,
+    // 橙色复核下限：暗色/偏色皮肤下钻石的橙色占比会被压到 0.075 以下，
+    // 落在 [0.03, 0.075) 且"已翻开却读不出内容"的格子按钻石收（见 §18.3 问题 B）
+    ORANGE_FRAC_MIN_LOW: 0.03,
     DIGIT_GATE: 0.55,           // 数字门限（可分离）
     DIGIT_GATE_HARD: 0.62,      // 数字门限（不可分离）
     GLYPH_MARGIN: 0.05,         // 字形提取边缘内缩
@@ -47,6 +50,13 @@
     GLYPH_ASPECT_MIN: 1 / 3.2,
     GW: 12, GH: 16,             // 匹配网格
     FW: 20, FH: 28,             // 孔洞网格
+    // 匹配网格的四周留白（格数）：字形"按长边等比缩放 + 居中"后再留白，
+    // 等效 MNIST 预处理；不让 1 被拉宽、8 被压扁，纹样也不会被拉伸成数字（§18.2 ③）
+    FIT_MARGIN: 1,
+    // 候选白名单（用宝钻/×/已翻开格当锚点收窄数字候选）总开关，排查时可关掉对比（§18.2 ①）
+    WHITELIST: true,
+    // 孔洞兜底（一个候选都没有、退回全字体参评）时不再直接采信的带孔数字（§18.3 问题 A）
+    HOLE_DIGITS: [0, 4, 6, 8],
     TPL_FONTS: [
       'bold 46px Arial', 'bold 38px Arial', '46px Arial',
       'bold 46px Verdana', 'bold 46px Tahoma', 'bold 46px "Trebuchet MS"',
@@ -936,7 +946,7 @@
         const img = ctx.getImageData(0, 0, 64, 78);
         const gg = glyphOf(img, 0, 0, 64, 78, 170);
         if (!gg) continue;
-        g16.push(normGrid(gg, CFG.GW, CFG.GH));
+        g16.push(normGridFit(gg, CFG.GW, CFG.GH));
         holes.push(holesOf(gg, CFG.FW, CFG.FH));
       }
     }
@@ -976,6 +986,28 @@
         const sy0 = Math.floor(gy * gl.bh / GH), sy1 = Math.max(sy0 + 1, Math.floor((gy + 1) * gl.bh / GH));
         let s = 0, n = 0;
         for (let y = sy0; y < sy1 && y < gl.bh; y++) for (let x = sx0; x < sx1 && x < gl.bw; x++) { s += gl.bin[y * gl.bw + x]; n++; }
+        g[gy * GW + gx] = n ? s / n : 0;
+      }
+    }
+    return g;
+  }
+
+  // 归一化到 GW×GH（保形版）：按长边等比缩放后居中，四周各留 FIT_MARGIN 格空白。
+  // 与 normGrid 的区别：不拉伸字形（1 不会被压成方块、正方形纹样不会被拉成长条），
+  // 模板与待测字形都用它，形近数字（3↔8、5↔6）和纹样的区分度更高（§18.2 ③）
+  function normGridFit(gl, GW, GH) {
+    const m = Math.max(0, Math.min(CFG.FIT_MARGIN | 0, (Math.min(GW, GH) - 2) >> 1));
+    const aw = Math.max(1, GW - 2 * m), ah = Math.max(1, GH - 2 * m);
+    const k = Math.min(aw / gl.bw, ah / gl.bh);
+    const tw = gl.bw * k, th = gl.bh * k;
+    const ox = (GW - tw) / 2, oy = (GH - th) / 2;
+    const g = new Float32Array(GW * GH);
+    for (let gy = 0; gy < GH; gy++) {
+      for (let gx = 0; gx < GW; gx++) {
+        const x0 = Math.max(0, Math.floor((gx - ox) / k)), x1 = Math.min(gl.bw, Math.ceil((gx + 1 - ox) / k));
+        const y0 = Math.max(0, Math.floor((gy - oy) / k)), y1 = Math.min(gl.bh, Math.ceil((gy + 1 - oy) / k));
+        let s = 0, n = 0;
+        for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) { s += gl.bin[y * gl.bw + x]; n++; }
         g[gy * GW + gx] = n ? s / n : 0;
       }
     }
@@ -1102,21 +1134,28 @@
   }
 
   // 匹配打分：9 组字体全部取最小误差（孔洞先筛，必要时去掉重来）
-  function ocrDigit(gl) {
+  // allowed（可选）：候选白名单（数字数组）。给了就只在白名单内取最优，
+  // 并在返回值里带上"全候选最优"（dAll/eAll）供调用方判断是否改判/降级（§18.2 ①）
+  function ocrDigit(gl, allowed) {
     const T = buildTemplates();
-    const g16 = normGrid(gl, CFG.GW, CFG.GH);
+    const g16 = normGridFit(gl, CFG.GW, CFG.GH);
     const obsHoles = holesOf(gl, CFG.FW, CFG.FH);
-    const errs = [];
     const N = g16.length;
     const errOf = (t) => { let e = 0; for (let i = 0; i < g16.length; i++) { const d = g16[i] - t[i]; e += d * d; } return e; };
+    const ok = allowed && allowed.length ? (d) => allowed.indexOf(d) >= 0 : () => true;
+    const errs = [];
     for (let i = 0; i < T.g16.length; i++) {
-      if (T.holes[i] !== obsHoles) continue;
+      if (T.holes[i] !== obsHoles || !ok(i % 9)) continue;
       errs.push({ d: i % 9, e: errOf(T.g16[i]) });
     }
     let holesOk = errs.length > 0;
     if (!holesOk) {
-      for (let i = 0; i < T.g16.length; i++) errs.push({ d: i % 9, e: errOf(T.g16[i]) });
+      for (let i = 0; i < T.g16.length; i++) {
+        if (!ok(i % 9)) continue;
+        errs.push({ d: i % 9, e: errOf(T.g16[i]) });
+      }
     }
+    if (!errs.length) return { d: -1, conf: 0, holesOk: false, dAll: -1, eAll: Infinity };
     errs.sort((a, b) => a.e - b.e);
     const best = errs[0];
     let second = 1e9;
@@ -1124,7 +1163,25 @@
     let conf = 1 - best.e / N;
     conf *= Math.min(1, (second - best.e) / N * 4 + 0.5);
     if (!holesOk) conf *= 0.85;
-    return { d: best.d, conf };
+    // 无约束的最优（用于"读数与盘面约束冲突"的判定；只在真的收窄过候选时才算）
+    let dAll = best.d, eAll = best.e;
+    if (allowed && allowed.length) {
+      let bestAll = Infinity;
+      for (let i = 0; i < T.g16.length; i++) {
+        if (T.holes[i] !== obsHoles) continue;
+        const e = errOf(T.g16[i]);
+        if (e < bestAll) { bestAll = e; dAll = i % 9; }
+      }
+      if (!isFinite(bestAll)) {
+        bestAll = Infinity;
+        for (let i = 0; i < T.g16.length; i++) {
+          const e = errOf(T.g16[i]);
+          if (e < bestAll) { bestAll = e; dAll = i % 9; }
+        }
+      }
+      eAll = bestAll;
+    }
+    return { d: best.d, conf, holesOk, topErr: best.e, dAll, eAll };
   }
 
   /* ---------- × 标记（§6.6） ---------- */
@@ -1259,8 +1316,10 @@
         const cx0 = Math.round(x0 + k * cwEach), cx1 = Math.round(x0 + (k + 1) * cwEach) - 1;
         const gl = glyphOfThreshold(id, cx0, y0, cx1 - cx0 + 1, h, 170);
         if (!gl) return null;
-        const { d: dg, conf } = ocrDigit(gl);
+        const { d: dg, conf, holesOk } = ocrDigit(gl);
         if (conf < 0.72) return null;
+        // 孔洞兜底读出的带孔数字不采信（同 §18.3 问题 A：宁可当没读到）
+        if (holesOk === false && CFG.HOLE_DIGITS.indexOf(dg) >= 0) return null;
         num += String(dg);
       }
       return { num: Number(num), conf: 0.8 };
@@ -1268,6 +1327,12 @@
     const left = readGroup(groupOf(slash - 1, -1).slice().reverse());
     const right = readGroup(groupOf(slash + 1, 1));
     if (!left || !right) return null;
+    // 格式/数量校验（§18.2 ⑥）：两个数都必须读全，且"已收集 ≤ 总数"、总数在标准档位内；
+    // 任何一条不成立就当没读到（计数器读错会把钻石总数带偏，宁可不采信）
+    const std = CFG.GEM_TOTAL[grid.n] || 0;
+    if (!Number.isFinite(left.num) || !Number.isFinite(right.num)) return null;
+    if (left.num < 0 || left.num > right.num) return null;
+    if (std && right.num !== std) return null;
     return { left: left.num, right: right.num, box: boxes[slash] };
   }
 
@@ -1275,6 +1340,51 @@
   function glyphOfThreshold(id, x0, y0, w, h, thr) {
     if (w < 3 || h < 5) return null;
     return glyphOf(id, x0, y0, w, h, thr);
+  }
+
+  /* ---------- 盘面约束（候选白名单，§18.2 ①） ---------- */
+  // 只用三类高可靠锚点：橙色宝钻（已知钻石）、玩家 ×（确定没钻石）、已翻开的格子（不可能是钻石）。
+  // 数字读数不参与当锚点——它正是被复核的对象。
+  // 返回 limits[i] = [lo, hi]：该格数字的可行区间（只对已翻开格有意义）
+  function buildConstraintMap(outCells, openFlag, n, gemTotal) {
+    const total = n * n;
+    const gem = new Uint8Array(total), safe = new Uint8Array(total);
+    let gemCount = 0;
+    for (let r = 0; r < n; r++) {
+      for (let c = 0; c < n; c++) {
+        const i = r * n + c, v = outCells[r][c];
+        if (v === 9) { gem[i] = 1; gemCount++; }
+        else if (v === 10) safe[i] = 1;
+        else if (openFlag[i]) safe[i] = 1;
+      }
+    }
+    let possible = 0;                      // 还能放钻石的格子（未翻开、未标 ×、未确定是钻石）
+    for (let i = 0; i < total; i++) if (!gem[i] && !safe[i]) possible++;
+    const remaining = Math.max(0, (gemTotal || 0) - gemCount);
+    // 锚点自相矛盾（钻石数对不上候选格数）时整盘放弃收窄，交给求解器报矛盾
+    const consistent = gemTotal > 0 && remaining <= possible;
+    const limits = new Array(total).fill(null);
+    for (let r = 0; r < n; r++) {
+      for (let c = 0; c < n; c++) {
+        const i = r * n + c;
+        if (!openFlag[i]) continue;
+        let gAdj = 0, hid = 0;
+        for (let rr = Math.max(0, r - 1); rr <= Math.min(n - 1, r + 1); rr++) {
+          for (let cc = Math.max(0, c - 1); cc <= Math.min(n - 1, c + 1); cc++) {
+            if (rr === r && cc === c) continue;
+            const j = rr * n + cc;
+            if (gem[j]) gAdj++;
+            else if (!safe[j]) hid++;
+          }
+        }
+        // 邻域外的候选格放不下的钻石（鸽笼）必须落进邻域 → lo；
+        // 邻域候选格与剩余钻石取小 → hi
+        const lo = gAdj + Math.max(0, remaining - (possible - hid));
+        const hi = gAdj + Math.min(hid, remaining);
+        limits[i] = [lo, hi];
+      }
+    }
+    return { ok: consistent && CFG.WHITELIST !== false, limits, gemCount, remaining, possible };
   }
 
   /* ---------- 全盘识别流程 ---------- */
@@ -1332,11 +1442,15 @@
     const separable = sp.sep > CFG.OTSUSPLIT_SEP_MIN && sp.nB > 0 && sp.nD > 0;
 
     let filled = 0, openedCount = 0;
+    const openFlag = new Uint8Array(total);        // 判为"已翻开"的格子（不可能是钻石，供白名单当锚点）
+    const reads = new Array(total).fill(null);     // 已翻开格的字形与读数（供白名单复核，§18.2 ①）
     for (let r = 0; r < n; r++) {
       for (let c = 0; c < n; c++) {
-        const cell = cells[r * n + c];
+        const i = r * n + c;
+        const cell = cells[i];
         const px = Math.round(grid.x0 + c * grid.cellX);
         const py = Math.round(grid.y0 + r * grid.cellY);
+        const cw = Math.round(grid.cellX), chh = Math.round(grid.cellY);
 
         // 宝钻
         if (cell.orangeFrac > CFG.ORANGE_FRAC_MIN) { outCells[r][c] = 9; filled++; continue; }
@@ -1344,37 +1458,96 @@
         // 注意：阈值 sp.thr 是用 bgLum 分的组，这里也必须拿 bgLum 比（量纲一致）
         const bgLum = cell.bgLum != null ? cell.bgLum : cell.meanLum;
         const isOpen = separable ? bgLum < sp.thr : bgLum < CFG.OPEN_LUM_FALLBACK;
-        if (isOpen) openedCount++;
+        if (isOpen) { openedCount++; openFlag[i] = 1; }
         if (isOpen) {
-          const gl = extractGlyph(id, px, py, Math.round(grid.cellX), Math.round(grid.cellY));
+          const gl = extractGlyph(id, px, py, cw, chh);
           if (gl) {
-            const { d, conf } = ocrDigit(gl);
+            const res = ocrDigit(gl);
+            reads[i] = { gl, d: res.d, conf: res.conf, holesOk: res.holesOk };
             const gate = separable ? CFG.DIGIT_GATE : CFG.DIGIT_GATE_HARD;
-            if (conf >= gate) {
-              outCells[r][c] = d; filled++;
-              if (conf < 0.70) unsure.push([r, c]);
+            // 孔洞拓扑都筛不出候选（退回全字体参评）时读出的带孔数字不再直接采信 ——
+            // 这时纹样/图案最容易被读成 8（§18.3 问题 A），宁可红框不硬写
+            const suspectHole = res.holesOk === false && CFG.HOLE_DIGITS.indexOf(res.d) >= 0;
+            if (res.conf >= gate && !suspectHole) {
+              // 暗色/偏色钻石可能被读成数字：只有把握不足（<0.70）时才让位给低阈值橙色复核
+              if (res.conf < 0.70 && cell.orangeFrac > CFG.ORANGE_FRAC_MIN_LOW) {
+                outCells[r][c] = 9; filled++;
+                continue;
+              }
+              outCells[r][c] = res.d; filled++;
+              if (res.conf < 0.70) unsure.push([r, c]);
               continue;
             }
           }
           // 已翻开但数字没认出来 → 补一次更严格的 X 判定
-          if (detectXMark(id, px, py, Math.round(grid.cellX), Math.round(grid.cellY), CFG.X_MINCOV_OPEN)) {
+          if (detectXMark(id, px, py, cw, chh, CFG.X_MINCOV_OPEN)) {
             outCells[r][c] = 10; filled++;
             continue;
           }
+          // 低阈值橙色复核：暗色/偏色钻石的 orangeFrac 会掉到 0.075 以下，
+          // "已翻开却读不出内容"时按钻石收，不再塞进待核对红框（§18.3 问题 B）
+          if (cell.orangeFrac > CFG.ORANGE_FRAC_MIN_LOW) { outCells[r][c] = 9; filled++; continue; }
           // 已翻开但无内容：留空（"绝不误判"），明显有笔画的记入待核对
           if (gl) unsure.push([r, c]);
         } else {
-          if (detectXMark(id, px, py, Math.round(grid.cellX), Math.round(grid.cellY), CFG.X_MINCOV)) {
+          if (detectXMark(id, px, py, cw, chh, CFG.X_MINCOV)) {
             outCells[r][c] = 10; filled++;
           }
         }
       }
     }
 
-    // 二次补空（只补空、不覆盖）
+    // ---------- 候选白名单：用盘面约束收窄数字候选（§18.2 ① / §18.3 问题 A）----------
+    // 锚点只用高可靠信息：橙色宝钻、玩家 ×、已翻开的格子（不可能是钻石）。
+    // 某格数字 v = 周围 8 格的钻石数，所以 v ∈ [lo, hi]：
+    //   lo = 邻域已知钻石 + 必须落在邻域内的剩余钻石；hi = 邻域已知钻石 + 邻域候选格数
+    // "剩余总数"参与上/下界（这就是"识别 + 求解器"闭环，survivor 站没有求解器做不到）。
+    // 与约束冲突的读数 → 收窄候选重读（改判）；重读不成立 → 按单点约束改判或降级留空；
+    // 改判/降级/保留冲突都记入待核对（红框）+ debug.constrained，绝不静默改盘面。
+    const wl = buildConstraintMap(outCells, openFlag, n, CFG.GEM_TOTAL[n] || 0);
+    const constrained = [];
+    const markCells = new Set();
+    const flag = (r, c, info) => {
+      const k = r * n + c;
+      if (!markCells.has(k)) { markCells.add(k); unsure.push([r, c]); }
+      constrained.push({ r, c, ...info });
+    };
+    if (wl.ok) {
+      const gate = separable ? CFG.DIGIT_GATE : CFG.DIGIT_GATE_HARD;
+      for (let r = 0; r < n; r++) {
+        for (let c = 0; c < n; c++) {
+          const i = r * n + c, rd = reads[i];
+          const v = outCells[r][c];
+          if (!rd || rd.d < 0 || typeof v !== 'number' || v < 0 || v > 8) continue;
+          const lim = wl.limits[i];
+          if (!lim) continue;
+          const lo = lim[0], hi = lim[1];
+          if (rd.d >= lo && rd.d <= hi) continue;         // 读数与盘面一致 → 不动
+          const allowed = [];
+          for (let d = lo; d <= hi; d++) allowed.push(d);
+          const res = ocrDigit(rd.gl, allowed);
+          // 改判：收窄后重读出的数字要既过门限、又不比"冲突值"更差（topErr ≤ eAll）
+          if (res.d >= 0 && res.d !== rd.d && res.conf >= gate && res.topErr <= res.eAll) {
+            outCells[r][c] = res.d;
+            flag(r, c, { from: v, to: res.d, kind: 'rejudge', lo, hi });
+          } else if (lo === hi && lo !== v) {
+            outCells[r][c] = lo;                          // 约束只有一个取值 → 按约束改判
+            flag(r, c, { from: v, to: lo, kind: 'forced', lo, hi });
+          } else if (rd.conf < CFG.DIGIT_GATE_HARD) {
+            outCells[r][c] = -1;                          // 弱置信 + 冲突 → 降级留空（宁可留空）
+            flag(r, c, { from: v, to: -1, kind: 'drop', lo, hi });
+          } else {
+            flag(r, c, { from: v, to: v, kind: 'keep', lo, hi });   // 高置信冲突：保留但标红（可能是锚点错）
+          }
+        }
+      }
+      filled = outCells.flat().filter(v => v !== -1).length;
+    }
+
+    // 二次补空（只补空、不覆盖；投票同样受白名单约束）
     const hitsFirst = filled;
     if (hitsFirst >= CFG.RETRY_HIT_MIN) {
-      retryBlank(id, grid, outCells, unsure, cells, separable ? sp.thr : CFG.OPEN_LUM_FALLBACK);
+      retryBlank(id, grid, outCells, unsure, cells, separable ? sp.thr : CFG.OPEN_LUM_FALLBACK, wl);
       filled = outCells.flat().filter(v => v !== -1).length;
     }
 
@@ -1390,7 +1563,7 @@
       coverage: filled / total,
       reported: filled,
       total,
-      note: `识别出 ${filled} 个已填格${unsure.length ? '，' + unsure.length + ' 处待核对' : ''}${gridIn.note ? '；' + gridIn.note : ''}`,
+      note: `识别出 ${filled} 个已填格${unsure.length ? '，' + unsure.length + ' 处待核对' : ''}${constrained.length ? '，' + constrained.length + ' 处按盘面约束复核' : ''}${gridIn.note ? '；' + gridIn.note : ''}`,
       badRows: 0,
       thin,
       openedCount,          // 判为"已翻开"的格子数
@@ -1399,7 +1572,7 @@
       usedBackup: false,
       elapsedMs: Math.round(done - t0),
       // 调试信息（不入契约，前端忽略）
-      debug: { grid: gridIn, scale: sc, gemCounter },
+      debug: { grid: gridIn, scale: sc, gemCounter, constrained, whitelist: wl.ok ? { gemCount: wl.gemCount, remaining: wl.remaining, possible: wl.possible } : null },
     };
   }
 
@@ -1417,7 +1590,8 @@
   }
 
   // 补空：平移采样窗投票，只补空、不覆盖
-  function retryBlank(id, grid, outCells, unsure, cells, openThr) {
+  // wl（可选）：盘面约束白名单 —— 只给"盘面上可能取的值"投票（§18.2 ①）
+  function retryBlank(id, grid, outCells, unsure, cells, openThr, wl) {
     const { n, cellX, cellY, x0, y0 } = grid;
     const total = n * n;
     let blanks = 0;
@@ -1433,6 +1607,7 @@
         const bgLum = cell ? (cell.bgLum != null ? cell.bgLum : cell.meanLum) : 0;
         const isOpen = cell ? bgLum < openThr : true;
         const Rr = isOpen ? R : Math.min(R, CFG.RETRY_R_UNOPENED);
+        const lim = (wl && wl.ok && wl.limits[r * n + c]) || null;
         const bx = Math.round(x0 + c * cellX), by = Math.round(y0 + r * cellY);
         const dVotes = {}, xVotes = { x: 0 };
         let pos = 0;
@@ -1444,8 +1619,12 @@
             if (isOpen) {
               const gl = extractGlyph(id, px, py, cw, chh);
               if (gl) {
-                const { d, conf } = ocrDigit(gl);
-                if (conf >= CFG.DIGIT_GATE) dVotes[d] = (dVotes[d] || 0) + 1;
+                const res = ocrDigit(gl);
+                const d = res.d;
+                // 白名单外的数字不投票；孔洞兜底读出的带孔数字同样不投票（§18.3 问题 A）
+                const banned = (lim && (d < lim[0] || d > lim[1])) ||
+                  (res.holesOk === false && CFG.HOLE_DIGITS.indexOf(d) >= 0);
+                if (res.conf >= CFG.DIGIT_GATE && !banned) dVotes[d] = (dVotes[d] || 0) + 1;
               }
             }
             if (detectXMark(id, px, py, cw, chh, CFG.X_MINCOV)) xVotes.x++;
@@ -1464,5 +1643,5 @@
     }
   }
 
-  return { CFG, configure, recognize, detectBoard, ocrDigit, extractGlyph, detectXMark, holesOf, _internal: { lumMap, safeScale, otsuSplit, buildTemplates, frameBands, frameCandidates, collectSeams, bestNForAxis, refineFromSeams, polishGrid, blueFracIn, detectBoardSpectral, detectGemCounter, glyphOfThreshold } };
+  return { CFG, configure, recognize, detectBoard, ocrDigit, extractGlyph, detectXMark, holesOf, _internal: { lumMap, safeScale, otsuSplit, buildTemplates, normGrid, normGridFit, buildConstraintMap, frameBands, frameCandidates, collectSeams, bestNForAxis, refineFromSeams, polishGrid, blueFracIn, detectBoardSpectral, detectGemCounter, glyphOfThreshold } };
 });

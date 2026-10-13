@@ -81,6 +81,8 @@
       'vb.unknown': '待定',
       'vb.markSafe': '把可确认的格标上 ×',
       'vb.undo': '撤销',
+      'vb.frames': '核对完成',
+      'vb.frames.tip': '识别导入的格子核对完了：一键去掉金框/红框提示（格子内容不动，可撤销）',
       'vb.undo.tip': '撤销上一步改动（Ctrl+Z）',
       'vb.clear': '重置',
       'vb.clear.tip': '重置整个棋盘（会二次确认；可撤销）',
@@ -201,6 +203,8 @@
       'vb.markSafe': 'Mark all certain-safe as ×',
       'vb.undo': 'Undo',
       'vb.undo.tip': 'Undo last change (Ctrl+Z)',
+      'vb.frames': 'Checked',
+      'vb.frames.tip': 'Done checking the imported cells: hide the gold/red frames (board contents unchanged, undoable)',
       'vb.clear': 'Reset',
       'vb.clear.tip': 'Clear the whole board (undoable)',
       'credit.by': 'Tidal Realm Solver · by Hai',
@@ -389,7 +393,7 @@
     awaiting: -1,         // 正在等待选择「翻开值」的格子
     cursor: -1,           // 当前选中的格子（键盘输入的目标）
     lastTap: { i: -1, t: 0 },
-    tapStart: null,       // 选中笔刷按下时的位置（抬手没怎么动才弹取值卡）
+    cursorManual: false,  // 选中框是否被用户"亲手点过"（没点过就一直吸附在推荐格上）
     pressBackup: null,    // 记录按下前的值，供双击时回滚
     // 手动格子大小（px）：0 = 自动适配屏幕；非 0 时固定该尺寸（localStorage 记忆）
     manualCell: (() => { const v = Number(localStorage.getItem('tidal_cell_px') || 0); return Number.isFinite(v) && v > 0 ? v : 0; })(),
@@ -562,6 +566,13 @@
       }
     }
     const clueLess = (i) => !isClue[i];
+    // 选中框跟住推荐格：只要用户没亲手点过别的格子（且「自动跳转」开着），
+    // 选中框就始终停在"建议点击"的那一格上，和闪烁框重合。
+    if (!S.game && S.autoNext && !S.cursorManual && res) {
+      const h = pickHotCell(res);
+      if (h >= 0) S.cursor = h;
+    }
+
     // 金色闪烁 = "这格最可能是钻石"：依次取
     //   ① 已经能确定的钻石（直接去挖）② 概率最高的那一格（赌一把的靶子）
     // 空盘/还没线索时退化成"第一手点哪"（棋盘中心）。
@@ -741,6 +752,7 @@
     paint();
     renderPanels(res);
     updateUndoBtn();
+    updateFramesBtn();
   }
 
   function coordChips(list, cls, limit, withProb) {
@@ -1113,6 +1125,7 @@
     const base = S.histBase;
     S.histBase = null;
     if (sameSnap(base, snap())) return false;                 // 这一步没改动
+    S.cursorManual = false;                                   // 盘面变了：选中框重新吸附到推荐格
     const top = S.history[S.history.length - 1];
     if (top && sameSnap(top, base)) return false;             // 与上一步起点相同，去重
     S.history.push(base);
@@ -1132,6 +1145,22 @@
   function updateUndoBtn() {
     const b = $('#btn-undo');
     if (b) b.disabled = !S.history.length;
+  }
+
+  // 「核对完成」：识别导入的框（金=识别填的，红=待核对）核对完了一键清掉（§18.3 问题 B-2）
+  function updateFramesBtn() {
+    const b = $('#btn-clear-frames');
+    if (b) b.hidden = !(S.aiCells.size || S.unsure.size);
+  }
+
+  function clearFrames() {
+    if (!S.aiCells.size && !S.unsure.size) return;
+    mark();
+    S.aiCells.clear();
+    S.unsure.clear();
+    analyze();
+    settle();
+    toast(LANG === 'en' ? 'Frames cleared — board unchanged.' : '识别框已清除（格子内容没动，可撤销）', 'gold');
   }
 
   function undo() {
@@ -1238,6 +1267,7 @@
       S.lastTap = { i, t: now };
       // 单击 = 选中这一格（键盘 0-8 / Enter / X / Delete 都作用在它上面）
       S.cursor = i;
+      S.cursorManual = true;   // 亲手点过 → 先停在他点的格子上（填完值再回到推荐格）
       if (S.brush === 'select') {
         // 选中笔刷：单击只选中这一格（不改内容，也不弹窗）—— 之后点下方数字 / 按键盘都能快速填入
         S.painting = null;
@@ -1386,6 +1416,8 @@
       toast(settle() ? t('reset.done') : t('reset.empty'));
     });
     $('#btn-undo').addEventListener('click', undo);
+    const framesBtn = $('#btn-clear-frames');
+    if (framesBtn) framesBtn.addEventListener('click', clearFrames);
     const wxBtn = $('#btn-wx');
     if (wxBtn) {
       wxBtn.addEventListener('click', () => {
@@ -1940,6 +1972,7 @@
             <li><b>想要弹窗选值</b>：双击格子，格子旁边会弹出取值卡，里面还会提示这格"只能填几到几"。</li>
             <li><b>想快速标钻石</b>：右键格子（手机长按）；填错了按 <b>Ctrl+Z</b> 撤销</li>
             <li><b>格子太小/太大</b>：棋盘右下角「格子大小 −/＋」可手动调（会记住），点「自动」恢复按屏幕适配；点「全屏」让棋盘铺满整个屏幕。</li>
+            <li><b>选中框会自动跟着建议格</b>（和闪烁框重合）：你没亲手点别的格子时，它一直停在"该点的那格"上，点下方数字就能一路填下去。</li>
             <li>一整盘抄不完也没关系，先把<b>已经翻开的数字</b>和<b>已经翻出的钻石</b>填上就够用了。</li>
           </ul>
         </section>
@@ -1984,6 +2017,7 @@
             <li><b>Value popup</b>: double-click a cell to open the value card next to it (it also shows the valid range for that cell).</li>
             <li><b>Quick gem mark</b>: right-click a cell (long-press on mobile); <b>Ctrl+Z</b> to undo.</li>
             <li><b>Cell size</b>: use −/＋ at the bottom right of the board (remembered); "Auto" fits the screen; "Fullscreen" fills the screen.</li>
+            <li><b>The selection follows the suggested cell</b> (same cell as the flash): unless you click another cell yourself, it always sits on "the next one to open", so you can just keep clicking the numbers below.</li>
             <li>You don't need the whole board — the <b>revealed numbers</b> and <b>found gems</b> are enough.</li>
           </ul>
         </section>
