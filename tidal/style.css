@@ -1350,3 +1350,19 @@ body.use-tile-art:not(.is-mine-game) #board {
   .palette .rec-auto { margin-left: 2px; font-size: 10.5px; gap: 2px; }
   .palette .rec-auto input { width: 12px; height: 12px; }
 }
+
+/* ---------- 撤销/重置/自动提示：靠笔刷栏最右边（左边自动留白，和钻石拉开距离防误点） ---------- */
+.palette .palette-actions { margin-left: auto; }   /* 撤销/重置/自动提示：整组靠这一行最右边 */
+.palette .palette-tip { margin-left: 10px; }        /* 桌面上的键盘提示跟在最右边，不再抢自动边距 */
+
+/* 更窄的手机（≤380px）：再压一档，让「撤销 重置 ✓自动提示」三件套能排在同一行最右边 */
+@media (max-width: 380px) {
+  .palette .brush-act { padding: 0 4px; font-size: 11px; }
+  .palette .brush-select, .palette .brush[data-brush="hide"] { padding: 0 4px; font-size: 11px; }
+  .palette .rec-auto { font-size: 10px; }
+  .palette .rec-auto input { width: 11px; height: 11px; }
+}
+
+/* 动作组容器：整组一起靠右；放不下时整组换行（不会被拆成两半） */
+.palette .palette-actions { display: flex; align-items: center; gap: 5px; flex: none; flex-wrap: nowrap; }
+@media (max-width: 640px) { .palette .palette-actions { gap: 4px; } }

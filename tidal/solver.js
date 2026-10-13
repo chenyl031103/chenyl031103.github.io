@@ -605,7 +605,7 @@
     // 空盘/还没线索时退化成"第一手点哪"（棋盘中心）。
     // 注意：不闪"必定安全"的格子 —— 那种格子是"稳着探线索"用的，和目标用户预期不符。
     let hot = -1;
-    if (!S.game) {
+    if (!S.game && S.autoNext) {          // 关掉「自动提示」＝不再闪烁提示框（建议仍在下方文字里）
       if (res) hot = pickHotCell(res);
       // 兜底（概率全 0 / 没有候选）：还是给个"第一手"——棋盘中心
       if (hot < 0) hot = Math.round((rows - 1) / 2) * cols + Math.round((cols - 1) / 2);
@@ -1438,6 +1438,8 @@
       el.cbAutoNext.addEventListener('change', () => {
         S.autoNext = !!el.cbAutoNext.checked;
         toast(S.autoNext ? '已开启：录入后自动提示下一个推荐格' : '已关闭自动提示', '');
+        paint();          // 立刻生效：关掉就不再闪烁提示框
+
       });
     }
 
