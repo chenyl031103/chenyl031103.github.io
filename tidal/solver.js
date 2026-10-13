@@ -299,6 +299,7 @@
       el.board.style.setProperty('--gap', gap + 'px');
       el.board.style.setProperty('--cell', cell + 'px');
       el.board.style.setProperty('--font', Math.round(cell * 0.54) + 'px');
+      renderAuxLines();        // 手动调格子大小也要把辅助虚线摆过去（原来这里直接 return，虚线留在旧位置）
       return cell;
     }
     const cs = getComputedStyle(el.boardScroll);
@@ -350,6 +351,10 @@
     el.board.innerHTML = '';
     el.board.appendChild(frag);
     S.nodes = nodes;
+    if (!S.auxObserver && typeof ResizeObserver !== 'undefined') {
+      S.auxObserver = new ResizeObserver(() => renderAuxLines());
+      S.auxObserver.observe(el.board);
+    }
     el.cellTotal.textContent = rows * cols;
     fitBoard();
     renderAuxLines();
