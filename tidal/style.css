@@ -89,6 +89,8 @@
   --shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
 
   --x-mark: #111827;
+  --flat-bg: #ffffff;            /* 素材图标里"已翻开格底"的颜色（浅色主题用白底，深色主题用图标默认的深蓝） */
+  --flat-line: #c8cfd8;
   --tile-closed: #d5dbe3;
   --tile-open: #ffffff;
   --tile-open-ink: #1a1a2e;

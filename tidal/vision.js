@@ -1520,16 +1520,17 @@
     opts = opts || {};
     if (opts.grid) return recognizeOnce(input, opts);   // 手动微调路径：网格已定，不再试探方向
     const raw = toImageData(input);
-    let best = null;
+    let first = null, solidBest = null;
     for (const deg of [0, 90, 180, 270]) {
       try {
         const t = tryOrient(raw, deg, opts);
-        if (!best || t.score > best.score) best = t;
-        if (t.solid && best === t) break;               // 这一版就是像样的盘面，不白算别的方向
-      } catch (e) {
-        if (!best) best = { deg, err: e, score: -1e9, r: null, solid: false };
-      }
+        if (!solidBest) {
+          if (t.solid) solidBest = t;                    // 找到"像样的盘面"就定下来
+          else if (!first) first = t;                    // 都不像样时保留原方向（deg=0 版）
+        } else break;                                    // 已定下来就不用再算别的方向（正立截图通常第一次就中）
+      } catch (e) { /* 这个方向不行，继续 */ }
     }
+    const best = solidBest || first;
     if (!best || !best.r) {
       const e = new Error('未能自动识别棋盘（四个方向都试过了），请手动调整或改用服务器识别');
       e.code = 'NO_BOARD';

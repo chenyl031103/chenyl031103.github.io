@@ -2546,18 +2546,20 @@
     if (!cv || !ocrPrev) return;
     const { image, grid, data } = ocrPrev;
     const cols = data.cols, rows = data.rows, cells = data.cells;
-    let sx, sy, scale;
+    let sx, sy, scale, sw, sh, W, H;      // 注意：sw/sh/W/H 要在两支里都赋值，后面 drawImage 用得到（挪进 if 分支会白屏）
     if (freezeView && freezeView.scale) {
       // 拖四角期间固定取景，避免"每动一下取景跟着变"导致手感漂移
       sx = freezeView.sx; sy = freezeView.sy; scale = freezeView.scale;
-      cv.width = freezeView.W; cv.height = freezeView.H;
+      W = freezeView.W; H = freezeView.H;
+      sw = W / scale; sh = H / scale;
+      cv.width = W; cv.height = H;
     } else {
       const pad = 0.05 * grid.n * Math.max(grid.cellX, grid.cellY);
       sx = Math.max(0, grid.x0 - pad); sy = Math.max(0, grid.y0 - pad);
-      const sw = Math.min(image.width - sx, grid.n * grid.cellX + 2 * pad);
-      const sh = Math.min(image.height - sy, grid.n * grid.cellY + 2 * pad);
+      sw = Math.min(image.width - sx, grid.n * grid.cellX + 2 * pad);
+      sh = Math.min(image.height - sy, grid.n * grid.cellY + 2 * pad);
       scale = Math.min(cv.width / sw, cv.height / sh);
-      const W = Math.max(40, Math.round(sw * scale)), H = Math.max(40, Math.round(sh * scale));
+      W = Math.max(40, Math.round(sw * scale)); H = Math.max(40, Math.round(sh * scale));
       cv.width = W; cv.height = H;
       ocrPrev.view = { sx, sy, scale, W: cv.width, H: cv.height };
     }
