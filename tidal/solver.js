@@ -128,7 +128,7 @@
       'ocr.switchServer': '本机没认准，改用服务器识别…',
       'ocr.previewTitle': '识别结果 · 先看网格对没对齐',
       'ocr.previewH4': '对照预览：红线要正好压在格缝上',
-      'ocr.nudgeTip': '红线偏了（压到数字上/切到相邻格）就点上面的微调按钮，每次挪 1/4 格；点完会立刻重算。',
+      'ocr.nudgeTip': '红线偏了：直接拖预览图四角的黄点框住棋盘外框（松手自动重算）；也可以用下面的按钮每次挪 1/4 格。',
       'ocr.applyH4': '没问题就填进棋盘',
       'ocr.apply': '应用到棋盘',
       'ocr.back': '换一张重来',
@@ -250,7 +250,7 @@
       'ocr.switchServer': 'Local recognition failed, trying the server…',
       'ocr.previewTitle': 'Result · check the grid alignment',
       'ocr.previewH4': 'The red lines should sit right on the grid seams',
-      'ocr.nudgeTip': 'If the lines are off, nudge with the buttons above (1/4 cell per step); it recalculates instantly.',
+      'ocr.nudgeTip': 'If the lines are off, drag the yellow corner dots on the preview to frame the board (re-runs on release); or nudge with the buttons below (1/4 cell per step).',
       'ocr.applyH4': 'Looks right → fill the board',
       'ocr.apply': 'Apply to board',
       'ocr.back': 'Pick another image',
@@ -635,7 +635,7 @@
             if (res.knownGem && res.knownGem[i]) { cls += ' say-conflict'; badge = '!'; }
           } else if (res.knownGem && res.knownGem[i] && v !== 'G') {
             cls += ' say-gem';
-            content = '<span class="v-gem">✓</span>';
+            content = '<svg class="tileico tile-full" aria-hidden="true"><use href="#uw-tile-check"/></svg>';
           } else if (res.knownSafe && res.knownSafe[i]) {
             cls += ' say-safe';
             content = '<span class="v-safe">×</span>';
@@ -652,13 +652,17 @@
         }
 
         if (node.className !== cls) node.className = cls;
-        const key = content ? 'v:' + content : (text || (typeof v === 'string' ? v : ''));
+        // 潮汐秘境用素材图标画格子（未翻开/数字/钻石/×），扫雷模式保持原来的方块风
+        // 扫雷模式保持原来的方块风；潮汐秘境（含它的游戏模式）用素材图标
+        const art = artReady() && (!S.game || S.game.kind !== 'mine') ? cellArt(v) : null;
+        const key = content ? 'v:' + content : (art || text || (typeof v === 'string' ? v : ''));
         if (node.dataset.k !== key) {
           node.dataset.k = key;
           node.innerHTML = content ? content
-            : v === 'G' ? '<svg class="ico" aria-hidden="true"><use href="#ico-gem"/></svg>'
-            : v === 'X' ? '<svg class="ico" aria-hidden="true"><use href="#ico-x"/></svg>'
-            : v === 'D' ? '<svg class="ico" aria-hidden="true"><use href="#ico-gem"/></svg>'
+            : art ? art
+            : v === 'G' ? '<svg class="tileico tile-gem" aria-hidden="true"><use href="#uw-gem"/></svg>'
+            : v === 'X' ? '<svg class="tileico tile-fill" aria-hidden="true"><use href="#uw-tile-x"/></svg>'
+            : v === 'D' ? '<svg class="tileico tile-gem" aria-hidden="true"><use href="#uw-gem"/></svg>'
             : v === 'F' ? '<span class="v-flag">🚩</span>'
             : v === 'Q' ? '<span class="v-question">❓</span>'
             : v === 'B' ? '<span class="v-bomb">💣</span>'
@@ -672,6 +676,19 @@
     el.filled.textContent = filled;
     S.filledCount = filled;
     updateCostChips(grid);
+  }
+
+  /* 潮汐秘境的格子画法：用 sweeper-icons.js 注入的 uw-* 精灵（和游戏原画同风格） */
+  // 精灵注入后才有 #uw-gem；没有（例如 Node 测试）就退回原来的画法
+  function artReady() { return typeof document !== 'undefined' && !!document.getElementById('uw-gem'); }
+  function cellArt(v) {
+    const full = (id) => `<svg class="tileico tile-full" aria-hidden="true"><use href="#${id}"/></svg>`;
+    const flat = (id) => `<svg class="tileico tile-full" aria-hidden="true"><use href="#uw-flat"/><use href="#${id}"/></svg>`;
+    if (v === -1) return full('uw-tile-unk');                  // 没翻开
+    if (v === 'X') return full('uw-tile-x');                   // 玩家标的 ×
+    if (v === 'G' || v === 'D') return flat('uw-gem');         // 钻石（已翻开底 + 钻石）
+    if (typeof v === 'number' && v >= 0 && v <= 8) return flat('uw-d' + v);   // 数字
+    return null;                                               // 其他（扫雷的 F/Q/B/H 等）交给原来的画法
   }
 
   /* ---------- 分析 ---------- */
@@ -1133,6 +1150,7 @@
     S.history.push(base);
     if (S.history.length > HIST_MAX) S.history.shift();
     updateUndoBtn();
+    persist();
     return true;
   }
 
@@ -1180,7 +1198,66 @@
     S.unsure = new Set(s.unsure);
     buildBoard();
     analyze();
+    persist();
     toast(LANG === 'en' ? 'Undone' : '已撤销上一步');
+    return true;
+  }
+
+  /* ---------- 盘面持久化：刷新 / 微信切后台被系统回收后，自动恢复 ---------- */
+  const STATE_KEY = 'tidal_state_v1';
+  const STATE_V = 1;
+  const STATE_HIST_MAX = 40;      // 只带最近若干步撤销记录，够用又省空间
+  let persistTimer = null;
+
+  function persistNow() {
+    persistTimer = null;
+    if (S.game) return;                                     // 游戏模式的盘面不覆盖计算器存档
+    try {
+      localStorage.setItem(STATE_KEY, JSON.stringify({
+        v: STATE_V, at: Date.now(),
+        rows: S.rows, cols: S.cols, gemTotal: S.gemTotal,
+        grid: S.grid,
+        ai: Array.from(S.aiCells),
+        unsure: Array.from(S.unsure),
+        history: S.history.slice(-STATE_HIST_MAX),
+      }));
+    } catch (e) { /* 无痕模式 / 配额满：静默放弃，不影响使用 */ }
+  }
+
+  /** 盘面改动后调用；拖动连涂时最多 0.5 秒写一次盘 */
+  function persist() {
+    if (S.game) return;
+    if (persistTimer) return;
+    persistTimer = setTimeout(persistNow, 500);
+  }
+
+  /** 页面要走了（刷新 / 切后台）立刻落盘，别等节流 */
+  function persistFlush() {
+    if (persistTimer) { clearTimeout(persistTimer); persistTimer = null; }
+    persistNow();
+  }
+
+  /** 启动时读档；成功返回 true（坏档/旧版本静默丢弃） */
+  function restoreState() {
+    let d = null;
+    try { d = JSON.parse(localStorage.getItem(STATE_KEY) || 'null'); } catch (e) { d = null; }
+    if (!d || d.v !== STATE_V) return false;
+    if (!(d.rows === d.cols && [8, 10, 12].indexOf(d.rows) >= 0)) return false;
+    if (!Array.isArray(d.grid) || d.grid.length !== d.rows) return false;
+    for (const row of d.grid) {
+      if (!Array.isArray(row) || row.length !== d.cols) return false;
+      for (const x of row) {
+        const ok = x === -1 || x === 'G' || x === 'X' || x === 'D'
+          || (typeof x === 'number' && x >= 0 && x <= 8);
+        if (!ok) return false;
+      }
+    }
+    S.rows = d.rows; S.cols = d.cols;
+    S.gemTotal = Number.isFinite(d.gemTotal) ? d.gemTotal : GEM_TOTAL[d.rows];
+    S.grid = d.grid.map((row) => row.slice());
+    S.aiCells = new Set(Array.isArray(d.ai) ? d.ai : []);
+    S.unsure = new Set(Array.isArray(d.unsure) ? d.unsure : []);
+    S.history = Array.isArray(d.history) ? d.history : [];
     return true;
   }
 
@@ -1570,6 +1647,7 @@
     closeRevealBar();
     buildBoard();
     analyze();
+    persist();          // 清空也算一次盘面变化（刷新后是空盘，不会把清掉的旧盘恢复回来）
   }
 
   /* ---------- 示例残局（真实摆法，结论可直接对照） ---------- */
@@ -2362,7 +2440,7 @@
       const t0 = performance.now();
       const r = window.TidalVision.recognize(id, forceN ? { forceN } : {});   // 尺寸优先本地判定，再和用户选的档位核对
       r.localMs = Math.round(performance.now() - t0);
-      r.image = id;      // 供"网格微调"重算用（不重解码）
+      if (!r.image) r.image = id;   // 旋转识别时 vision 会带回旋转后的图，预览必须用它（坐标才一致）
       return r;
     } finally {
       try { URL.revokeObjectURL(url); } catch (e) {}
@@ -2463,18 +2541,26 @@
       </div>`;
   }
 
-  function ocrDrawPreview() {
+  function ocrDrawPreview(freezeView) {
     const cv = $('#ocr-prev-canvas');
     if (!cv || !ocrPrev) return;
     const { image, grid, data } = ocrPrev;
     const cols = data.cols, rows = data.rows, cells = data.cells;
-    const pad = 0.05 * grid.n * Math.max(grid.cellX, grid.cellY);
-    const sx = Math.max(0, grid.x0 - pad), sy = Math.max(0, grid.y0 - pad);
-    const sw = Math.min(image.width - sx, grid.n * grid.cellX + 2 * pad);
-    const sh = Math.min(image.height - sy, grid.n * grid.cellY + 2 * pad);
-    const scale = Math.min(cv.width / sw, cv.height / sh);
-    const W = Math.max(40, Math.round(sw * scale)), H = Math.max(40, Math.round(sh * scale));
-    cv.width = W; cv.height = H;
+    let sx, sy, scale;
+    if (freezeView && freezeView.scale) {
+      // 拖四角期间固定取景，避免"每动一下取景跟着变"导致手感漂移
+      sx = freezeView.sx; sy = freezeView.sy; scale = freezeView.scale;
+      cv.width = freezeView.W; cv.height = freezeView.H;
+    } else {
+      const pad = 0.05 * grid.n * Math.max(grid.cellX, grid.cellY);
+      sx = Math.max(0, grid.x0 - pad); sy = Math.max(0, grid.y0 - pad);
+      const sw = Math.min(image.width - sx, grid.n * grid.cellX + 2 * pad);
+      const sh = Math.min(image.height - sy, grid.n * grid.cellY + 2 * pad);
+      scale = Math.min(cv.width / sw, cv.height / sh);
+      const W = Math.max(40, Math.round(sw * scale)), H = Math.max(40, Math.round(sh * scale));
+      cv.width = W; cv.height = H;
+      ocrPrev.view = { sx, sy, scale, W: cv.width, H: cv.height };
+    }
     const g = cv.getContext('2d');
     const tmp = document.createElement('canvas');
     tmp.width = image.width; tmp.height = image.height;
@@ -2518,8 +2604,85 @@
       st.textContent = `${rows}×${cols} · 读出 ${filled} 格 · 钻石 ${gemN} 颗`
         + ` · 未翻开 ${rows * cols - filled} 格${unsureN ? ` · ${unsureN} 处待核对` : ''}`;
     }
+    // 四角黄点：可直接拖拽框住棋盘外框（松手重算）。位置存画布像素，供 pointer 命中
+    const cn = grid.n;
+    ocrPrev.corners = [
+      [grid.x0, grid.y0],
+      [grid.x0 + cn * grid.cellX, grid.y0],
+      [grid.x0, grid.y0 + cn * grid.cellY],
+      [grid.x0 + cn * grid.cellX, grid.y0 + cn * grid.cellY],
+    ].map(([ix, iy]) => [X(ix), Y(iy)]);
+    const cr = Math.max(4, Math.min(9, Math.min(grid.cellX, grid.cellY) * scale * 0.16));
+    g.fillStyle = 'rgba(255,214,0,.95)';
+    g.strokeStyle = 'rgba(70,50,0,.6)';
+    g.lineWidth = 1.5;
+    for (const [qx, qy] of ocrPrev.corners) {
+      g.beginPath(); g.arc(qx, qy, cr, 0, Math.PI * 2); g.fill(); g.stroke();
+    }
   }
 
+  /** 预览图四角拖拽：拖动黄点直接框住棋盘外框，松手用新网格重新识别 */
+  function bindOcrCornerDrag(cv) {
+    let drag = -1;
+    let dragView = null;
+    const toImg = (e) => {
+      const box = ocrPrev;
+      if (!box || !box.view) return null;
+      const r = cv.getBoundingClientRect();
+      if (!r.width || !r.height) return null;
+      const px = (e.clientX - r.left) * (cv.width / r.width);
+      const py = (e.clientY - r.top) * (cv.height / r.height);
+      return { px, py, x: box.view.sx + px / box.view.scale, y: box.view.sy + py / box.view.scale };
+    };
+    cv.style.touchAction = 'none';
+    cv.addEventListener('pointerdown', (e) => {
+      const box = ocrPrev;
+      if (!box || !box.corners) return;
+      const p = toImg(e);
+      if (!p) return;
+      let k = -1, bd = 1e9;
+      box.corners.forEach(([qx, qy], idx) => {
+        const d = Math.hypot(p.px - qx, p.py - qy);
+        if (d < bd) { bd = d; k = idx; }
+      });
+      if (k < 0 || bd > 24) return;                      // 没点到黄点：不拦截，交给普通点击
+      drag = k;
+      dragView = box.view;
+      try { cv.setPointerCapture(e.pointerId); } catch (err) {}
+      e.preventDefault();
+    });
+    cv.addEventListener('pointermove', (e) => {
+      if (drag < 0) return;
+      const box = ocrPrev;
+      const p = toImg(e);
+      if (!box || !p) return;
+      const g = box.grid, n = g.n, minC = 6;
+      const rightEdge = g.x0 + n * g.cellX, botEdge = g.y0 + n * g.cellY;
+      if (drag === 0) {                                  // 左上
+        g.x0 = Math.max(0, Math.min(p.x, rightEdge - minC * n));
+        g.y0 = Math.max(0, Math.min(p.y, botEdge - minC * n));
+      } else if (drag === 1) {                           // 右上
+        g.cellX = (Math.max(g.x0 + minC * n, p.x) - g.x0) / n;
+        g.y0 = Math.max(0, Math.min(p.y, botEdge - minC * n));
+      } else if (drag === 2) {                           // 左下
+        g.x0 = Math.max(0, Math.min(p.x, rightEdge - minC * n));
+        g.cellY = (Math.max(g.y0 + minC * n, p.y) - g.y0) / n;
+      } else {                                           // 右下
+        g.cellX = (Math.max(g.x0 + minC * n, p.x) - g.x0) / n;
+        g.cellY = (Math.max(g.y0 + minC * n, p.y) - g.y0) / n;
+      }
+      ocrDrawPreview(dragView);                          // 拖动中先把红线挪到新位置（取景不动）
+      e.preventDefault();
+    });
+    const end = () => {
+      if (drag < 0) return;
+      drag = -1;
+      dragView = null;
+      ocrReRun();                                        // 松手后用新网格重新识别
+    };
+    cv.addEventListener('pointerup', end);
+    cv.addEventListener('pointercancel', end);
+  }
   async function ocrReRun() {
     const box = ocrPrev;
     if (!box) return;
@@ -2584,6 +2747,8 @@
         if (e.target.closest('#btn-ocr-back')) { ocrPrev = null; openShotModal(); }
       });
     }
+    const cvp = $('#ocr-prev-canvas');
+    if (cvp) bindOcrCornerDrag(cvp);
     ocrDrawPreview();
   }
 
@@ -2793,14 +2958,20 @@
     // 静态托管版：隐藏截图识别入口；两种版本都在页脚上方列出对应网址
     renderSiteLinks();
     S.grid = newGrid(S.rows, S.cols);
+    const restored = restoreState();          // 有存档就恢复上次的盘面 + 撤销栈
     setGemTotalDisplay();
     el.sizeSeg.querySelectorAll('.seg-btn').forEach((b) => b.classList.toggle('is-on', Number(b.dataset.size) === S.rows));
     el.palette.querySelectorAll('.brush').forEach((b) => b.classList.toggle('is-on', b.dataset.brush === S.brush));
     buildBoard();
     bind();
     bindPasteOnce();   // 任何位置按 Ctrl+V 都能直接开始识别
+    if (artReady()) document.body.classList.add('use-tile-art');   // 有素材精灵：格子底色/边框交给图标
     applyLang();       // 静态文案按语言刷一遍（内部会 analyze）
     analyze();
+    updateUndoBtn();
+    if (restored) toast('已恢复上次的盘面', 'gold');
+    window.addEventListener('pagehide', persistFlush);                       // 刷新 / 关闭：立刻落盘
+    document.addEventListener('visibilitychange', () => { if (document.hidden) persistFlush(); });   // 切后台被回收前落盘
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);

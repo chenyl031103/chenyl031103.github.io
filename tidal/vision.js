@@ -1463,7 +1463,88 @@
   }
 
   /* ---------- 全盘识别流程 ---------- */
+  // 旋转图像（deg = 0/90/180/270，顺时针）
+  function rotateImageData(id, deg) {
+    if (!deg) return id;
+    const { width: w, height: h } = id;
+    const dst = (deg === 180) ? makeCanvas(w, h) : makeCanvas(h, w);
+    const ctx = dst.getContext('2d', { willReadFrequently: true });
+    const src = makeCanvas(w, h);
+    src.getContext('2d').putImageData(id, 0, 0);
+    ctx.translate(dst.width / 2, dst.height / 2);
+    ctx.rotate(deg * Math.PI / 180);
+    ctx.drawImage(src, -w / 2, -h / 2);
+    return ctx.getImageData(0, 0, dst.width, dst.height);
+  }
+
+  /* 自动旋转：平板斜拍 / 相册把截图转了 90° 时也能认。
+     顺序 0° → 90° → 180° → 270°，读到"像样的盘面"就停：
+       · 像样 = 读出 ≥6 个数字，且"已翻开却读不出内容"的格子很少（正确方向下每个已翻开格都有数字/钻石/×）；
+         —— 只数"读出多少格"不够：盘面转 90° 时钻石/×/未翻开格照样能认（它们不依赖方向），
+            光看格数会把歪着的读数当成好结果（实测：横着读也能写 42 格，但数字只有个位数）。
+         —— 所以打分里数字权重最高：dig*3 + gem + x。
+     返回的所有坐标/图像都在「识别成功的那一版」坐标系里（image 字段），前端预览直接用不会错位。 */
+  function statOf(r) {
+    let dig = 0, gem = 0, x = 0;
+    for (const row of r.cells) {
+      for (const v of row) {
+        if (v === 9) gem++;
+        else if (v === 10) x++;
+        else if (typeof v === 'number' && v >= 0) dig++;
+      }
+    }
+    return { dig, gem, x };
+  }
+  function orientScore(r) {
+    const s = statOf(r);
+    return s.dig * 3 + s.gem + s.x - (r.thin ? 10 : 0);
+  }
+  function orientSolid(r) {
+    const s = statOf(r);
+    // 整盘没翻开（新图/开局）：内容不区分方向，第一版就采信，不白跑另外三个方向
+    if (!r.openedCount && !s.gem && !s.x) return true;
+    // openedCount 只统计"被判为已翻开、送去读数字"的格子（钻石/× 不在其中），
+    // 所以正确方向下 dig 应当基本等于 openedCount；歪着读时钻石/× 照样能认、
+    // 数字却读不出来（实测：横着读 41 个已翻开格只读出 8 个数字）。
+    const need = Math.max(3, Math.round((r.openedCount || 0) * 0.8));
+    return s.dig >= need;
+  }
+  function tryOrient(raw, deg, opts) {
+    const img = deg ? rotateImageData(raw, deg) : raw;
+    const r = recognizeOnce(img, opts);
+    const score = orientScore(r);
+    return { deg, r, score, img, solid: orientSolid(r) };
+  }
+
   function recognize(input, opts) {
+    opts = opts || {};
+    if (opts.grid) return recognizeOnce(input, opts);   // 手动微调路径：网格已定，不再试探方向
+    const raw = toImageData(input);
+    let best = null;
+    for (const deg of [0, 90, 180, 270]) {
+      try {
+        const t = tryOrient(raw, deg, opts);
+        if (!best || t.score > best.score) best = t;
+        if (t.solid && best === t) break;               // 这一版就是像样的盘面，不白算别的方向
+      } catch (e) {
+        if (!best) best = { deg, err: e, score: -1e9, r: null, solid: false };
+      }
+    }
+    if (!best || !best.r) {
+      const e = new Error('未能自动识别棋盘（四个方向都试过了），请手动调整或改用服务器识别');
+      e.code = 'NO_BOARD';
+      throw e;
+    }
+    const r = best.r;
+    r.image = best.img;                                  // 识别实际用的那一版图（可能已旋转）
+    if (best.deg) {
+      r.rotation = best.deg;
+      r.note = (r.note ? r.note + '；' : '') + `已按旋转 ${best.deg}° 识别`;
+    }
+    return r;
+  }
+
+  function recognizeOnce(input, opts) {
     const t0 = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
     opts = opts || {};
     const raw = toImageData(input);

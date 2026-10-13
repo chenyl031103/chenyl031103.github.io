@@ -381,7 +381,7 @@ main {
   line-height: 1;
   border-radius: 6px;
   color: transparent;
-  border: 1px solid var(--border);
+  border: 1px solid var(--cell-border, var(--border));
   background: var(--tile-closed);
   transition: background 0.15s, border-color 0.15s, transform 0.1s;
   cursor: pointer;
@@ -1225,3 +1225,21 @@ body.is-mine-game #chip-gem-progress, body.is-mine-game #chip-cost { display: no
 }
 .wx-btn:hover { color: var(--text-secondary); border-color: var(--accent); }
 .wx-btn b { color: var(--text-secondary); font-weight: 700; }
+
+/* ---------- 素材图标（sweeper-icons.js 注入的 uw-* 精灵；游戏原画风） ---------- */
+.tileico { display: block; flex: none; }
+.brush-tile { width: 26px; height: 26px; }
+.cell .tile-fill { width: 100%; height: 100%; }      /* 整块铺满（标 × 的格子） */
+.cell .tile-gem { width: 76%; height: 76%; }         /* 居中摆放（钻石格） */
+
+/* 素材图标铺满整格；用了素材后，格子底色/边框交给图标自己画（只覆盖棋盘内的变量，扫雷模式除外） */
+.cell .tileico.tile-full { width: 100%; height: 100%; }
+body.use-tile-art:not(.is-mine-game) #board {
+  --tile-closed: transparent;
+  --tile-open: transparent;
+  --tile-open-border: transparent;
+  --cell-border: transparent;
+  --p-hi-tint: transparent;
+  --p-mid-tint: transparent;
+  --p-lo-tint: transparent;
+}

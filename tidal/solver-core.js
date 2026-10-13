@@ -415,6 +415,70 @@
         }
       }
 
+      /* ---------- 总数精确加权（全体分量联合）----------
+         把"剩余钻石可以落在没有线索的格子里"也精确算进概率：
+         边界格 = 本分量的分布 × 其它分量的卷积 × C(R, 剩余−…)，自由格拿到同一个精确值。
+         概率同时满足数字约束和钻石总数约束 —— 例如"四个角的数字恰好把剩余钻石吃满"时，
+         自由格会得到 0%（必然安全）。
+         只在全体分量都精确枚举（!approx）时启用；有降级就整体跳过，
+         保持上面「分组局部」模型的口径一致。 */
+      if (gTotal != null && !approx) {
+        const knownC = knownGem.reduce((a, b) => a + b, 0);
+        const remaining = gTotal - knownC;
+        const inFrontier = new Uint8Array(total);
+        let frontierCount = 0;
+        for (const st of compStats) for (const c2 of st.cells) { inFrontier[c2] = 1; frontierCount++; }
+        const R = cand.length - frontierCount;                 // 完全没有线索约束的自由格数
+        if (remaining >= 0 && R >= 0) {
+          const comb = new Float64Array(R + 1);                // C(R, t)，t = 0..R
+          comb[0] = 1;
+          for (let t = 1; t <= R; t++) comb[t] = comb[t - 1] * (R - t + 1) / t;
+          const C = (t) => (t < 0 || t > R) ? 0 : comb[t];
+          const conv = (a, b) => {
+            const len = Math.min(a.length + b.length - 1, Math.max(1, remaining + 1));
+            const out = new Float64Array(len);
+            for (let i = 0; i < a.length; i++) {
+              if (!a[i]) continue;
+              for (let j = 0; j < b.length && i + j < len; j++) out[i + j] += a[i] * b[j];
+            }
+            return out;
+          };
+          let T = new Float64Array([1]);                       // 边界恰好占 j 颗的方案数
+          for (const st of compStats) T = conv(T, st.perCount);
+          let W = 0, numNon = 0;
+          for (let j = 0; j < T.length; j++) {
+            const w = T[j] * C(remaining - j);
+            W += w;
+            if (R > 0) numNon += w * (remaining - j) / R;
+          }
+          if (W <= 0) return { probs, approx, impossible: true };   // 与总数矛盾（通常已被上面的一致性检查拦下）
+          for (let ci = 0; ci < compStats.length; ci++) {
+            const st = compStats[ci];
+            let others = new Float64Array([1]);
+            for (let cj = 0; cj < compStats.length; cj++) {
+              if (cj !== ci) others = conv(others, compStats[cj].perCount);
+            }
+            const K = st.perCount.length;
+            const w = new Float64Array(K);
+            for (let k = 0; k < K; k++) {
+              let s2 = 0;
+              for (let j = 0; j < others.length; j++) s2 += others[j] * C(remaining - k - j);
+              w[k] = s2;
+            }
+            let den = 0;
+            for (let k = 0; k < K; k++) den += st.perCount[k] * w[k];
+            if (!den) return { probs, approx, impossible: true };
+            st.cells.forEach((cell, t) => {
+              let num = 0;
+              for (let k = 0; k < K; k++) num += st.cellGem[t][k] * w[k];
+              probs[cell] = num / den;
+            });
+          }
+          const pNon = R > 0 ? numNon / W : 0;                 // 自由格的精确概率
+          for (const i of cand) if (!inFrontier[i]) probs[i] = pNon;
+        }
+      }
+
       // 单独的「全盘钻石总数」一致性检查：只用于矛盾提示，不参与概率计算。
       // 各组最少/最多需要的钻石数求和，与剩余总数比较，超出范围即盘面矛盾。
       if (gTotal != null) {
