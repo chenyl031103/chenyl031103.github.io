@@ -1214,3 +1214,14 @@ body.is-mine-game #chip-gem-progress, body.is-mine-game #chip-cost { display: no
 
 /* 重置按钮：二次确认时的醒目态 */
 .ghost-btn.is-armed { background: var(--danger) !important; color: var(--ink-on-warn) !important; border-color: var(--danger) !important; }
+
+/* 页脚公众号：低调一行，点一下复制微信号 */
+.credit-wx { margin: 0 0 14px; text-align: center; }
+.wx-btn {
+  font: inherit; font-size: 0.8rem; letter-spacing: 0.02em; cursor: pointer;
+  padding: 3px 12px; border-radius: 999px;
+  background: transparent; color: var(--text-muted);
+  border: 1px dashed var(--border);
+}
+.wx-btn:hover { color: var(--text-secondary); border-color: var(--accent); }
+.wx-btn b { color: var(--text-secondary); font-weight: 700; }
