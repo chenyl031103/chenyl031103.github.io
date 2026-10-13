@@ -1303,3 +1303,14 @@ body.use-tile-art:not(.is-mine-game) #board {
   background: #071a33;          /* 棋盘底再压暗一点：已翻开格（#0d4682）和它拉开层次 */
   border-radius: 12px;
 }
+
+/* ---------- 笔刷栏（棋盘下面那一行）：整体调大一点，0-8 改白色 ----------
+   原来数字是彩色小字（--num-*），深色主题下一片糊；改成和棋盘数字同款的白字。 */
+.palette { gap: 7px; }
+.brush { min-width: 40px; height: 38px; padding: 0 12px; font-size: 15px; }
+.brush-num { width: 38px; font-size: 16px; }
+.brush-icon { width: 40px; }
+.brush-tile { width: 30px; height: 30px; }
+/* 用 [data-brush] 提一档优先级，盖过上面的 .palette .brush-num[data-brush="N"]{color:--num-N} */
+.palette .brush-num[data-brush] { color: #fff; }
+.palette .brush-num[data-brush].is-on { color: #fff; text-shadow: 0 1px 2px rgba(0, 0, 0, .4); }
