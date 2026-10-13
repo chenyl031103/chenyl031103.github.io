@@ -7,7 +7,7 @@
 <meta name="description" content="《弹壳特攻队》潮汐秘境计算器：把当前棋盘的数字、钻石、× 标记填进来，自动推出哪些格子必定是钻石、哪些必定不是钻石、下一步先点哪里。支持上传截图自动识别。">
 <meta name="theme-color" content="#0f1923">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext y='25' font-size='25'%3E%F0%9F%92%8E%3C/text%3E%3C/svg%3E">
-<link rel="stylesheet" href="style.css?vmv613a3i">
+<link rel="stylesheet" href="style.css?vmv61qynj">
 <script>var t=localStorage.getItem('theme')||'light';document.documentElement.setAttribute('data-theme',t);</script>
 </head>
 <body>
@@ -135,16 +135,16 @@
     <div class="game-bar" id="game-bar" hidden>
       <span class="gb gb-title" id="gb-title"></span>
       <span class="gb gb-hint" id="gb-hint"></span>
-      <span class="gb gb-strong" id="gb-left-wrap">剩余 <b id="gb-left">0</b> 颗雷</span>
-      <span class="gb" id="gb-gem-wrap" hidden>已找到钻石 <b id="gb-found">0</b> / <b id="gb-total">45</b></span>
-      <span class="gb" id="gb-open-wrap" hidden>已翻开 <b id="gb-open">0</b> / <b id="gb-open-total">0</b> 格</span>
+      <span class="gb gb-strong" id="gb-left-wrap"><span data-i18n="gb.left">剩余</span> <b id="gb-left">0</b> <span data-i18n="gb.mines">颗雷</span></span>
+      <span class="gb" id="gb-gem-wrap" hidden><span data-i18n="gb.found">已找到钻石</span> <b id="gb-found">0</b> / <b id="gb-total">45</b></span>
+      <span class="gb" id="gb-open-wrap" hidden><span data-i18n="gb.opened">已翻开</span> <b id="gb-open">0</b> / <b id="gb-open-total">0</b> <span data-i18n="chip.cells">格</span></span>
       <span class="gb gb-time" id="gb-time-wrap" hidden>⏱ <b id="gb-time">0:00</b></span>
-      <span class="gb" id="gb-marks-wrap" hidden>× 标记 <b id="gb-marks">0</b></span>
-      <span class="gb gb-err" id="gb-wrong-wrap" hidden>其中标错 <b id="gb-wrong">0</b> 个</span>
+      <span class="gb" id="gb-marks-wrap" hidden><span data-i18n="gb.marks">× 标记</span> <b id="gb-marks">0</b></span>
+      <span class="gb gb-err" id="gb-wrong-wrap" hidden><span data-i18n="gb.wrong">其中标错</span> <b id="gb-wrong">0</b> <span data-i18n="gb.wrongUnit">个</span></span>
       <span class="gb-actions">
-        <button class="ghost-btn sm" id="btn-game-restart" type="button">重开一局</button>
-        <button class="ghost-btn sm" id="btn-game-switch" type="button">换玩法</button>
-        <button class="ghost-btn sm" id="btn-game-quit" type="button">退出游戏</button>
+        <button class="ghost-btn sm" id="btn-game-restart" type="button" data-i18n="gb.restart">重开一局</button>
+        <button class="ghost-btn sm" id="btn-game-switch" type="button" data-i18n="gb.switch">换玩法</button>
+        <button class="ghost-btn sm" id="btn-game-quit" type="button" data-i18n="gb.quit">退出游戏</button>
       </span>
     </div>
 
@@ -191,8 +191,8 @@
 <script>window.TIDAL_OCR = false;/* 有没有同源服务器识别：静态托管版由构建脚本改成 false */</script>
 <script>window.TIDAL_OCR_MODE = 'local';/* 'local'（只本机识别）| 'server'（只服务器）| 'off'（关掉）；静态版构建时写成 local */</script>
 <script>window.TIDAL_OCR_URL = 'http://chenyl.free.idcfengye.com/';/* 静态版构建时填入「带截图识别的网址」 */</script>
-<script src="vision.js?vmv613a3i"></script>
-<script src="solver-core.js?vmv613a3i"></script>
-<script src="solver.js?vmv613a3i"></script>
+<script src="vision.js?vmv61qynj"></script>
+<script src="solver-core.js?vmv61qynj"></script>
+<script src="solver.js?vmv61qynj"></script>
 </body>
 </html>

@@ -43,6 +43,8 @@
   }
 
 
+  let MODAL_REFRESH = null;   // 当前弹窗的"重新打开"函数（切语言时用它把弹窗内容一起刷新）
+
   /* ---------- 语言（中/英）：静态文案走 data-i18n，动态文案走 t() ---------- */
   const I18N = {
     zh: {
@@ -103,6 +105,66 @@
       'advice.dig': function (hi, hp, why, safe) { return '没有能确定的钻石：想挖钻石就点 ' + hi + '（含钻石 ' + hp + '%' + why + '）；想稳一点先翻开 ' + safe + '（必定不是钻石，可扩开线索）'; },
       'advice.safeSuffix': function (p, q) { return p + '（' + q + '%）'; },
       'advice.dash': '—',
+      'gb.left': '剩余', 'gb.mines': '颗雷', 'gb.found': '已找到钻石', 'gb.opened': '已翻开',
+      'gb.marks': '× 标记', 'gb.wrong': '其中标错', 'gb.wrongUnit': '个',
+      'gb.restart': '重开一局', 'gb.switch': '换玩法', 'gb.quit': '退出游戏',
+      'ocr.title': '截图识别 · 自动填入棋盘',
+      'ocr.none': '这个版本没有截图识别',
+      'ocr.drop1': '1. 把截图拖进来 / 粘贴 / 选文件',
+      'ocr.dropHere': '拖到这里，或 <b>Ctrl+V</b> 粘贴，或',
+      'ocr.chooseFile': '选择文件',
+      'ocr.changeImg': '换一张',
+      'ocr.size1': '2. 确认这张图是哪一档地图',
+      'ocr.sizeFootAuto': '默认「自动」判尺寸，认不准时再手动指定。',
+      'ocr.go1': '3. 开始识别',
+      'ocr.go': '识别并填入棋盘（自动判尺寸）',
+      'ocr.goN': function (n) { return '识别并填入（' + n + '×' + n + '）'; },
+      'ocr.cancel': '取消识别',
+      'ocr.waitPick': '先把截图拖进来或粘贴',
+      'ocr.ready': '图片已就绪 —— 点「识别并填入」就行',
+      'ocr.recognizing': '识别中… 正在本机识别（不用服务器）',
+      'ocr.switchServer': '本机没认准，改用服务器识别…',
+      'ocr.previewTitle': '识别结果 · 先看网格对没对齐',
+      'ocr.previewH4': '对照预览：红线要正好压在格缝上',
+      'ocr.nudgeTip': '红线偏了（压到数字上/切到相邻格）就点上面的微调按钮，每次挪 1/4 格；点完会立刻重算。',
+      'ocr.applyH4': '没问题就填进棋盘',
+      'ocr.apply': '应用到棋盘',
+      'ocr.back': '换一张重来',
+      'ocr.applyTip': '填进去以后每格都能再手动改；识别没把握的格子会带红框提醒。',
+      'ocr.crossH4': '和游戏里的计数对一下',
+      'ocr.applyDone': '已填进棋盘，逐格核对一下吧',
+      'ocr.weakTitle': '这次没读出内容',
+      'ocr.badTitle': '识别结果可能不对',
+      'ocr.failTitle': '本机没能认出棋盘',
+      'game.chooserTitle': '游戏模式',
+      'game.tidalH4': '💎 潮汐秘境',
+      'game.tidalDesc': '从空盘开始玩、不限次数。<b>双击</b>翻开格子，<b>单击</b>标 × 做记号（× = "这里没有钻石"）；数字是周围 8 格的钻石数，把钻石全找出来。',
+      'game.mineH4': '🚩 扫雷',
+      'game.mineDesc': '<b>单击</b>翻开、<b>右键或长按</b>循环标记（🚩 → ❓ → 无）、<b>双击</b>已翻开的数字格可以快速翻开周围；第一次点击保证安全，翻开所有不是雷的格子就通关。',
+      'game.gemsUnit': function (n) { return n + ' 颗钻石'; },
+      'game.minesUnit': function (n) { return n + ' 颗雷'; },
+      'game.adviceMine': '单击翻开 · 右键或长按循环标记（🚩 → ❓ → 无）· 双击数字格快速翻开周围 · 数字 = 周围 8 格的雷数',
+      'game.adviceTidal': '双击翻开（不限次数）· 单击标 × 做记号 · 数字 = 周围 8 格的钻石数',
+      'game.winMine': '通关了！',
+      'game.loseMine': '踩到雷了',
+      'game.winTidal': '钻石全找出来了！',
+      'game.again': '再来一局',
+      'game.quitToastMine': '已退出扫雷',
+      'game.quitToast': '已退出游戏模式',
+      'reset.armed': '再点一次确认重置',
+      'reset.done': '已重置棋盘 · 可撤销',
+      'reset.empty': '棋盘本来就是空的',
+      'ocr.crossOk': function (a, b, c) { return '截图里写着 <b>' + a + '/' + b + '</b>（已收集/总数）：识别出 <b>' + c + '</b> 颗钻石、总数 ' + b + ' —— 两边对得上，交叉核对通过。'; },
+      'ocr.crossSize': function (a, b, nx, tot) { return '<b>尺寸可能选错了</b>：截图里写的是 ' + a + '/' + b + '，而 ' + nx + '×' + nx + ' 的总数应该是 ' + tot + '。请核对地图档位后重新识别。'; },
+      'ocr.crossBad': function (a, b, c) { return '截图里写着 <b>' + a + '/' + b + '</b>，但识别出 <b>' + c + '</b> 颗钻石，两者不一致 —— 可能有格子读错了，重点核对钻石格（金框）。'; },
+      'ocr.doneAuto': function (nx, filled, miss, un) { return '识别完成（自动判定 ' + nx + '×' + nx + '）：读出 ' + filled + ' 格，未翻开 ' + miss + ' 格' + (un ? '，' + un + ' 处待核对' : ''); },
+      'ocr.doneLocal': function (ms, nx, miss) { return '本机识别完成（' + ms + ' 毫秒，自动判定 ' + nx + '×' + nx + '），还有 ' + miss + ' 个没翻开的格子'; },
+      'ocr.unopenedMsg': function (w) { return '这张图还没开过：先点 ' + w; },
+      'ocr.unopenedToast': function (w) { return '没开过的图：先点 ' + w; },
+      'game.nameTidal': '潮汐秘境', 'game.nameMine': '扫雷',
+      'game.level1': '初级', 'game.level2': '中级', 'game.level3': '高级',
+      'game.barTidal': function (n2, g) { return '潮汐秘境 · ' + n2 + '×' + n2 + ' · 共 ' + g + ' 颗钻石（不限次数）'; },
+      'game.barMine': function (name, r, c, m) { return '扫雷 · ' + name + ' ' + r + '×' + c + ' · 共 ' + m + ' 颗雷'; },
     },
     en: {
       'doc.title': 'Survivor.io · Tidal Realm Solver',
@@ -162,6 +224,66 @@
       'advice.dig': function (hi, hp, why, safe) { return 'No certain gem: dig ' + hi + ' (' + hp + '% gem' + why + '); or play safe and open ' + safe + ' (definitely no gem, expands clues)'; },
       'advice.safeSuffix': function (p, q) { return p + ' (' + q + '%)'; },
       'advice.dash': '—',
+      'gb.left': 'Mines left', 'gb.mines': '', 'gb.found': 'Gems found', 'gb.opened': 'Opened',
+      'gb.marks': '× marks', 'gb.wrong': 'wrong', 'gb.wrongUnit': '',
+      'gb.restart': 'Restart', 'gb.switch': 'Change mode', 'gb.quit': 'Quit',
+      'ocr.title': 'Screenshot OCR · auto-fill the board',
+      'ocr.none': 'This build has no OCR',
+      'ocr.drop1': '1. Drop / paste / pick a screenshot',
+      'ocr.dropHere': 'Drop it here, or <b>Ctrl+V</b>, or',
+      'ocr.chooseFile': 'Choose file',
+      'ocr.changeImg': 'Change image',
+      'ocr.size1': '2. Map size',
+      'ocr.sizeFootAuto': 'Defaults to Auto; pick a size manually only if the auto-detect looks wrong.',
+      'ocr.go1': '3. Recognize',
+      'ocr.go': 'Recognize & fill in (auto size)',
+      'ocr.goN': function (n) { return 'Recognize & fill in (' + n + '×' + n + ')'; },
+      'ocr.cancel': 'Cancel',
+      'ocr.waitPick': 'Drop or paste a screenshot first',
+      'ocr.ready': 'Image ready — just hit Recognize',
+      'ocr.recognizing': 'Recognizing on this device (no server)…',
+      'ocr.switchServer': 'Local recognition failed, trying the server…',
+      'ocr.previewTitle': 'Result · check the grid alignment',
+      'ocr.previewH4': 'The red lines should sit right on the grid seams',
+      'ocr.nudgeTip': 'If the lines are off, nudge with the buttons above (1/4 cell per step); it recalculates instantly.',
+      'ocr.applyH4': 'Looks right → fill the board',
+      'ocr.apply': 'Apply to board',
+      'ocr.back': 'Pick another image',
+      'ocr.applyTip': 'Every cell stays editable afterwards; uncertain cells get a red frame.',
+      'ocr.crossH4': 'Cross-check with the in-game counter',
+      'ocr.applyDone': 'Filled in — verify the cells',
+      'ocr.weakTitle': 'Nothing was read',
+      'ocr.badTitle': 'The result may be wrong',
+      'ocr.failTitle': 'Could not find the board',
+      'game.chooserTitle': 'Play mode',
+      'game.tidalH4': '💎 Tidal Realm',
+      'game.tidalDesc': 'Start from an empty board with unlimited digs. <b>Double-click</b> to reveal, <b>single click</b> to mark × ("no gem here"). Numbers count the gems in the 8 neighbours — find them all.',
+      'game.mineH4': '🚩 Minesweeper',
+      'game.mineDesc': '<b>Click</b> to reveal, <b>right-click / long-press</b> to cycle marks (🚩 → ❓ → none), <b>double-click</b> a number to open around it. The first click is always safe.',
+      'game.gemsUnit': function (n) { return n + ' gems'; },
+      'game.minesUnit': function (n) { return n + ' mines'; },
+      'game.adviceMine': 'Click to reveal · right-click/long-press to cycle marks · double-click a number to open around it · number = mines in the 8 neighbours',
+      'game.adviceTidal': 'Double-click to reveal (unlimited) · single click marks × · number = gems in the 8 neighbours',
+      'game.winMine': 'Cleared!',
+      'game.loseMine': 'Boom — you hit a mine',
+      'game.winTidal': 'All gems found!',
+      'game.again': 'Play again',
+      'game.quitToastMine': 'Minesweeper closed',
+      'game.quitToast': 'Play mode closed',
+      'reset.armed': 'Click again to confirm',
+      'reset.done': 'Board reset · undoable',
+      'reset.empty': 'Board was already empty',
+      'ocr.crossOk': function (a, b, c) { return 'The screenshot says <b>' + a + '/' + b + '</b> (collected/total) and we read <b>' + c + '</b> gems with total ' + b + ' — cross-check passed.'; },
+      'ocr.crossSize': function (a, b, nx, tot) { return '<b>Wrong map size?</b> The screenshot says ' + a + '/' + b + ' but a ' + nx + '×' + nx + ' map has ' + tot + '. Please re-check the size and recognize again.'; },
+      'ocr.crossBad': function (a, b, c) { return 'The screenshot says <b>' + a + '/' + b + '</b> but we read <b>' + c + '</b> gems — mismatch; double-check the gem cells (gold frames).'; },
+      'ocr.doneAuto': function (nx, filled, miss, un) { return 'Done (auto-detected ' + nx + '×' + nx + '): ' + filled + ' cells read, ' + miss + ' unrevealed' + (un ? ', ' + un + ' to verify' : ''); },
+      'ocr.doneLocal': function (ms, nx, miss) { return 'Recognized on-device in ' + ms + ' ms (auto ' + nx + '×' + nx + '), ' + miss + ' unrevealed cells left'; },
+      'ocr.unopenedMsg': function (w) { return 'Fresh map: start with ' + w; },
+      'ocr.unopenedToast': function (w) { return 'Fresh map: start with ' + w; },
+      'game.nameTidal': 'Tidal Realm', 'game.nameMine': 'Minesweeper',
+      'game.level1': 'Easy', 'game.level2': 'Medium', 'game.level3': 'Hard',
+      'game.barTidal': function (n2, g) { return 'Tidal Realm · ' + n2 + '×' + n2 + ' · ' + g + ' gems (unlimited digs)'; },
+      'game.barMine': function (name, r, c, m) { return 'Minesweeper · ' + name + ' ' + r + '×' + c + ' · ' + m + ' mines'; },
     },
   };
   let LANG = 'zh';
@@ -191,6 +313,7 @@
       const lab = cb.querySelector('[data-i18n="vb.clear"]');
       if (lab) lab.textContent = t('vb.clear');
     }
+    if (MODAL_REFRESH && el.modal && !el.modal.hidden) MODAL_REFRESH();   // 开着的弹窗一起换语言
     if (!S.game && S.grid && S.grid.length) analyze();   // 动态文案（建议条/结论条）重绘
   }
 
@@ -1026,7 +1149,7 @@
     S.unsure = new Set(s.unsure);
     buildBoard();
     analyze();
-    toast('已撤销上一步');
+    toast(LANG === 'en' ? 'Undone' : '已撤销上一步');
     return true;
   }
 
@@ -1241,7 +1364,7 @@
     const clearBtn = $('#btn-clear');
     const resetLabel = () => {
       const lab = clearBtn.querySelector('[data-i18n="vb.clear"]') || clearBtn;
-      lab.textContent = resetArmed ? '再点一次确认重置' : t('vb.clear');
+      lab.textContent = resetArmed ? t('reset.armed') : t('vb.clear');
     };
     clearBtn.addEventListener('click', () => {
       const now = Date.now();
@@ -1260,14 +1383,14 @@
       if (S.game) { S.game = null; updateGameBar(); }
       mark();
       clearAll();
-      toast(settle() ? '已重置棋盘 · 可撤销' : '棋盘本来就是空的');
+      toast(settle() ? t('reset.done') : t('reset.empty'));
     });
     $('#btn-undo').addEventListener('click', undo);
     const wxBtn = $('#btn-wx');
     if (wxBtn) {
       wxBtn.addEventListener('click', () => {
         const id = 'chenyl031103';
-        const done = () => toast('已复制公众号：' + id, 'gold');
+        const done = () => toast((LANG === 'en' ? 'Copied WeChat ID: ' : '已复制公众号：') + id, 'gold');
         if (navigator.clipboard && navigator.clipboard.writeText) {
           navigator.clipboard.writeText(id).then(done, () => fallback());
         } else fallback();
@@ -1424,38 +1547,39 @@
                  首次点击保证安全，翻开所有不是雷的格子即通关，踩雷游戏结束。 */
   const TIDAL_SIZES = [8, 10, 12];
   const MINE_LEVELS = {
-    1: { name: '初级', rows: 9, cols: 9, mines: 10 },
-    2: { name: '中级', rows: 16, cols: 16, mines: 40 },
-    3: { name: '高级', rows: 16, cols: 30, mines: 99 },
+    1: { name: '初级', lv: 1, rows: 9, cols: 9, mines: 10 },
+    2: { name: '中级', lv: 2, rows: 16, cols: 16, mines: 40 },
+    3: { name: '高级', lv: 3, rows: 16, cols: 30, mines: 99 },
   };
 
-  function openGameChooser() {
+  function openGameChooser() { openModalWith(gameChooserHtml, openGameChooser); }
+  function gameChooserHtml() {
     const tidalBtns = TIDAL_SIZES
-      .map((n) => `<button class="ghost-btn sm" data-play="tidal" data-arg="${n}" type="button">${n}×${n} · ${GEM_TOTAL[n]} 颗钻石</button>`)
+      .map((n) => `<button class="ghost-btn sm" data-play="tidal" data-arg="${n}" type="button">${n}×${n} · ${t('game.gemsUnit', GEM_TOTAL[n])}</button>`)
       .join('');
     const mineBtns = Object.keys(MINE_LEVELS)
       .map((k) => {
         const lv = MINE_LEVELS[k];
-        return `<button class="ghost-btn sm" data-play="mine" data-arg="${k}" type="button">${lv.name} ${lv.rows}×${lv.cols} · ${lv.mines} 颗雷</button>`;
+        return `<button class="ghost-btn sm" data-play="mine" data-arg="${k}" type="button">${t('game.level' + k)} ${lv.rows}×${lv.cols} · ${t('game.minesUnit', lv.mines)}</button>`;
       })
       .join('');
-    openModal(`
+    return `
       <div class="modal-head">
-        <h3>游戏模式</h3>
+        <h3>${t('game.chooserTitle')}</h3>
         <button class="modal-close" data-close type="button">✕</button>
       </div>
       <div class="rules">
         <section>
-          <h4>💎 潮汐秘境</h4>
-          <p>从空盘开始玩、不限次数。<b>双击</b>翻开格子，<b>单击</b>标 × 做记号（× = "这里没有钻石"）；数字是周围 8 格的钻石数，把钻石全找出来。</p>
+          <h4>${t('game.tidalH4')}</h4>
+          <p>${t('game.tidalDesc')}</p>
           <div class="modal-actions">${tidalBtns}</div>
         </section>
         <section>
-          <h4>🚩 扫雷</h4>
-          <p><b>单击</b>翻开、<b>右键或长按</b>循环标记（🚩 → ❓ → 无）、<b>双击</b>已翻开的数字格可以快速翻开周围；第一次点击保证安全，翻开所有不是雷的格子就通关。</p>
+          <h4>${t('game.mineH4')}</h4>
+          <p>${t('game.mineDesc')}</p>
           <div class="modal-actions">${mineBtns}</div>
         </section>
-      </div>`);
+      </div>`;
   }
 
   const nbrsRC = (rows, cols, r, c) => {
@@ -1576,9 +1700,7 @@
     document.body.classList.toggle('is-mine-game', isMineMode);
     paint();
     updateGameBar();
-    setAdvice(isMineMode
-      ? '单击翻开 · 右键或长按循环标记（🚩 → ❓ → 无）· 双击数字格快速翻开周围 · 数字 = 周围 8 格的雷数'
-      : '双击翻开（不限次数）· 单击标 × 做记号 · 数字 = 周围 8 格的钻石数');
+    setAdvice(isMineMode ? t('game.adviceMine') : t('game.adviceTidal'));
   }
 
   const gameFlagCount = (g) => Object.keys(g.marks).filter((k) => g.marks[k] === 'flag').length;
@@ -1601,8 +1723,8 @@
     const title = $('#gb-title');
     if (title) {
       title.textContent = isMine
-        ? `扫雷 · ${g.name} ${g.rows}×${g.cols} · 共 ${g.count} 颗雷`
-        : `潮汐秘境 · ${g.rows}×${g.cols} · 共 ${g.gems} 颗钻石（不限次数）`;
+        ? t('game.barMine', t('game.level' + g.level), g.rows, g.cols, g.count)
+        : t('game.barTidal', g.rows, g.gems);
     }
     // 棋盘正上方的「正在玩」横幅 + 浏览器标签标题，让人一眼知道在玩哪个
     const banner = $('#game-banner');
@@ -1619,7 +1741,7 @@
     const hint = $('#gb-hint');
     if (hint) hint.textContent = isMine
       ? '单击翻开 · 右键或长按循环标记 🚩/❓ · 双击数字格快速翻开周围 · 第一次点击保证安全'
-      : '双击翻开（不限次数）· 单击标 × 做记号 · 数字 = 周围 8 格的钻石数';
+      : t('game.adviceTidal');
     show('#gb-left-wrap', isMine);
     show('#gb-gem-wrap', !isMine);
     show('#gb-open-wrap', true);
@@ -1725,12 +1847,18 @@
     if (!g) return;
     const isMine = g.kind === 'mine';
     const secs = g.t0 ? Math.round((Date.now() - g.t0) / 1000) : 0;
-    const title = isMine ? (win ? '通关了！' : '踩到雷了') : '钻石全找出来了！';
+    const title = isMine ? (win ? t('game.winMine') : t('game.loseMine')) : t('game.winTidal');
     const lines = isMine
-      ? [`${g.name} ${g.rows}×${g.cols}，${g.count} 颗雷。用时 <b>${fmtClock(secs)}</b>，翻开 <b>${g.opened.size}</b> 格，插旗 <b>${gameFlagCount(g)}</b> 个。`,
-         win ? '全部安全格都翻开了，漂亮。' : '踩到的那颗雷已经露出来了，其他雷也一并显示，可以对照看看哪里判断错了。']
-      : [`${g.rows}×${g.cols}，共 ${g.gems} 颗钻石。一共翻开 <b>${g.opened.size}</b> 格，钻石全找齐了。`,
-         g.wrong ? `中间有 ${g.wrong} 个 × 标在了钻石上（标错了）。` : '而且一个 × 都没标错。'];
+      ? (LANG === 'en'
+        ? [`${t('game.level' + g.level)} ${g.rows}×${g.cols}, ${g.count} mines. Time <b>${fmtClock(secs)}</b>, opened <b>${g.opened.size}</b> cells, flags <b>${gameFlagCount(g)}</b>.`,
+           win ? 'All safe cells opened — well played.' : 'The mine you hit is revealed, along with the others — compare to see where the read went wrong.']
+        : [`${g.name} ${g.rows}×${g.cols}，${g.count} 颗雷。用时 <b>${fmtClock(secs)}</b>，翻开 <b>${g.opened.size}</b> 格，插旗 <b>${gameFlagCount(g)}</b> 个。`,
+           win ? '全部安全格都翻开了，漂亮。' : '踩到的那颗雷已经露出来了，其他雷也一并显示，可以对照看看哪里判断错了。'])
+      : (LANG === 'en'
+        ? [`${g.rows}×${g.cols}, ${g.gems} gems. Opened <b>${g.opened.size}</b> cells — every gem found.`,
+           g.wrong ? `${g.wrong} × marks were on actual gems.` : 'And not a single × was wrong.']
+        : [`${g.rows}×${g.cols}，共 ${g.gems} 颗钻石。一共翻开 <b>${g.opened.size}</b> 格，钻石全找齐了。`,
+           g.wrong ? `中间有 ${g.wrong} 个 × 标在了钻石上（标错了）。` : '而且一个 × 都没标错。']);
     openModal(`
       <div class="modal-head">
         <h3>${title}</h3>
@@ -1743,9 +1871,9 @@
         </section>
       </div>
       <div class="modal-actions">
-        <button class="ghost-btn" id="btn-game-again" type="button">再来一局</button>
-        <button class="ghost-btn sm" id="btn-game-other" type="button">换玩法</button>
-        <button class="ghost-btn sm" id="btn-game-quit" type="button">退出游戏</button>
+        <button class="ghost-btn" id="btn-game-again" type="button">${t('game.again')}</button>
+        <button class="ghost-btn sm" id="btn-game-other" type="button">${t('gb.switch')}</button>
+        <button class="ghost-btn sm" id="btn-game-quit" type="button">${t('gb.quit')}</button>
       </div>`);
   }
 
@@ -1760,7 +1888,7 @@
     updateGameBar();
     mark();
     setSize(back);                 // 回到计算器的地图尺寸（顺带清盘、重算，扫雷的大棋盘不会留在分析模式里）
-    toast(kind === 'mine' ? '已退出扫雷' : '已退出游戏模式', 'gold');
+    toast(kind === 'mine' ? t('game.quitToastMine') : t('game.quitToast'), 'gold');
   }
 
   /* ---------- 主题：与统计中心共用 localStorage 的 theme 键 ---------- */
@@ -1785,19 +1913,16 @@
   }
 
   /* ---------- 弹窗 ---------- */
-  function openModal(html) { el.modalBox.innerHTML = html; el.modal.hidden = false; }
-  function closeModal() { el.modal.hidden = true; }
+  function openModal(html) { MODAL_REFRESH = null; el.modalBox.innerHTML = html; el.modal.hidden = false; }
+  function closeModal() { el.modal.hidden = true; MODAL_REFRESH = null; }
+  function openModalWith(render, reshow) {
+    MODAL_REFRESH = reshow || (() => openModalWith(render, reshow));
+    el.modalBox.innerHTML = render();
+    el.modal.hidden = false;
+  }
 
-  function openHelp() {
-    const ocrNote = OCR_ENABLED
-      ? ''
-      : '<section><h4>这个版本没有截图识别</h4><p>静态托管版没有后端，所以不提供截图识别；手动填写可以用全部功能。想用截图识别，点右上角的<b>「截图识别」</b>按钮，里面有两个带识别功能的网址。</p></section>';
-    openModal(`
-      <div class="modal-head">
-        <h3>使用说明</h3>
-        <button class="modal-close" data-close type="button">✕</button>
-      </div>
-      <div class="rules">
+  const HELP_SECTIONS = {
+    zh: `
         <section>
           <h4>0 · 先玩一局试试（可选）</h4>
           <p>点右上角<b>「游戏模式」</b>可以随便玩一局，两种玩法、每种都能选三个地图：</p>
@@ -1812,10 +1937,10 @@
             <li><b>最快的方式</b>：点一下格子选中它 → <b>点下方那一排数字 / × / 💎</b> 就直接填进去了（填完会自动跳到下一个推荐格，连续抄盘不用来回点）。</li>
             <li><b>连着刷多个格子</b>：先点下方数字 / × / 💎 选好笔刷，再连着点格子，一路刷下去（点「选中」恢复正常）。</li>
             <li><b>键盘</b>：<b>0~8</b> 填数字 · <b>Enter</b> 填钻石 · <b>X</b> 填 × · <b>Delete</b> 清除 · <b>方向键</b>换格子 · <b>Ctrl+Z</b> 撤销</li>
-            <li><b>想要弹窗选值</b>：双击格子（手机双击），格子旁边会弹出取值卡，里面还会提示这格"只能填几到几"。</li>
+            <li><b>想要弹窗选值</b>：双击格子，格子旁边会弹出取值卡，里面还会提示这格"只能填几到几"。</li>
             <li><b>想快速标钻石</b>：右键格子（手机长按）；填错了按 <b>Ctrl+Z</b> 撤销</li>
-            <li><b>格子太小/太大</b>：棋盘上方「格子大小 −/＋」可手动调（会记住，下次打开还是这个大小），点「自动」恢复按屏幕适配；点「全屏」让棋盘铺满整个屏幕，手机上格子更大更好点。</li>
-            <li>一整盘抄不完也没关系，先把<b>已经翻开的数字</b>和<b>已经翻出的钻石</b>填上就够用了</li>
+            <li><b>格子太小/太大</b>：棋盘右下角「格子大小 −/＋」可手动调（会记住），点「自动」恢复按屏幕适配；点「全屏」让棋盘铺满整个屏幕。</li>
+            <li>一整盘抄不完也没关系，先把<b>已经翻开的数字</b>和<b>已经翻出的钻石</b>填上就够用了。</li>
           </ul>
         </section>
         <section>
@@ -1824,13 +1949,14 @@
             <li><span class="lg-dot lg-dot-gem">√</span><b>绿色 √ ＝ 这格是钻石</b>，直接去翻它</li>
             <li><span class="lg-dot lg-dot-safe">×</span><b>灰色 × ＝ 这格不是钻石</b>，可以放心</li>
             <li><b>格子中央的百分比</b>＝推不出来时的概率，仅供参考；<b>颜色分三档</b>：<b style="color:#d93a2b">红色＝高概率</b>（值得赌）、<b style="color:#b3770a">琥珀色＝中等</b>、<b style="color:#2f7fbf">蓝色＝低概率</b>（先别碰）</li>
-            <li><b>概率只受"与它 3×3 邻域相交的数字"影响</b>：算法会枚举与这格相关的所有数字线索的全部合法摆法，统计这格含钻的比例（组与组互相独立）；远处的数字不影响它，新填一个数字也只会改变它自己邻域及相关联数字邻域的概率。</li>
-            <li><b>数字颜色</b>按大小渐变：<b style="color:#8a97a5">0 灰</b>（最不显眼）→ <b style="color:#3d7fc1">2 蓝</b> → <b style="color:#2f9e5f">4 绿</b> → <b style="color:#e0871f">6 橙</b> → <b style="color:#d02b2b">8 红</b>（最醒目），笔刷和取值卡里的数字同色</li>
+            <li><b>概率只受"与它 3×3 邻域相交的数字"影响</b>：算法会枚举与这格相关的所有数字线索的全部合法摆法，统计这格含钻的比例（组与组互相独立）；远处的数字不影响它。</li>
+            <li><b>数字颜色</b>按大小渐变：<b style="color:#8a97a5">0 灰</b> → <b style="color:#3d7fc1">2 蓝</b> → <b style="color:#2f9e5f">4 绿</b> → <b style="color:#e0871f">6 橙</b> → <b style="color:#d02b2b">8 红</b>，笔刷和取值卡里的数字同色</li>
+            <li><b>辅助虚线</b>：12×12 分成九块、8×8 / 10×10 画一个十字，方便分区数钻石</li>
           </ul>
         </section>
         <section>
           <h4>3 · 照着棋盘下面那行字做</h4>
-          <p>它会直接告诉你下一步点哪一格，例如：<b>「先点开 5行4列 —— 必定是钻石」</b>，照着点就行。</p>
+          <p>它会直接告诉你下一步点哪一格，例如：<b>「先点开 5行4列 —— 必定是钻石」</b>，照着点就行；棋盘上闪烁的那一格就是它。</p>
         </section>
         <section>
           <h4>填错了怎么办</h4>
@@ -1839,13 +1965,75 @@
         <section>
           <h4>关注公众号</h4>
           <p>工具的更新、活动攻略和反馈入口都发在公众号：<b>chenyl031103</b>（点页脚那行也能复制微信号）。用着有问题、想加功能，在公众号里说一声就行。</p>
+        </section>`,
+    en: `
+        <section>
+          <h4>0 · Try a game first (optional)</h4>
+          <p>Hit <b>Play mode</b> at the top right to play around. Two modes, three map sizes each:</p>
+          <ul>
+            <li><b>Tidal Realm</b> (double-click to reveal, single click marks ×): start from an empty board, unlimited digs; numbers count the gems in the 8 neighbours — find every gem 💎.</li>
+            <li><b>Minesweeper</b> (click to reveal, right-click / long-press to flag 🚩): the classic; the first click is always safe, open every non-mine cell to win.</li>
+          </ul>
         </section>
+        <section>
+          <h4>1 · Copy the board from the game</h4>
+          <ul>
+            <li><b>Fastest way</b>: click a cell to select it → click a <b>number / × / 💎 below the board</b> to fill it in (it then jumps to the next suggested cell automatically).</li>
+            <li><b>Paint many cells</b>: pick a number / × / 💎 first, then keep clicking cells (choose "Select" to stop).</li>
+            <li><b>Keyboard</b>: <b>0-8</b> digit · <b>Enter</b> gem · <b>X</b> mark · <b>Delete</b> clear · <b>arrows</b> move · <b>Ctrl+Z</b> undo</li>
+            <li><b>Value popup</b>: double-click a cell to open the value card next to it (it also shows the valid range for that cell).</li>
+            <li><b>Quick gem mark</b>: right-click a cell (long-press on mobile); <b>Ctrl+Z</b> to undo.</li>
+            <li><b>Cell size</b>: use −/＋ at the bottom right of the board (remembered); "Auto" fits the screen; "Fullscreen" fills the screen.</li>
+            <li>You don't need the whole board — the <b>revealed numbers</b> and <b>found gems</b> are enough.</li>
+          </ul>
+        </section>
+        <section>
+          <h4>2 · Reading the board</h4>
+          <ul>
+            <li><span class="lg-dot lg-dot-gem">√</span><b>Green √ = this cell is a gem</b> — go dig it</li>
+            <li><span class="lg-dot lg-dot-safe">×</span><b>Grey × = no gem here</b> — safe</li>
+            <li><b>Percentage in a cell</b> = its gem probability when nothing is certain; <b>three colour tiers</b>: <b style="color:#d93a2b">red = high</b> (worth a gamble), <b style="color:#b3770a">amber = medium</b>, <b style="color:#2f7fbf">blue = low</b> (leave it)</li>
+            <li><b>Probability only depends on the numbers whose 3×3 area overlaps the cell</b>: the solver enumerates every valid arrangement of those clues (groups are independent); far-away numbers have no effect.</li>
+            <li><b>Digit colours</b> ramp with the value: <b style="color:#8a97a5">0 grey</b> → <b style="color:#3d7fc1">2 blue</b> → <b style="color:#2f9e5f">4 green</b> → <b style="color:#e0871f">6 orange</b> → <b style="color:#d02b2b">8 red</b></li>
+            <li><b>Auxiliary dashed lines</b>: 12×12 is split into nine 4×4 blocks, 8×8 / 10×10 get a centre cross.</li>
+          </ul>
+        </section>
+        <section>
+          <h4>3 · Follow the advice line</h4>
+          <p>It tells you the next cell to click, e.g. <b>"Open R5C4 — must be a gem"</b>; the flashing cell on the board is the same one.</p>
+        </section>
+        <section>
+          <h4>If something is wrong</h4>
+          <p>The tool checks the board automatically: contradictory numbers are reported at the top, and the board list below shows exactly which cells are off — fix them there.</p>
+        </section>
+        <section>
+          <h4>Follow us</h4>
+          <p>Updates, event guides and feedback all go to our WeChat official account: <b>chenyl031103</b> (click the footer line to copy the ID).</p>
+        </section>`,
+  };
+
+  function openHelp() {
+    openModalWith(helpHtml, openHelp);
+  }
+  function helpHtml() {
+    const ocrNote = OCR_ENABLED
+      ? ''
+      : (LANG === 'en'
+        ? '<section><h4>No OCR in this build</h4><p>This build has no backend, so screenshot OCR is unavailable; manual entry still has everything. The OCR-enabled site link is in the "Screenshot OCR" dialog.</p></section>'
+        : '<section><h4>这个版本没有截图识别</h4><p>静态托管版没有后端，所以不提供截图识别；手动填写可以用全部功能。想用截图识别，点右上角的<b>「截图识别」</b>按钮，里面有两个带识别功能的网址。</p></section>');
+    return `
+      <div class="modal-head">
+        <h3>${t('nav.help')}</h3>
+        <button class="modal-close" data-close type="button">✕</button>
+      </div>
+      <div class="rules">
+        ${HELP_SECTIONS[LANG]}
         ${ocrNote}
         <section>
-          <h4>当前盘面</h4>
-          <div class="detail">${S.detailHtml || '<p class="card-desc">棋盘还是空的。</p>'}</div>
+          <h4>${LANG === 'en' ? 'Current board' : '当前盘面'}</h4>
+          <div class="detail">${S.detailHtml || '<p class="card-desc">' + (LANG === 'en' ? 'Board is still empty.' : '棋盘还是空的。') + '</p>'}</div>
         </section>
-      </div>`);
+      </div>`;
   }
 
   /* ---------- 截图识别 ---------- */
@@ -1884,8 +2072,8 @@
     const t0 = Date.now();
     clearInterval(S.importTimer);
     S.ocrStage = '';      // 服务端报告的当前进度（例如"正在改用备选模型…"）
-    const tip = LOCAL_OCR ? '本机识别，一般 1 秒内' : `按 ${sizeLabel} 识别，通常十几秒，忙的时候要一分钟`;
-    const line = (s) => `识别中… 已用 ${s}s`
+    const tip = LANG === 'en' ? (LOCAL_OCR ? 'on-device, about 1s' : 'usually 10-60s') : (LOCAL_OCR ? '本机识别，一般 1 秒内' : `按 ${sizeLabel} 识别，通常十几秒，忙的时候要一分钟`);
+    const line = (s) => `${LANG === 'en' ? 'Recognizing… ' + s + 's' : '识别中… 已用 ' + s + 's'}`
       + (S.ocrStage ? ` · ${S.ocrStage}` : `（${tip}）`);
     setImportStatus(line(0), 'busy');
     S.importTimer = setInterval(() => {
@@ -1952,53 +2140,66 @@
         </div>`);
       return;
     }
-    openModal(`
+    S.shotSize = 0;      // 0 = 自动判尺寸（默认）
+    S.ocrBlob = null;
+    S.ocrFile = null;
+    showShotModal();
+  }
+
+  /** 画截图弹窗（切语言时会重画一次；重画时不动 S 里已选好的图片） */
+  function showShotModal() {
+    openModalWith(shotModalHtml, showShotModal);
+    bindShotModal();
+  }
+
+  function shotModalHtml() {
+    return `
       <div class="modal-head">
-        <h3>截图识别 · 自动填入棋盘</h3>
+        <h3>${t('ocr.title')}</h3>
         <button class="modal-close" data-close type="button">✕</button>
       </div>
       <div class="rules">
         <section>
-          <h4>1. 把截图拖进来 / 粘贴 / 选文件</h4>
+          <h4>${t('ocr.drop1')}</h4>
           <div class="dropzone" id="dropzone">
             <svg class="ico"><use href="#ico-image"/></svg>
-            <span>拖到这里，或 <b>Ctrl+V 粘贴</b>，或</span>
-            <button class="btn sm" id="btn-shot" type="button">选择文件</button>
+            <span>${t('ocr.dropHere')}</span>
+            <button class="btn sm" id="btn-shot" type="button">${t('ocr.chooseFile')}</button>
             <input type="file" id="shot-file" accept="image/*" hidden>
           </div>
           <div class="pick-row" id="pick-row" hidden>
             <img class="pick-thumb" id="pick-thumb" alt="">
             <span class="pick-meta"><b id="pick-name"></b><i id="pick-info"></i></span>
-            <button class="btn sm" id="btn-ocr-clear" type="button">换一张</button>
+            <button class="btn sm" id="btn-ocr-clear" type="button">${t('ocr.changeImg')}</button>
           </div>
         </section>
         <section>
-          <h4>2. 确认这张图是哪一档地图</h4>
+          <h4>${t('ocr.size1')}</h4>
           <div class="seg seg-sm" id="shot-size-seg">
             <button class="seg-btn" data-size="0" type="button">自动</button>
             <button class="seg-btn" data-size="8" type="button">8×8</button>
             <button class="seg-btn" data-size="10" type="button">10×10</button>
             <button class="seg-btn" data-size="12" type="button">12×12</button>
           </div>
-          <p class="card-foot">${LOCAL_OCR ? '默认「自动」判尺寸，认不准时再手动指定。' : '默认「自动」；也可以手动指定档位。'}</p>
+          <p class="card-foot">${t(LOCAL_OCR ? 'ocr.sizeFootAuto' : 'ocr.sizeFootAutoServer')}</p>
         </section>
         <section>
-          <h4>3. 开始识别</h4>
+          <h4>${t('ocr.go1')}</h4>
           <div class="go-row">
-            <button class="btn" id="btn-ocr-go" type="button" disabled>开始识别</button>
-            <button class="btn" id="btn-ocr-cancel" type="button" hidden>取消识别</button>
-            <span class="import-status" id="import-status">先把截图拖进来或粘贴</span>
+            <button class="btn" id="btn-ocr-go" type="button" disabled>${t('ocr.go')}</button>
+            <button class="btn" id="btn-ocr-cancel" type="button" hidden>${t('ocr.cancel')}</button>
+            <span class="import-status" id="import-status">${t('ocr.waitPick')}</span>
           </div>
         </section>
-      </div>`);
+      </div>`;
+  }
 
-    S.shotSize = 0;      // 0 = 自动判尺寸（默认）
-    S.ocrBlob = null;
+  function bindShotModal() {
     const seg = $('#shot-size-seg');
     const markSize = () => {
       seg.querySelectorAll('.seg-btn').forEach((b) => b.classList.toggle('is-on', Number(b.dataset.size) === S.shotSize));
       const go = $('#btn-ocr-go');
-      if (go && S.ocrBlob) go.textContent = S.shotSize ? `识别并填入（${S.shotSize}×${S.shotSize}）` : '识别并填入棋盘（自动判尺寸）';
+      if (go && S.ocrBlob) go.textContent = S.shotSize ? t('ocr.goN', S.shotSize) : t('ocr.go');
     };
     seg.addEventListener('click', (e) => {
       const b = e.target.closest('.seg-btn');
@@ -2022,7 +2223,7 @@
       S.ocrCanceled = true;
       stopImportClock();
       setGoState(false);
-      setImportStatus('已取消。可以重新点「开始识别」。', '');
+      setImportStatus(LANG === 'en' ? 'Cancelled — hit Recognize again.' : '已取消。可以重新点「开始识别」。', '');
     });
 
     // 拖拽
@@ -2072,15 +2273,15 @@
     if (S.importPreviewUrl) { try { URL.revokeObjectURL(S.importPreviewUrl); } catch (e) {} S.importPreviewUrl = null; }
     setGoState(false);
     const go = $('#btn-ocr-go');
-    if (go) go.textContent = '开始识别';
-    setImportStatus('先把截图拖进来或粘贴', '');
+    if (go) go.textContent = t('ocr.go');
+    setImportStatus(t('ocr.waitPick'), '');
   }
 
   /** 接住一张图片：只显示文件名/大小，等用户确认尺寸后手动开始 */
   async function acceptShot(file) {
     if (!file) return;
-    if (S.importTimer) { toast('正在识别中，等它完成或点「取消识别」', 'warn'); return; }
-    if (!/^image\//.test(file.type || '')) { setImportStatus('这个文件不是图片', 'err'); return; }
+    if (S.importTimer) { toast(LANG === 'en' ? 'Recognizing — wait or hit Cancel' : '正在识别中，等它完成或点「取消识别」', 'warn'); return; }
+    if (!/^image\//.test(file.type || '')) { setImportStatus(LANG === 'en' ? 'Not an image file' : '这个文件不是图片', 'err'); return; }
     S.ocrCanceled = false;
     const shrunk = await shrinkImage(file, 1000);   // 宽度上限：实测 1000px 最稳（见函数注释）
     S.ocrBlob = shrunk.blob;
@@ -2097,9 +2298,9 @@
       $('#pick-info').textContent = `${fileSizeText(shrunk.blob.size)}${shrunk.note ? ' · ' + shrunk.note : ''}`;
     }
     const go = $('#btn-ocr-go');
-    if (go) { go.disabled = false; go.textContent = S.shotSize ? `识别并填入（${S.shotSize}×${S.shotSize}）` : '识别并填入棋盘（自动判尺寸）'; }
+    if (go) { go.disabled = false; go.textContent = S.shotSize ? t('ocr.goN', S.shotSize) : t('ocr.go'); }
     setGoState(false);
-    setImportStatus('图片已就绪 —— 确认上面是几×几，再点「开始识别」', '');
+    setImportStatus(t('ocr.ready'), '');
   }
 
   /** 本机识别（vision.js 模板匹配）：不用服务器、秒级返回；返回结构与服务端一致 */
@@ -2192,12 +2393,12 @@
   function ocrPreviewHtml() {
     return `
       <div class="modal-head">
-        <h3>识别结果 · 先看网格对没对齐</h3>
+        <h3>${t('ocr.previewTitle')}</h3>
         <button class="modal-close" data-close type="button">✕</button>
       </div>
       <div class="rules">
         <section>
-          <h4>对照预览：红线要正好压在格缝上</h4>
+          <h4>${t('ocr.previewH4')}</h4>
           <div class="ocr-prev"><canvas id="ocr-prev-canvas" width="620" height="420"></canvas></div>
           <div class="ocr-stats" id="ocr-prev-stats"></div>
           <div class="nudge-row">
@@ -2209,19 +2410,19 @@
             <button class="btn sm" data-nudge="w:1" type="button">格宽 ＋</button>
             <button class="btn sm" data-nudge="r:0" type="button">复位</button>
           </div>
-          <p class="card-foot">红线偏了（压到数字上/切到相邻格）就点上面的微调按钮，每次挪 1/4 格；点完会立刻重算。</p>
+          <p class="card-foot">${t('ocr.nudgeTip')}</p>
         </section>
         <section id="ocr-cross-sec" hidden>
-          <h4>和游戏里的计数对一下</h4>
+          <h4>${t('ocr.crossH4')}</h4>
           <p class="card-foot" id="ocr-cross"></p>
         </section>
         <section>
-          <h4>没问题就填进棋盘</h4>
+          <h4>${t('ocr.applyH4')}</h4>
           <div class="go-row">
-            <button class="btn" id="btn-ocr-apply" type="button">应用到棋盘</button>
-            <button class="btn sm" id="btn-ocr-back" type="button">换一张重来</button>
+            <button class="btn" id="btn-ocr-apply" type="button">${t('ocr.apply')}</button>
+            <button class="btn sm" id="btn-ocr-back" type="button">${t('ocr.back')}</button>
           </div>
-          <p class="card-foot">填进去以后每格都能再手动改；识别没把握的格子会带红框提醒。</p>
+          <p class="card-foot">${t('ocr.applyTip')}</p>
         </section>
       </div>`;
   }
@@ -2286,12 +2487,12 @@
   async function ocrReRun() {
     const box = ocrPrev;
     if (!box) return;
-    setImportStatus('正在按微调后的网格重算…', 'busy');
+    setImportStatus(LANG === 'en' ? 'Re-running with the adjusted grid…' : '正在按微调后的网格重算…', 'busy');
     try {
       const r = window.TidalVision.recognize(box.image, { grid: box.grid });
       ocrPrev = { image: box.image, grid: box.grid, data: r };
       ocrDrawPreview();
-      setImportStatus('微调完成，看看红线对齐了吗', '');
+      setImportStatus(LANG === 'en' ? 'Done — check the red lines' : '微调完成，看看红线对齐了吗', '');
     } catch (e) {
       setImportStatus('微调失败：' + String((e && e.message) || e).slice(0, 60), 'err');
     }
@@ -2312,13 +2513,11 @@
     const fixedTotal = GEM_TOTAL[data.rows] || 0;
     if (!gc) ocrPrev.crossCheck = '';
     else if (gc.right !== fixedTotal) {
-      ocrPrev.crossCheck = `<b>尺寸可能选错了</b>：截图里写的是 ${gc.left}/${gc.right}，而 ${data.rows}×${data.rows} 的总数应该是 ${fixedTotal}。`
-        + `请核对地图档位后重新识别。`;
+      ocrPrev.crossCheck = t('ocr.crossSize', gc.left, gc.right, data.rows, fixedTotal);
     } else if (gc.left === gemInBoard) {
-      ocrPrev.crossCheck = `截图里写着 <b>${gc.left}/${gc.right}</b>（已收集/总数）：识别出 <b>${gemInBoard}</b> 颗钻石、总数 ${gc.right} —— 两边对得上，交叉核对通过。`;
+      ocrPrev.crossCheck = t('ocr.crossOk', gc.left, gc.right, gemInBoard);
     } else {
-      ocrPrev.crossCheck = `截图里写着 <b>${gc.left}/${gc.right}</b>，但识别出 <b>${gemInBoard}</b> 颗钻石，两者不一致 ——`
-        + ` 可能有格子读错了，重点核对钻石格（金框）。`;
+      ocrPrev.crossCheck = t('ocr.crossBad', gc.left, gc.right, gemInBoard);
     }
     openModal(ocrPreviewHtml());
     const box = $('.modal-box');
@@ -2341,7 +2540,7 @@
           const d = ocrPrev && ocrPrev.data;
           ocrPrev = null;
           if (!d) return;
-          setImportStatus('已填进棋盘，逐格核对一下吧', '');
+          setImportStatus(t('ocr.applyDone'), '');
           try { applyResult(d, 'local'); }
           catch (err) { setImportStatus(String((err && err.message) || err).slice(0, 90), 'err'); toast('没能填进棋盘，看弹窗提示', 'warn'); }
           return;
@@ -2406,9 +2605,9 @@
     const missN = rows * cols - filledN;   // 没读出的空格（未翻开 + 空著）
     if (unopened) {
       const cr = Math.round((rows - 1) / 2) + 1, cc = Math.round((cols - 1) / 2) + 1;
-      const where = rows >= 9 ? `9×9 范围的中心格（${cr}行${cc}列）` : `棋盘中心（${cr}行${cc}列）`;
-      setImportStatus(`这张图还没开过：先点 ${where}`, '');
-      toast(`没开过的图：先点 ${where}`, 'gold');
+      const where = rows >= 9 ? t('advice.center9', cr, cc) : t('advice.center', cr, cc);
+      setImportStatus(t('ocr.unopenedMsg', where), '');
+      toast(t('ocr.unopenedToast', where), 'gold');
     } else if (weak) {
       setImportStatus('识别完成，但几乎没有读出内容，请重试或手工填写。', 'err');
       openModal(`
@@ -2448,11 +2647,11 @@
     } else {
       if (data.note) setImportStatus(data.note, '');
       const tip = how === 'local'
-        ? `本机识别完成（${data.localMs || 0} 毫秒，自动判定 ${rows}×${rows}），还有 ${missN} 个没翻开的格子`
+        ? t('ocr.doneLocal', data.localMs || 0, rows, missN)
         : null;
       toast(tip || (unsureN ? `识别完成，${unsureN} 处红框请重点核对` : '识别完成，请核对带红框的格子'), 'gold');
       if (how === 'local') {
-        setImportStatus(`识别完成（自动判定 ${rows}×${rows}）：读出 ${filledN} 格，未翻开 ${missN} 格${unsureN ? `，${unsureN} 处待核对` : ''}`, '');
+        setImportStatus(t('ocr.doneAuto', rows, filledN, missN, unsureN), '');
       }
     }
   }
@@ -2476,7 +2675,7 @@
           S.localFail = e;
           const urls = serverOcrUrls();
           if (!urls.length) throw e;
-          setImportStatus('本机没认准，改用服务器识别…', 'busy');
+          setImportStatus(t('ocr.switchServer'), 'busy');
         }
         // 本机判定不可靠时（没走外框定位/读得太少），按用户选的档位再对一次格 ——
         // 他对着游戏看得最准；判定可靠时不覆盖，尺寸对不上会直接提示他去改档位
@@ -2504,7 +2703,7 @@
         (data.thin === true || data.debug.grid.src !== 'frame' || sizeBad);
       if (needPreview) {
         stopImportClock();
-        setImportStatus('识别完成，先核对网格再应用', '');
+        setImportStatus(t('ocr.previewTitle'), '');
         openOcrPreview(data);
         return;
       }
@@ -2544,7 +2743,7 @@
       S.localFail = null;
       setGoState(false);
       const go = $('#btn-ocr-go');
-      if (go) go.textContent = S.shotSize ? `识别并填入（${S.shotSize}×${S.shotSize}）` : '识别并填入棋盘（自动判尺寸）';
+      if (go) go.textContent = S.shotSize ? t('ocr.goN', S.shotSize) : t('ocr.go');
     }
   }
 
