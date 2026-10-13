@@ -315,12 +315,12 @@
                   (document.querySelector('#rec-row') && !document.querySelector('#rec-row').hidden
                     ? document.querySelector('#rec-row').offsetHeight : 0) +
                   (document.querySelector('.verdict-bar') ? document.querySelector('.verdict-bar').offsetHeight : 48) + 96;
-    const availH = Math.max(160, window.innerHeight - rect.top - below - padY);
+    const availH = Math.max(160, Math.max(window.innerHeight * 0.5, window.innerHeight - rect.top - below - padY) - 0);
     const byH = Math.floor((availH - gap * (rows - 1)) / rows);
     if (byH > 0) cell = Math.min(cell, byH);
 
     // 手机上格子太小看不清 —— 宁可让棋盘可滚动，也保证格子里数字够大
-    const minCell = cols >= 24 ? 22 : (window.innerWidth <= 640 ? 30 : 20);
+    const minCell = cols >= 24 ? 22 : (window.innerWidth <= 640 ? 30 : 34);   // 宁可让棋盘可滚动，也别缩成一堆小方块
     cell = clamp(cell, minCell, 78);
     el.board.style.setProperty('--gap', gap + 'px');
     el.board.style.setProperty('--cell', cell + 'px');
@@ -694,8 +694,12 @@
     };
   }
 
-  /** 建议条上方的"建议点击"小坐标：前 6 个候选（概率降序），点一下就选中它 */
+  /** 推荐坐标 chips 已按要求去掉（"下面建议点击的那些坐标去掉"）；保留空实现，调用点不用改 */
   function renderRecChips(res) {
+    if (el.recRow) el.recRow.hidden = true;
+    return;
+  }
+  function renderRecChipsOld(res) {
     if (!el.recRow || !el.recChips) return;
     const cands = [];
     if (res && !S.game) {

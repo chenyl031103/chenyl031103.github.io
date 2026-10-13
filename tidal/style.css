@@ -1207,3 +1207,7 @@ body.is-mine-game #chip-gem-progress, body.is-mine-game #chip-cost { display: no
 .rec-auto { margin-left: auto; display: inline-flex; align-items: center; gap: 5px;
             font-size: 0.78rem; color: var(--text-muted); cursor: pointer; user-select: none; }
 .rec-auto input { accent-color: var(--accent); }
+
+/* 笔刷栏挪到棋盘下方后：顺手把"自动跳转"开关排好 */
+.palette .rec-auto { margin-left: auto; }
+@media (max-width: 640px) { .palette .rec-auto { margin-left: 0; } }
