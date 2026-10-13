@@ -387,16 +387,20 @@
       const ae = a.offsetTop + a.offsetHeight;
       return ae + (b.offsetTop - ae) / 2;
     };
-    const outerC = Math.max(1, Math.round(cols / 3));
-    const outerR = Math.max(1, Math.round(rows / 3));
-    for (const k of [outerC, cols - outerC]) {
+    // 12×12：分成九块（每块 4×4，即三等分）；8×8 / 10×10：只画一个"十字"从中间分开
+    const nine = cols >= 12 && rows >= 12;
+    const outerC = nine ? Math.max(1, Math.round(cols / 3)) : Math.floor(cols / 2);
+    const outerR = nine ? Math.max(1, Math.round(rows / 3)) : Math.floor(rows / 2);
+    const xs = nine ? [outerC, cols - outerC] : [outerC];
+    const ys = nine ? [outerR, rows - outerR] : [outerR];
+    for (const k of xs) {
       if (k <= 0 || k >= cols) continue;
       const i = document.createElement('i');
       i.className = 'aux-v';
       i.style.left = boundX(k) + 'px';
       aux.appendChild(i);
     }
-    for (const k of [outerR, rows - outerR]) {
+    for (const k of ys) {
       if (k <= 0 || k >= rows) continue;
       const i = document.createElement('i');
       i.className = 'aux-h';
@@ -932,7 +936,9 @@
     const next = pickHotCell(res);
     if (next < 0 || next === S.cursor) return;
     S.cursor = next;
-    openRevealBar(next);
+    paint();
+    try { S.nodes[next].scrollIntoView({ block: 'nearest', inline: 'nearest' }); } catch (e) {}
+    // 不自动弹取值卡：点下方数字/×/钻石 才是主输入方式（弹窗留着双击用）
   }
 
   /* ---------- 撤销：记录「每一步之前」的盘面 ----------
@@ -1079,8 +1085,8 @@
         return;
       }
 
-      // 双击数字格 = 快速翻开周围（仅"涂"类笔刷；选中笔刷单击就会弹取值卡，不需要双击）
-      if (S.brush !== 'select' && S.lastTap.i === i && now - S.lastTap.t < DOUBLE_MS) {
+      // 双击 = 打开取值卡（可选路径：手机想用弹窗选值时用它；平时直接点下方数字更快）
+      if (S.lastTap.i === i && now - S.lastTap.t < DOUBLE_MS) {
         S.lastTap = { i: -1, t: 0 };
         S.painting = null;
         if (S.pressBackup && S.pressBackup.i === i) {
@@ -1096,9 +1102,8 @@
       // 单击 = 选中这一格（键盘 0-8 / Enter / X / Delete 都作用在它上面）
       S.cursor = i;
       if (S.brush === 'select') {
-        // 选中笔刷：单击就弹取值卡（抬手时才弹，手指在手机上滚页面不会误触）
+        // 选中笔刷：单击只选中这一格（不改内容，也不弹窗）—— 之后点下方数字 / 按键盘都能快速填入
         S.painting = null;
-        S.tapStart = { i, x: e.clientX, y: e.clientY };
         paint();
         return;
       }
@@ -1108,15 +1113,6 @@
       mark();
       applyBrush(node, 'paint');
     });
-
-    el.board.addEventListener('pointerup', (e) => {
-      const t = S.tapStart;
-      if (!t) return;
-      S.tapStart = null;
-      if (Math.abs(e.clientX - t.x) + Math.abs(e.clientY - t.y) > 10) return;   // 拖动了（滚页面/滑动）→ 不算点击
-      openRevealBar(t.i);
-    });
-    el.board.addEventListener('pointercancel', () => { S.tapStart = null; });
 
     el.board.addEventListener('pointerover', (e) => {
       if (!S.painting) return;
@@ -1187,8 +1183,27 @@
     el.palette.addEventListener('click', (e) => {
       const b = e.target.closest('.brush');
       if (!b) return;
-      S.brush = b.dataset.brush;
+      const val = b.dataset.brush;
+      S.brush = val;
       el.palette.querySelectorAll('.brush').forEach((x) => x.classList.toggle('is-on', x === b));
+      // 点下方数字 / × / 钻石 = 立刻填进"当前目标格"（选中的格子；还没选就填推荐那格），
+      // 不用再"先点格子、再从弹窗里选一遍"。之后这个笔刷保持选中，可以直接连着点别的格子刷。
+      if (S.game || val === 'select') return;
+      const target = S.cursor >= 0 ? S.cursor : pickHotCell(S.result);
+      if (target < 0) return;
+      const v = val === 'hide' ? -1 : (val === 'G' || val === 'X') ? val : Number(val);
+      if (typeof v === 'number' && !Number.isFinite(v)) return;
+      const r = (target / S.cols) | 0, c = target % S.cols;
+      mark();
+      S.grid[r][c] = v;
+      S.aiCells.delete(target);
+      S.unsure.delete(target);
+      S.cursor = target;
+      closeRevealBar();
+      paint();
+      analyze();
+      settle();
+      autoAdvance();
     });
 
     // 尺寸
@@ -1757,8 +1772,10 @@
         <section>
           <h4>1 · 把游戏里的盘面抄进来</h4>
           <ul>
-            <li><b>电脑</b>：点一下格子，旁边会弹出取值卡（数字 / 钻石 / × / 清除）；也可以直接按键盘 —— <b>0~8</b> 填数字 · <b>Enter</b> 填钻石 · <b>X</b> 填 × · <b>Delete</b> 清除 · <b>方向键</b>换格子</li>
-            <li><b>手机</b>：<b>单击格子</b>，格子旁边弹出取值卡（左右滑动页面不会误触）</li>
+            <li><b>最快的方式</b>：点一下格子选中它 → <b>点下方那一排数字 / × / 💎</b> 就直接填进去了（填完会自动跳到下一个推荐格，连续抄盘不用来回点）。</li>
+            <li><b>连着刷多个格子</b>：先点下方数字 / × / 💎 选好笔刷，再连着点格子，一路刷下去（点「选中」恢复正常）。</li>
+            <li><b>键盘</b>：<b>0~8</b> 填数字 · <b>Enter</b> 填钻石 · <b>X</b> 填 × · <b>Delete</b> 清除 · <b>方向键</b>换格子 · <b>Ctrl+Z</b> 撤销</li>
+            <li><b>想要弹窗选值</b>：双击格子（手机双击），格子旁边会弹出取值卡，里面还会提示这格"只能填几到几"。</li>
             <li><b>想快速标钻石</b>：右键格子（手机长按）；填错了按 <b>Ctrl+Z</b> 撤销</li>
             <li><b>格子太小/太大</b>：棋盘上方「格子大小 −/＋」可手动调（会记住，下次打开还是这个大小），点「自动」恢复按屏幕适配；点「全屏」让棋盘铺满整个屏幕，手机上格子更大更好点。</li>
             <li>一整盘抄不完也没关系，先把<b>已经翻开的数字</b>和<b>已经翻出的钻石</b>填上就够用了</li>
