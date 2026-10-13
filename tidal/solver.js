@@ -78,8 +78,8 @@
       'chip.filled': '已填',
       'chip.cells': '格',
       'rec.label': '建议点击',
-      'rec.auto': '自动跳转',
-      'rec.auto.tip': '录入一个格子后自动选中下一个推荐格（点 0 展开一片时可以关掉，逐个点选）',
+      'rec.auto': '自动提示',
+      'rec.auto.tip': '录入一个格子后自动提示下一个推荐格（点 0 展开一片时可以关掉，逐个点选）',
       'vb.gem': '钻石',
       'vb.safe': '不是钻石',
       'vb.unknown': '待定',
@@ -204,8 +204,8 @@
       'chip.filled': 'Filled',
       'chip.cells': 'cells',
       'rec.label': 'Suggested',
-      'rec.auto': 'Auto-next',
-      'rec.auto.tip': 'After entering a value, jump to the next suggested cell (turn off when opening a big 0 area)',
+      'rec.auto': 'Auto-hint',
+      'rec.auto.tip': 'After entering a value, hint the next suggested cell (turn off when opening a big 0 area)',
       'vb.gem': 'gems',
       'vb.safe': 'safe',
       'vb.unknown': 'undecided',
@@ -593,7 +593,7 @@
       }
     }
     const clueLess = (i) => !isClue[i];
-    // 选中框跟住推荐格：只要用户没亲手点过别的格子（且「自动跳转」开着），
+    // 选中框跟住推荐格：只要用户没亲手点过别的格子（且「自动提示」开着），
     // 选中框就始终停在"建议点击"的那一格上，和闪烁框重合。
     if (!S.game && S.autoNext && !S.cursorManual && res) {
       const h = pickHotCell(res);
@@ -1437,7 +1437,7 @@
     if (el.cbAutoNext) {
       el.cbAutoNext.addEventListener('change', () => {
         S.autoNext = !!el.cbAutoNext.checked;
-        toast(S.autoNext ? '已开启：录入后自动跳到下一个推荐格' : '已关闭自动跳转', '');
+        toast(S.autoNext ? '已开启：录入后自动提示下一个推荐格' : '已关闭自动提示', '');
       });
     }
 
