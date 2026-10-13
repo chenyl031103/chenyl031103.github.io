@@ -71,6 +71,8 @@
       'chip.left': '剩余钻石',
       'chip.tickets': '用票',
       'chip.cost': '已用钻石',
+      'chip.perGem': '平均',
+      'chip.perGemUnit': '票/宝石',
       'chip.filled': '已填',
       'chip.cells': '格',
       'rec.label': '建议点击',
@@ -193,6 +195,8 @@
       'chip.left': 'Gems left',
       'chip.tickets': 'Tickets',
       'chip.cost': 'Diamonds spent',
+      'chip.perGem': 'avg',
+      'chip.perGemUnit': 'tickets/gem',
       'chip.filled': 'Filled',
       'chip.cells': 'cells',
       'rec.label': 'Suggested',
@@ -360,6 +364,7 @@
     recChips: $('#rec-chips'),
     cbAutoNext: $('#cb-auto-next'),
     ticketsUsed: $('#tickets-used'),
+    perGem: $('#per-gem'),
     diamondsUsed: $('#diamonds-used'),
     filled: $('#filled-count'),
     cellTotal: $('#cell-total'),
@@ -2201,6 +2206,8 @@
     if (el.gemLeft) el.gemLeft.textContent = total == null ? '—' : String(Math.max(0, total - gems));
     if (el.ticketsUsed) el.ticketsUsed.textContent = String(tickets);
     if (el.diamondsUsed) el.diamondsUsed.textContent = (tickets * TICKET_COST).toLocaleString('en-US');
+    // 平均票/宝石：用票数 ÷ 已找到的钻石数（没找到钻石时显示 —）
+    if (el.perGem) el.perGem.textContent = gems > 0 ? (tickets / gems).toFixed(2) : '—';
   }
 
   function setImportStatus(text, kind) {
