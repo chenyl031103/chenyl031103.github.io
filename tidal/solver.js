@@ -653,12 +653,9 @@
             cls += ' say-gem';
             content = '<svg class="tileico tile-full" aria-hidden="true"><use href="#uw-tile-check"/></svg>';
           } else if (res.knownSafe && res.knownSafe[i]) {
-            cls += ' say-safe';
-            // 工具推导的提示：uw-tile-x 实心瓦片（默认红），与"必定是钻石"的绿勾瓦片对称；
-            // 自己点一下打上 × 之后换成空心描边 X（uw-tile-x-marked）
-            content = artReady()
-              ? '<svg class="tileico tile-full" aria-hidden="true"><use href="#uw-tile-x"/></svg>'
-              : (hasMarkX() ? markXIco() : '<span class="v-safe">×</span>');
+            // 工具推导"必定不是钻石"：不画 X，直接按概率格显示 0%（蓝瓦片 + 角标）
+            cls += ' say-prob prob-lo';
+            badge = '0%';
           } else if (res.probs && res.probs[i] != null && showProb && clueLess(i)) {
             const p = res.probs[i];
             // 分档以「显示出来的整数百分比」为准，避免出现"显示33%却是低概率蓝色"这种不一致
@@ -2041,7 +2038,7 @@
   }
 
   function initTheme() {
-    const saved = localStorage.getItem('theme') || 'light';
+    const saved = 'light';   // 只保留一个主题（游戏同款素材皮肤）
     document.documentElement.setAttribute('data-theme', saved);
     updateThemeIcon(saved);
     const btn = $('#theme-toggle');
