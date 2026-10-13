@@ -1233,7 +1233,15 @@ body.is-mine-game #chip-gem-progress, body.is-mine-game #chip-cost { display: no
 .brush-tile { width: 26px; height: 26px; }
 .cell .tile-fill { width: 100%; height: 100%; }      /* 整块铺满（标 × 的格子） */
 .cell .tile-gem { width: 76%; height: 76%; }         /* 居中摆放（钻石格） */
-.cell .tileico.mark-x { width: 74%; height: 74%; }    /* 工具推导的 × 提示：只有红叉，不带瓦片 */
+.cell .tileico.mark-x { width: 74%; height: 74%; }    /* 格子里的 ×：只有叉、不带瓦片底 */
+/* 自己打上的 × 用蓝叉；工具推导的提示保持素材默认的红叉 */
+.cell .tileico.mark-x.is-marked {
+  --mk-edge: #e8f4ff;
+  --mk-body: #b3d9ff;
+  --mk-line: #78b6f0;
+  --mk-core: #2f86e8;
+  --mk-shine: #d2e9ff;
+}
 
 /* 素材图标铺满整格；用了素材后，格子底色/边框交给图标自己画（只覆盖棋盘内的变量，扫雷模式除外） */
 .cell .tileico.tile-full { width: 100%; height: 100%; }
