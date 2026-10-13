@@ -7,7 +7,7 @@
 <meta name="description" content="《弹壳特攻队》潮汐秘境计算器：把当前棋盘的数字、钻石、× 标记填进来，自动推出哪些格子必定是钻石、哪些必定不是钻石、下一步先点哪里。支持上传截图自动识别。">
 <meta name="theme-color" content="#0f1923">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext y='25' font-size='25'%3E%F0%9F%92%8E%3C/text%3E%3C/svg%3E">
-<link rel="stylesheet" href="style.css?vmv53xpzz">
+<link rel="stylesheet" href="style.css?vmv5z57vn">
 <script>var t=localStorage.getItem('theme')||'light';document.documentElement.setAttribute('data-theme',t);</script>
 </head>
 <body>
@@ -47,16 +47,18 @@
   <div class="brand">
     <span class="brand-mark" aria-hidden="true">💎</span>
     <span class="brand-text">
-      <strong>潮汐秘境计算器</strong>
-      <small>填好残局 → 棋盘上直接标出哪格是钻石、哪格可以标 ×</small>
+      <strong data-i18n="brand.name">潮汐秘境计算器</strong>
+      <small data-i18n="brand.tag">填好残局 → 棋盘上直接标出哪格是钻石、哪格可以标 ×</small>
     </span>
   </div>
   <nav class="topbar-nav">
     <button class="ghost-btn" id="btn-shot-open" type="button">
-      <svg class="ico"><use href="#ico-image"/></svg>截图识别
+      <svg class="ico"><use href="#ico-image"/></svg><span data-i18n="nav.ocr">截图识别</span>
     </button>
-    <button class="ghost-btn" id="btn-help" type="button">使用说明</button>
-    <button class="ghost-btn" id="btn-sample" type="button" title="随便玩玩：潮汐秘境 / 扫雷">游戏模式</button>
+    <button class="ghost-btn" id="btn-help" type="button" data-i18n="nav.help">使用说明</button>
+    <button class="ghost-btn" id="btn-sample" type="button" title="随便玩玩：潮汐秘境 / 扫雷" data-i18n="nav.game" data-i18n-title="nav.game.tip">游戏模式</button>
+    <button class="ghost-btn sm" id="btn-lang-zh" type="button" title="中文">中文</button>
+    <button class="ghost-btn sm" id="btn-lang-en" type="button" title="English">EN</button>
     <button class="ghost-btn" id="theme-toggle" type="button" title="切换深色/浅色">🌙</button>
   </nav>
 </header>
@@ -66,30 +68,30 @@
 
 
     <div class="map-bar">
-      <span class="map-chip">地图尺寸</span>
+      <span class="map-chip" data-i18n="map.size">地图尺寸</span>
       <div class="seg seg-sm" id="size-seg" role="tablist" aria-label="地图尺寸">
         <button class="seg-btn is-on" data-size="8" type="button">8×8</button>
         <button class="seg-btn" data-size="10" type="button">10×10</button>
         <button class="seg-btn" data-size="12" type="button">12×12</button>
       </div>
       <span class="map-chip map-chip-quiet map-chip-gem" id="chip-gem-progress" title="还剩几颗没找到 / 本图总数（总数按档位固定：8×8=20、10×10=30、12×12=45）">
-        剩余钻石 <b id="gem-left">20</b>/<b id="gem-total-text">20</b>
+        <span data-i18n="chip.left">剩余钻石</span> <b id="gem-left">20</b>/<b id="gem-total-text">20</b>
       </span>
       <span class="map-chip map-chip-quiet" id="chip-cost" title="开出数字或钻石的格子算一票（× 和没翻开的不算）；1 票 = 1500 钻石">
-        用票 <b id="tickets-used">0</b> · 已用钻石 <b id="diamonds-used">0</b>
+        <span data-i18n="chip.tickets">用票</span> <b id="tickets-used">0</b> · <span data-i18n="chip.cost">已用钻石</span> <b id="diamonds-used">0</b>
       </span>
-      <span class="map-chip map-chip-quiet">已填 <b id="filled-count">0</b> / <b id="cell-total">64</b> 格</span>
+      <span class="map-chip map-chip-quiet"><span data-i18n="chip.filled">已填</span> <b id="filled-count">0</b> / <b id="cell-total">64</b> <span data-i18n="chip.cells">格</span></span>
     </div>
 
     <div class="palette" id="palette">
-      <span class="palette-label">单击涂</span>
-      <button class="brush is-on brush-select" data-brush="select" type="button" title="单击格子只是选中它（不改内容）">
-        选中
+      <span class="palette-label" data-i18n="palette.label">单击涂</span>
+      <button class="brush is-on brush-select" data-brush="select" type="button" title="单击格子只是选中它（不改内容）" data-i18n-title="palette.select.tip">
+        <span data-i18n="palette.select">选中</span>
       </button>
-      <button class="brush brush-x brush-icon" data-brush="X" type="button" title="点格子标上 / 取消 ×">
+      <button class="brush brush-x brush-icon" data-brush="X" type="button" title="点格子标上 / 取消 ×" data-i18n-title="palette.x.tip">
         <svg class="ico"><use href="#ico-x"/></svg>
       </button>
-      <button class="brush" data-brush="hide" type="button" title="单击格子清除">
+      <button class="brush" data-brush="hide" type="button" title="单击格子清除" data-i18n-title="palette.clear.tip">
         清除
       </button>
       <span class="brush-group" id="brush-nums">
@@ -103,10 +105,10 @@
         <button class="brush brush-num" data-brush="7" type="button">7</button>
         <button class="brush brush-num" data-brush="8" type="button">8</button>
       </span>
-      <button class="brush brush-gem brush-icon" data-brush="G" type="button" title="标记钻石">
+      <button class="brush brush-gem brush-icon" data-brush="G" type="button" title="标记钻石" data-i18n-title="palette.gem.tip">
         <svg class="ico"><use href="#ico-gem"/></svg>
       </button>
-      <span class="palette-tip">单击选中格子 → 键盘 0-8 填数字、Enter 钻石、X 标×、Delete 清除 · 双击也可选值 · 右键快速标钻石</span>
+      <span class="palette-tip" data-i18n="palette.tip">单击选中格子 → 键盘 0-8 填数字、Enter 钻石、X 标×、Delete 清除 · 双击也可选值 · 右键快速标钻石</span>
     </div>
 
     <div class="game-banner" id="game-banner" hidden>
@@ -118,11 +120,11 @@
       <div class="board-scroll" id="board-scroll">
         <div class="board" id="board" role="grid" aria-label="残局棋盘"></div>
       </div>
-      <span class="board-tools" id="board-tools" title="调格子大小（自动按屏幕适配）">
+      <span class="board-tools" id="board-tools" title="调格子大小（自动按屏幕适配）" data-i18n-title="tools.tip">
         <button class="bb-btn" id="cell-minus" type="button" title="格子改小">−</button>
         <button class="bb-btn" id="cell-plus" type="button" title="格子改大">＋</button>
-        <button class="bb-btn bb-auto" id="cell-auto" type="button" title="恢复自动适配屏幕">自动</button>
-        <button class="bb-btn" id="board-fs" type="button" title="整个工具区全屏（手机上格子更大好点）">全屏</button>
+        <button class="bb-btn bb-auto" id="cell-auto" type="button" title="恢复自动适配屏幕" data-i18n="tools.auto" data-i18n-title="tools.auto.tip">自动</button>
+        <button class="bb-btn" id="board-fs" type="button" title="整个工具区全屏（手机上格子更大好点）" data-i18n="tools.fs" data-i18n-title="tools.fs.tip">全屏</button>
       </span>
     </div>
 
@@ -143,28 +145,35 @@
     </div>
 
     <div class="status-bar">
+      <div class="rec-row" id="rec-row" hidden>
+        <span class="rec-label" data-i18n="rec.label">建议点击</span>
+        <span class="rec-chips" id="rec-chips"></span>
+        <label class="rec-auto" title="录入一个格子后自动选中下一个推荐格（点 0 展开一片时可以关掉，逐个点选）">
+          <input type="checkbox" id="cb-auto-next" checked> <span data-i18n="rec.auto">自动跳转</span>
+        </label>
+      </div>
       <p class="advice" id="advice">
-        <span id="advice-text">先把残局填进来，或点右上角「随机玩一盘」体验一下。</span>
+        <span id="advice-text" data-i18n="advice.empty">先把残局填进来，或点右上角「随机玩一盘」体验一下。</span>
       </p>
 
       <div class="verdict-bar" id="verdict-bar">
-        <span class="vb vb-gem"><i class="vb-sign vb-sign-gem">✓</i>必定是钻石 <b id="vb-gem">0</b></span>
-        <span class="vb vb-safe"><i class="vb-sign vb-sign-safe">×</i>必定不是钻石 <b id="vb-safe">0</b></span>
-        <span class="vb vb-unknown">待定 <b id="vb-unknown">0</b></span>
-        <button class="ghost-btn sm" id="btn-mark-safe" type="button" disabled>把可确认的格标上 ×</button>
+        <span class="vb vb-gem"><i class="vb-sign vb-sign-gem">✓</i><span data-i18n="vb.gem">必定是钻石</span> <b id="vb-gem">0</b></span>
+        <span class="vb vb-safe"><i class="vb-sign vb-sign-safe">×</i><span data-i18n="vb.safe">必定不是钻石</span> <b id="vb-safe">0</b></span>
+        <span class="vb vb-unknown"><span data-i18n="vb.unknown">待定</span> <b id="vb-unknown">0</b></span>
+        <button class="ghost-btn sm" id="btn-mark-safe" type="button" disabled data-i18n="vb.markSafe">把可确认的格标上 ×</button>
         <span class="vb vb-err" id="vb-err-wrap" hidden><svg class="ico"><use href="#ico-warn"/></svg><b id="vb-err"></b></span>
       <span class="vb-actions">
-        <button class="ghost-btn" id="btn-undo" type="button" disabled title="撤销上一步改动（Ctrl+Z）">↶ 撤销上一步</button>
-        <button class="ghost-btn is-danger" id="btn-clear" type="button" title="清空整个棋盘（可撤销）">清空棋盘</button>
+        <button class="ghost-btn" id="btn-undo" type="button" disabled title="撤销上一步改动（Ctrl+Z）" data-i18n-title="vb.undo.tip">↶ <span data-i18n="vb.undo">撤销上一步</span></button>
+        <button class="ghost-btn is-danger" id="btn-clear" type="button" title="清空整个棋盘（可撤销）" data-i18n-title="vb.clear.tip"><span data-i18n="vb.clear">清空棋盘</span></button>
       </span>
       </div>
     </div>
 
-    <p class="credit">《弹壳特攻队》潮汐秘境计算器 · 海出品</p>
+    <p class="credit">《弹壳特攻队》<span data-i18n="credit.by">潮汐秘境计算器 · 海出品</span></p>
 
     <div class="reveal-bar" id="reveal-bar" hidden>
       <div class="rb-head">
-        <span class="rb-label">翻开的 <b id="rb-target">—</b> 是：</span>
+        <span class="rb-label"><span data-i18n="rb.opened">翻开的</span> <b id="rb-target">—</b> <span data-i18n="rb.is">是：</span></span>
         <button class="rb-close" data-rb="cancel" type="button" title="取消">✕</button>
       </div>
       <span class="rb-values" id="rb-values"></span>
@@ -183,8 +192,8 @@
 <script>window.TIDAL_OCR = false;/* 有没有同源服务器识别：静态托管版由构建脚本改成 false */</script>
 <script>window.TIDAL_OCR_MODE = 'local';/* 'local'（只本机识别）| 'server'（只服务器）| 'off'（关掉）；静态版构建时写成 local */</script>
 <script>window.TIDAL_OCR_URL = 'http://chenyl.free.idcfengye.com/';/* 静态版构建时填入「带截图识别的网址」 */</script>
-<script src="vision.js?vmv53xpzz"></script>
-<script src="solver-core.js?vmv53xpzz"></script>
-<script src="solver.js?vmv53xpzz"></script>
+<script src="vision.js?vmv5z57vn"></script>
+<script src="solver-core.js?vmv5z57vn"></script>
+<script src="solver.js?vmv5z57vn"></script>
 </body>
 </html>

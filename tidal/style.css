@@ -6,47 +6,48 @@
 /* ---------- 1. 设计令牌（与统计中心共用同一套变量与 theme 键） ---------- */
 :root,
 [data-theme="dark"] {
-  --bg-primary: #0f1923;
-  --bg-secondary: #1a2332;
-  --bg-card: #1e2d3d;
-  --bg-hover: #253545;
-  --bg-input: #162231;
-  --border: #2a3a4a;
-  --aux-line: rgba(150, 185, 215, 0.45);   /* 棋盘辅助虚线（三等分） */
+  /* 海洋蓝：取自游戏界面（深海底 #0a2c63 / 青色高光 #3fd4ff / 金色 #ffc83a / 绿色 #7dffb0） */
+  --bg-primary: #08213f;
+  --bg-secondary: #0d3562;
+  --bg-card: #10406f;
+  --bg-hover: #164a80;
+  --bg-input: #0c3159;
+  --border: rgba(80, 200, 255, 0.28);
+  --aux-line: rgba(120, 210, 255, 0.5);   /* 棋盘辅助虚线（三等分） */
 
-  --text-primary: #e0e6ed;
-  --text-secondary: #8899aa;
-  --text-muted: #5a6a7a;
+  --text-primary: #f1f8ff;
+  --text-secondary: #9cc4ee;
+  --text-muted: #6f9ccd;
 
-  --accent: #f0c060;
-  --accent2: #f09040;
-  --gold: #f0c060;
-  --success: #55c080;
-  --danger: #e05555;
+  --accent: #3fd4ff;
+  --accent2: #1aa9dd;
+  --gold: #ffc83a;
+  --success: #7dffb0;
+  --danger: #ffb067;
 
   --radius: 8px;
   --shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
 
-  --x-mark: #c8d4e0;
-  --tile-closed: #162231;
-  --tile-open: #ccd6e0;
-  --tile-open-ink: #16222e;
-  --tile-open-border: #b3bfcc;
-  --scroll-thumb: #3a4a5c;
-  --mask: rgba(9, 15, 22, 0.78);
-  --badge-prob-bg: rgba(15, 25, 35, 0.88);
-  --badge-prob-ink: #c3cfdb;
-  --prob-line: #46586c;
+  --x-mark: #cfe6ff;
+  --tile-closed: #0c3159;
+  --tile-open: #dbeaff;
+  --tile-open-ink: #0a2c63;
+  --tile-open-border: #a9cdf0;
+  --scroll-thumb: #2a5a92;
+  --mask: rgba(4, 18, 38, 0.78);
+  --badge-prob-bg: rgba(8, 33, 63, 0.9);
+  --badge-prob-ink: #d3e8ff;
+  --prob-line: #3f6ea6;
   /* 概率三档（彩色，高=红 中=琥珀 低=蓝）：整格显示百分比，边框/底色/字色同档 */
-  --p-hi-ink: #ff7a6b;
+  --p-hi-ink: #ff8a78;
   --p-hi-line: #ff6b5e;
-  --p-hi-tint: #3a1f24;
-  --p-mid-ink: #f5b545;
+  --p-hi-tint: #4a2230;
+  --p-mid-ink: #ffc83a;
   --p-mid-line: #e8a33a;
-  --p-mid-tint: #3a2f1c;
-  --p-lo-ink: #58b7e8;
-  --p-lo-line: #4aa3d9;
-  --p-lo-tint: #1b2a38;
+  --p-mid-tint: #3d3520;
+  --p-lo-ink: #6fd0ff;
+  --p-lo-line: #3fd4ff;
+  --p-lo-tint: #123a5e;
   /* 数字 0-8 颜色梯度：0 最不显眼（灰）→ 8 最显眼（红），棋盘/笔刷/取值卡统一 */
   --num-0: #8a97a5;
   --num-1: #6f9fc4;
@@ -57,32 +58,32 @@
   --num-6: #e0871f;
   --num-7: #e05a2b;
   --num-8: #d02b2b;
-  --safe-ink: #8fd9b3;
-  --warn-ink: #f0a09a;
-  --ink-on-accent: #0f1923;
-  --ink-on-gold: #1a1305;
-  --ink-on-safe: #06231a;
-  --ink-on-warn: #2a0b08;
+  --safe-ink: #7dffb0;
+  --warn-ink: #ffb9a8;
+  --ink-on-accent: #062645;
+  --ink-on-gold: #2a1e02;
+  --ink-on-safe: #04321f;
+  --ink-on-warn: #3a1206;
 }
 
 /* 浅色主题：直接沿用统计中心的浅色令牌（统计中心默认就是浅色） */
 [data-theme="light"] {
-  --bg-primary: #f0f2f5;
+  --bg-primary: #e9f3fc;
   --bg-secondary: #ffffff;
   --bg-card: #ffffff;
-  --bg-hover: #f5f7fa;
+  --bg-hover: #f2f8ff;
   --bg-input: #ffffff;
-  --border: #dde1e6;
-  --aux-line: rgba(90, 125, 160, 0.45);
+  --border: #c6dcf0;
+  --aux-line: rgba(60, 140, 200, 0.45);
 
-  --text-primary: #1a1a2e;
-  --text-secondary: #555770;
-  --text-muted: #999aaa;
+  --text-primary: #0a2c63;
+  --text-secondary: #3a628f;
+  --text-muted: #7c9cbe;
 
-  --accent: #d4920a;
-  --accent2: #e07830;
+  --accent: #0f8fd0;
+  --accent2: #1aa9dd;
   --gold: #d4920a;
-  --success: #40a060;
+  --success: #2f9e5f;
   --danger: #d94040;
 
   --shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
@@ -1191,3 +1192,18 @@ body.is-game .board-scroll { display: flex; justify-content: center; align-items
 }
 /* 扫雷模式没有"钻石/票"的概念，这两个统计藏起来 */
 body.is-mine-game #chip-gem-progress, body.is-mine-game #chip-cost { display: none; }
+
+/* 建议点击：坐标 chips + 自动跳转开关 */
+.rec-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 6px; }
+.rec-label { font-size: 0.78rem; color: var(--text-muted); }
+.rec-chips { display: inline-flex; gap: 6px; flex-wrap: wrap; }
+.rec-chip {
+  font: inherit; font-size: 0.78rem; padding: 3px 9px; border-radius: 999px; cursor: pointer;
+  background: var(--bg-input); color: var(--text); border: 1px solid var(--border);
+}
+.rec-chip:hover { border-color: var(--accent); }
+.rec-chip.is-gem { border-color: var(--gold); color: var(--gold-ink, #b3770a); }
+.rec-chip.is-on { background: var(--accent); color: #fff; border-color: var(--accent); }
+.rec-auto { margin-left: auto; display: inline-flex; align-items: center; gap: 5px;
+            font-size: 0.78rem; color: var(--text-muted); cursor: pointer; user-select: none; }
+.rec-auto input { accent-color: var(--accent); }

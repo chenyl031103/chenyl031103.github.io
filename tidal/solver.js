@@ -42,6 +42,151 @@
     return clean(saved || built);
   }
 
+
+  /* ---------- 语言（中/英）：静态文案走 data-i18n，动态文案走 t() ---------- */
+  const I18N = {
+    zh: {
+      'doc.title': '《弹壳特攻队》-潮汐秘境计算器',
+      'brand.name': '潮汐秘境计算器',
+      'brand.tag': '填好残局 → 棋盘上直接标出哪格是钻石、哪格可以标 ×',
+      'nav.ocr': '截图识别',
+      'nav.help': '使用说明',
+      'nav.game': '游戏模式',
+      'nav.game.tip': '随便玩玩：潮汐秘境 / 扫雷',
+      'map.size': '地图尺寸',
+      'palette.label': '单击涂',
+      'palette.select': '选中',
+      'palette.select.tip': '单击格子只是选中它（不改内容）',
+      'palette.x.tip': '点格子标上 / 取消 ×',
+      'palette.clear.tip': '单击格子清除',
+      'palette.gem.tip': '标记钻石',
+      'palette.tip': '单击格子弹取值卡；也可以直接按键盘：0-8 数字、Enter 钻石、X 标×、Delete 清除、方向键移动 · 右键快速标钻石',
+      'tools.tip': '调格子大小（自动按屏幕适配）',
+      'tools.auto': '自动',
+      'tools.auto.tip': '恢复自动适配屏幕',
+      'tools.fs': '全屏',
+      'tools.fs.tip': '整个工具区全屏（手机上格子更大好点）',
+      'chip.left': '剩余钻石',
+      'chip.tickets': '用票',
+      'chip.cost': '已用钻石',
+      'chip.filled': '已填',
+      'chip.cells': '格',
+      'rec.label': '建议点击',
+      'rec.auto': '自动跳转',
+      'rec.auto.tip': '录入一个格子后自动选中下一个推荐格（点 0 展开一片时可以关掉，逐个点选）',
+      'vb.gem': '必定是钻石',
+      'vb.safe': '必定不是钻石',
+      'vb.unknown': '待定',
+      'vb.markSafe': '把可确认的格标上 ×',
+      'vb.undo': '撤销上一步',
+      'vb.undo.tip': '撤销上一步改动（Ctrl+Z）',
+      'vb.clear': '清空棋盘',
+      'vb.clear.tip': '清空整个棋盘（可撤销）',
+      'credit.by': '潮汐秘境计算器 · 海出品',
+      'rb.opened': '翻开的',
+      'rb.is': '是：',
+      'rec.gem': '钻石',
+      'advice.empty': '先把残局填进来，或点右上角「随机玩一盘」体验一下。',
+      'advice.full': '棋盘已填满，没有未翻开的格子了。',
+      'advice.noclue0': function (w, why) { return '这张图还没开过：先点 ' + w + why + ' —— 翻开后再把盘面抄进来（或直接截图识别）'; },
+      'advice.noclue': function (w, why) { return '还没有数字线索：先点 ' + w + why + '，翻开后把翻开的数字/钻石填进来'; },
+      'advice.center9': function (r, c) { return '9×9 范围的中心格（' + r + '行' + c + '列）'; },
+      'advice.center': function (r, c) { return '棋盘中心（' + r + '行' + c + '列）'; },
+      'advice.cell': function (r, c) { return r + '行' + c + '列'; },
+      'advice.open3': function (n) { return '，这格周围 3×3 里有 ' + n + ' 格没翻开'; },
+      'advice.gem': function (p, why) { return '先点开 ' + p + ' —— 必定是钻石（' + why + '）'; },
+      'advice.gemTail': '由数字推出',
+      'advice.safe': function (p, why) { return '没有能确定的钻石；先翻开 ' + p + '（必定不是钻石，可扩开线索）—— ' + why; },
+      'advice.needClue': '还没有数字线索：先把已翻开的格子和钻石填进来。',
+      'advice.gamble': function (hi, hp, why, lo) { return '推不出确定格子：想赌分翻 ' + hi + '（含钻石 ' + hp + '%' + why + '），想探线索翻 ' + lo; },
+      'advice.dig': function (hi, hp, why, safe) { return '没有能确定的钻石：想挖钻石就点 ' + hi + '（含钻石 ' + hp + '%' + why + '）；想稳一点先翻开 ' + safe + '（必定不是钻石，可扩开线索）'; },
+      'advice.safeSuffix': function (p, q) { return p + '（' + q + '%）'; },
+      'advice.dash': '—',
+    },
+    en: {
+      'doc.title': 'Survivor.io · Tidal Realm Solver',
+      'brand.name': 'Tidal Realm Solver',
+      'brand.tag': 'Fill in the board → it marks which cells are gems and which are safe',
+      'nav.ocr': 'Screenshot OCR',
+      'nav.help': 'Help',
+      'nav.game': 'Play mode',
+      'nav.game.tip': 'Just for fun: Tidal Realm / Minesweeper',
+      'map.size': 'Map size',
+      'palette.label': 'Click to paint',
+      'palette.select': 'Select',
+      'palette.select.tip': 'Clicking a cell only selects it (no change)',
+      'palette.x.tip': 'Toggle × mark',
+      'palette.clear.tip': 'Click a cell to clear it',
+      'palette.gem.tip': 'Mark as gem',
+      'palette.tip': 'Click a cell to open the value card; or use keys: 0-8 digit, Enter gem, X mark, Delete clear, arrows move · right-click = gem',
+      'tools.tip': 'Cell size (auto-fits the screen by default)',
+      'tools.auto': 'Auto',
+      'tools.auto.tip': 'Back to auto-fit',
+      'tools.fs': 'Fullscreen',
+      'tools.fs.tip': 'Fullscreen the whole tool area',
+      'chip.left': 'Gems left',
+      'chip.tickets': 'Tickets',
+      'chip.cost': 'Diamonds spent',
+      'chip.filled': 'Filled',
+      'chip.cells': 'cells',
+      'rec.label': 'Suggested',
+      'rec.auto': 'Auto-next',
+      'rec.auto.tip': 'After entering a value, jump to the next suggested cell (turn off when opening a big 0 area)',
+      'vb.gem': 'certain gems',
+      'vb.safe': 'certain safe',
+      'vb.unknown': 'undecided',
+      'vb.markSafe': 'Mark all certain-safe as ×',
+      'vb.undo': 'Undo',
+      'vb.undo.tip': 'Undo last change (Ctrl+Z)',
+      'vb.clear': 'Clear board',
+      'vb.clear.tip': 'Clear the whole board (undoable)',
+      'credit.by': 'Tidal Realm Solver · by Hai',
+      'rb.opened': 'Cell',
+      'rb.is': 'is:',
+      'rec.gem': 'GEM',
+      'advice.empty': 'Fill in the board first, or try "Play mode" at the top right.',
+      'advice.full': 'Board is full — no unrevealed cells left.',
+      'advice.noclue0': function (w, why) { return 'Fresh map: start with ' + w + why + ' — then copy the board in (or use screenshot OCR).'; },
+      'advice.noclue': function (w, why) { return 'No number clues yet: start with ' + w + why + ', then fill in what you revealed.'; },
+      'advice.center9': function (r, c) { return 'the center of the 9×9 area (R' + r + 'C' + c + ')'; },
+      'advice.center': function (r, c) { return 'the board center (R' + r + 'C' + c + ')'; },
+      'advice.cell': function (r, c) { return 'R' + r + 'C' + c; },
+      'advice.open3': function (n) { return ', ' + n + ' of its 3×3 neighbours are unrevealed'; },
+      'advice.gem': function (p, why) { return 'Open ' + p + ' — it must be a gem (' + why + ')'; },
+      'advice.gemTail': 'from the numbers',
+      'advice.safe': function (p, why) { return 'No certain gem; open ' + p + ' first (definitely safe, expands clues) — ' + why; },
+      'advice.needClue': 'No clues yet: fill in the revealed numbers and gems first.',
+      'advice.gamble': function (hi, hp, why, lo) { return 'Nothing certain: gamble on ' + hi + ' (' + hp + '% gem' + why + '), or explore ' + lo; },
+      'advice.dig': function (hi, hp, why, safe) { return 'No certain gem: dig ' + hi + ' (' + hp + '% gem' + why + '); or play safe and open ' + safe + ' (definitely no gem, expands clues)'; },
+      'advice.safeSuffix': function (p, q) { return p + ' (' + q + '%)'; },
+      'advice.dash': '—',
+    },
+  };
+  let LANG = 'zh';
+  try { LANG = localStorage.getItem('tidal_lang') === 'en' ? 'en' : 'zh'; } catch (e) { LANG = 'zh'; }
+  function t(key) {
+    const dict = I18N[LANG] || I18N.zh;
+    let v = dict[key];
+    if (v === undefined) v = I18N.zh[key];
+    if (typeof v === 'function') return v.apply(null, Array.prototype.slice.call(arguments, 1));
+    return v === undefined ? key : v;
+  }
+  function setLang(next) {
+    LANG = next === 'en' ? 'en' : 'zh';
+    try { localStorage.setItem('tidal_lang', LANG); } catch (e) {}
+    applyLang();
+  }
+  function applyLang() {
+    document.documentElement.setAttribute('lang', LANG === 'en' ? 'en' : 'zh-CN');
+    document.title = t('doc.title');
+    for (const el2 of document.querySelectorAll('[data-i18n]')) el2.textContent = t(el2.dataset.i18n);
+    for (const el2 of document.querySelectorAll('[data-i18n-title]')) el2.title = t(el2.dataset.i18nTitle);
+    const bz = document.getElementById('btn-lang-zh'), be = document.getElementById('btn-lang-en');
+    if (bz) bz.classList.toggle('is-on', LANG === 'zh');
+    if (be) be.classList.toggle('is-on', LANG === 'en');
+    if (!S.game && S.grid && S.grid.length) analyze();   // 动态文案（建议条/结论条）重绘
+  }
+
   const OCR_SERVICE = resolveOcrService();
   const DOUBLE_MS = 340;   // 两次按下间隔小于此值算「双击」（涂色笔刷下双击 = 弹取值卡）
 
@@ -75,6 +220,9 @@
     sizeSeg: $('#size-seg'),
     gemTotalText: $('#gem-total-text'),
     gemLeft: $('#gem-left'),
+    recRow: $('#rec-row'),
+    recChips: $('#rec-chips'),
+    cbAutoNext: $('#cb-auto-next'),
     ticketsUsed: $('#tickets-used'),
     diamondsUsed: $('#diamonds-used'),
     filled: $('#filled-count'),
@@ -118,6 +266,7 @@
     manualCell: (() => { const v = Number(localStorage.getItem('tidal_cell_px') || 0); return Number.isFinite(v) && v > 0 ? v : 0; })(),
     history: [],          // 撤销栈：每项是「那一步之前」的盘面快照
     histBase: null,       // 本次操作开始前的快照，抬手时才入栈（拖动连涂算一步）
+    autoNext: true,       // 录入后自动跳到下一个推荐格（可在建议条上关掉）
     importTimer: null,
     importPreviewUrl: null,
     ocrBlob: null,        // 待识别的图片（送服务器的压缩版）
@@ -130,7 +279,7 @@
 
   /* ---------- 工具 ---------- */
   const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
-  const coord = (r, c) => `${r + 1}行${c + 1}列`;
+  const coord = (r, c) => (LANG === 'en' ? `R${r + 1}C${c + 1}` : `${r + 1}行${c + 1}列`);
 
   function toast(msg, kind) {
     const t = document.createElement('div');
@@ -495,36 +644,30 @@
       const cr = r0 + 1, cc = c0 + 1;
       const isCenter = r0 === Math.round((S.rows - 1) / 2) && c0 === Math.round((S.cols - 1) / 2);
       const where = isCenter
-        ? (S.rows >= 9 ? `9×9 范围的中心格（${cr}行${cc}列）` : `棋盘中心（${cr}行${cc}列）`)
-        : `${cr}行${cc}列`;
+        ? (S.rows >= 9 ? t('advice.center9', cr, cc) : t('advice.center', cr, cc))
+        : t('advice.cell', cr, cc);
       const o3 = openAround3(r0, c0);
-      const why = o3 >= 6 ? `，这格周围 3×3 里有 ${o3} 格没翻开` : '';
+      const why = o3 >= 6 ? t('advice.open3', o3) : '';
       return {
         kind: 'safe',
-        text: S.filledCount === 0
-          ? `这张图还没开过：先点 ${where}${why} —— 翻开后再把盘面抄进来（或直接截图识别）`
-          : `还没有数字线索：先点 ${where}${why}，翻开后把翻开的数字/钻石填进来`,
+        text: S.filledCount === 0 ? t('advice.noclue0', where, why) : t('advice.noclue', where, why),
       };
     }
-    if (c.hiddenCells === 0) return { kind: '', text: '棋盘已填满，没有未翻开的格子了。' };
+    if (c.hiddenCells === 0) return { kind: '', text: t('advice.full') };
     const pick = res.pick;
-    if (!pick) return { kind: '', text: '还没有数字线索：先把已翻开的格子和钻石填进来。' };
+    if (!pick) return { kind: '', text: t('advice.needClue') };
     if (pick.type === 'gem') {
-      return { kind: 'gem', text: `先点开 ${coord(pick.r, pick.c)} —— 必定是钻石（${pick.why || '由数字推出'}）` };
+      return { kind: 'gem', text: t('advice.gem', coord(pick.r, pick.c), pick.why || t('advice.gemTail')) };
     }
     if (pick.type === 'safe') {
       const hiIdx = pickHotCell(res);
       const hi = hiIdx >= 0 ? (res.undecided || []).find((u) => u.i === hiIdx) : null;
       if (hi && hi.p > 0) {
         const o3 = openAround3(hi.r, hi.c);
-        const why = o3 >= 6 ? `，这格周围 3×3 里有 ${o3} 格没翻开，一翻就能带出新线索` : '';
-        return {
-          kind: 'warn',
-          text: `没有能确定的钻石：想挖钻石就点 ${coord(hi.r, hi.c)}（含钻石 ${Math.round(hi.p * 100)}%，现在最高${why}）`
-            + `；想稳一点先翻开 ${coord(pick.r, pick.c)}（必定不是钻石，可扩开线索）`,
-        };
+        const why = o3 >= 6 ? t('advice.open3', o3) : '';
+        return { kind: 'warn', text: t('advice.dig', coord(hi.r, hi.c), Math.round(hi.p * 100), why, coord(pick.r, pick.c)) };
       }
-      return { kind: 'safe', text: `没有能确定的钻石；先翻开 ${coord(pick.r, pick.c)}（必定不是钻石，可扩开线索）—— ${pick.why || '由数字推出'}` };
+      return { kind: 'safe', text: t('advice.safe', coord(pick.r, pick.c), pick.why || t('advice.gemTail')) };
     }
     // 赌的目标要和金色闪烁用同一格（并列时优先"未打开 3×3 的正中心"）
     const hiIdx = pickHotCell(res);
@@ -532,12 +675,31 @@
     // 注意比下标、别比对象（pick 是展开出来的新对象，引用永远不会相等）
     const lo = (hi.i === pick.i) ? (pick.alt || (res.undecided || [])[0]) : pick;
     const o3 = openAround3(hi.r, hi.c);
-    const why = o3 >= 6 ? `，这格周围 3×3 里有 ${o3} 格没翻开，一翻就能带出新线索` : '';
+    const why = o3 >= 6 ? t('advice.open3', o3) : '';
     return {
       kind: 'warn',
-      text: `推不出确定格子：想赌分翻 ${coord(hi.r, hi.c)}（含钻石 ${Math.round(hi.p * 100)}%${why}）`
-        + `，想探线索翻 ${lo ? coord(lo.r, lo.c) + '（' + Math.round(lo.p * 100) + '%）' : '—'}`,
+      text: t('advice.gamble', coord(hi.r, hi.c), Math.round(hi.p * 100), why,
+        lo ? t('advice.safeSuffix', coord(lo.r, lo.c), Math.round(lo.p * 100)) : t('advice.dash')),
     };
+  }
+
+  /** 建议条上方的"建议点击"小坐标：前 6 个候选（概率降序），点一下就选中它 */
+  function renderRecChips(res) {
+    if (!el.recRow || !el.recChips) return;
+    const cands = [];
+    if (res && !S.game) {
+      if (res.certainGems && res.certainGems.length) {
+        for (const g of res.certainGems.slice(0, 6)) cands.push({ i: g.i, r: g.r, c: g.c, p: 1, gem: true });
+      } else if (res.undecided && res.undecided.length) {
+        const sorted = res.undecided.slice().sort((a, b) => b.p - a.p || a.i - b.i);
+        for (const u of sorted.slice(0, 6)) cands.push({ i: u.i, r: u.r, c: u.c, p: u.p });
+      }
+    }
+    if (!cands.length) { el.recRow.hidden = true; el.recChips.innerHTML = ''; return; }
+    el.recRow.hidden = false;
+    el.recChips.innerHTML = cands.map((x) =>
+      `<button class="rec-chip${x.gem ? ' is-gem' : ''}${S.cursor === x.i ? ' is-on' : ''}" data-i="${x.i}" type="button">`
+      + `(${x.r + 1},${x.c + 1}) ${x.gem ? t('rec.gem') : Math.round(x.p * 100) + '%'}</button>`).join('');
   }
 
   function renderPanels(res) {
@@ -551,6 +713,7 @@
     const adv = adviceLine(res);
     el.adviceText.textContent = adv.text;
     el.advice.className = 'advice' + (adv.kind ? ' is-' + adv.kind : '');
+    renderRecChips(res);
 
     /* 错误提示 */
     // × 被当成依据后，矛盾多半来自标错的 ×（不信任 × 就没有矛盾）
@@ -745,13 +908,29 @@
     const i = S.awaiting;
     if (i < 0) return;
     const r = (i / S.cols) | 0, c = i % S.cols;
-    mark();                       // 双击翻开这整段算一步（起点＝第一次按下之前）
+    mark();                       // 这整段算一步（起点＝第一次按下之前）
     S.grid[r][c] = v;
     S.aiCells.delete(i);
     S.unsure.delete(i);
     closeRevealBar();
     analyze();
     settle();
+    autoAdvance();
+  }
+
+  /**
+   * 录入后自动跳到"下一个推荐格"（可在建议条上关掉）：
+   * 跳到新推荐格并直接弹出取值卡，连续录入不用点来点去。
+   */
+  function autoAdvance() {
+    if (!S.autoNext || S.game) return;
+    if (S.awaiting >= 0) return;                 // 用户已经在别的格子上取值了
+    const res = S.result;
+    if (!res) return;
+    const next = pickHotCell(res);
+    if (next < 0 || next === S.cursor) return;
+    S.cursor = next;
+    openRevealBar(next);
   }
 
   /* ---------- 撤销：记录「每一步之前」的盘面 ----------
@@ -964,6 +1143,23 @@
     });
 
     // 取值条
+    if (el.recChips) {
+      el.recChips.addEventListener('click', (e) => {
+        const b = e.target.closest('.rec-chip');
+        if (!b) return;
+        const i = Number(b.dataset.i);
+        if (!Number.isFinite(i) || i < 0) return;
+        S.cursor = i;
+        openRevealBar(i);
+      });
+    }
+    if (el.cbAutoNext) {
+      el.cbAutoNext.addEventListener('change', () => {
+        S.autoNext = !!el.cbAutoNext.checked;
+        toast(S.autoNext ? '已开启：录入后自动跳到下一个推荐格' : '已关闭自动跳转', '');
+      });
+    }
+
     el.rbValues.addEventListener('click', (e) => {
       const b = e.target.closest('[data-val]');
       if (!b) return;
@@ -1016,6 +1212,11 @@
       toast(`已标上 ${n} 个 ×`, 'gold');
     });
 
+    // 语言：中文 / EN
+    const bz = $('#btn-lang-zh'), be = $('#btn-lang-en');
+    if (bz) bz.addEventListener('click', () => setLang('zh'));
+    if (be) be.addEventListener('click', () => setLang('en'));
+
     // 顶栏
     $('#btn-help').addEventListener('click', openHelp);
     $('#btn-shot-open').addEventListener('click', openShotModal);
@@ -1059,6 +1260,7 @@
         analyze();
         settle();
         closeRevealBar();
+        autoAdvance();
       };
 
       // 方向键：移动选中的格子
@@ -1713,11 +1915,12 @@
         <section>
           <h4>2. 确认这张图是哪一档地图</h4>
           <div class="seg seg-sm" id="shot-size-seg">
+            <button class="seg-btn" data-size="0" type="button">自动</button>
             <button class="seg-btn" data-size="8" type="button">8×8</button>
             <button class="seg-btn" data-size="10" type="button">10×10</button>
             <button class="seg-btn" data-size="12" type="button">12×12</button>
           </div>
-          <p class="card-foot">${LOCAL_OCR ? '识别在本机完成，不联网；选错也会立刻告诉你，不用重等。默认跟着当前棋盘走。' : '选错会白等 1~2 分钟，所以必须先确认。默认跟着当前棋盘走。'}</p>
+          <p class="card-foot">${LOCAL_OCR ? '默认「自动」：识别会自己判断是 8×8 / 10×10 / 12×12 并直接填入棋盘，不用先选档位。认不准时再手动指定。' : '默认「自动」；也可以手动指定档位。'}</p>
         </section>
         <section>
           <h4>3. 开始识别</h4>
@@ -1737,13 +1940,13 @@
         </section>
       </div>`);
 
-    S.shotSize = S.rows;
+    S.shotSize = 0;      // 0 = 自动判尺寸（默认）
     S.ocrBlob = null;
     const seg = $('#shot-size-seg');
     const markSize = () => {
       seg.querySelectorAll('.seg-btn').forEach((b) => b.classList.toggle('is-on', Number(b.dataset.size) === S.shotSize));
       const go = $('#btn-ocr-go');
-      if (go && S.ocrBlob) go.textContent = `开始识别（${S.shotSize}×${S.shotSize}）`;
+      if (go && S.ocrBlob) go.textContent = S.shotSize ? `识别并填入（${S.shotSize}×${S.shotSize}）` : '识别并填入棋盘（自动判尺寸）';
     };
     seg.addEventListener('click', (e) => {
       const b = e.target.closest('.seg-btn');
@@ -1842,7 +2045,7 @@
       $('#pick-info').textContent = `${fileSizeText(shrunk.blob.size)}${shrunk.note ? ' · ' + shrunk.note : ''}`;
     }
     const go = $('#btn-ocr-go');
-    if (go) { go.disabled = false; go.textContent = `开始识别（${S.shotSize}×${S.shotSize}）`; }
+    if (go) { go.disabled = false; go.textContent = S.shotSize ? `识别并填入（${S.shotSize}×${S.shotSize}）` : '识别并填入棋盘（自动判尺寸）'; }
     setGoState(false);
     setImportStatus('图片已就绪 —— 确认上面是几×几，再点「开始识别」', '');
   }
@@ -2099,10 +2302,10 @@
 
   /** 把识别结果填进棋盘（本地/服务器两条路共用），并按需提示核对 */
   function applyResult(data, how) {
-    const size = S.shotSize || S.rows;
+    const size = S.shotSize || 0;      // 0 = 自动档（按识别出来的尺寸填）
     const { rows, cols, cells } = data;
     if (!rows || !cols || !Array.isArray(cells) || cells.length !== rows) throw new Error('识别结果格式不正确');
-    if (rows !== size) {
+    if (size && rows !== size) {
       throw new Error(`识别出来是 ${rows}×${cols}，和你选的 ${size}×${size} 不一致 —— 请核对后重选尺寸再识别`);
     }
 
@@ -2193,16 +2396,18 @@
     } else {
       if (data.note) setImportStatus(data.note, '');
       const tip = how === 'local'
-        ? `本机识别完成（${data.localMs || 0} 毫秒），还有 ${missN} 个没翻开的格子`
+        ? `本机识别完成（${data.localMs || 0} 毫秒，自动判定 ${rows}×${rows}），还有 ${missN} 个没翻开的格子`
         : null;
       toast(tip || (unsureN ? `识别完成，${unsureN} 处红框请重点核对` : '识别完成，请核对带红框的格子'), 'gold');
-      if (how === 'local') setImportStatus(`本机识别完成：读出 ${filledN} 格，未翻开 ${missN} 格${unsureN ? `，${unsureN} 处待核对` : ''}`, '');
+      if (how === 'local') {
+        setImportStatus(`识别完成（自动判定 ${rows}×${rows}）：读出 ${filledN} 格，未翻开 ${missN} 格${unsureN ? `，${unsureN} 处待核对` : ''}`, '');
+      }
     }
   }
 
   /** 识别入口：本机优先 → 失败再问服务器（静态版会提示手动填写） */
   async function recognize(file) {
-    const size = S.shotSize || S.rows;
+    const size = S.shotSize || 0;      // 0 = 自动判尺寸
     startImportClock(`${size}×${size}`);
     setGoState(true);
 
@@ -2236,12 +2441,16 @@
         if (S.ocrCanceled) return;
       }
       if (!data) {
-        data = await recognizeViaServer(S.ocrBlob || file, size);
+        data = await recognizeViaServer(S.ocrBlob || file, size || S.rows);
         how = how || 'server';
         if (!data) return;    // 被取消
       }
-      // 本机识别：先给预览 + 网格微调，用户确认后再填棋盘（服务器版没有图，直接填）
-      if (how === 'local' && data.image && data.debug && data.debug.grid) {
+      // 尺寸对不上时不硬填，给预览面板让用户微调/重新对格
+      const sizeBad = size && data.rows !== size;
+      // 本机识别：默认直接填盘（自动判尺寸）；只有"认不准"（thin / 定位没走外框 / 尺寸不符）才给预览
+      const needPreview = how === 'local' && data.image && data.debug && data.debug.grid &&
+        (data.thin === true || data.debug.grid.src !== 'frame' || sizeBad);
+      if (needPreview) {
         stopImportClock();
         setImportStatus('识别完成，先核对网格再应用', '');
         openOcrPreview(data);
@@ -2283,7 +2492,7 @@
       S.localFail = null;
       setGoState(false);
       const go = $('#btn-ocr-go');
-      if (go) go.textContent = `开始识别（${S.shotSize}×${S.shotSize}）`;
+      if (go) go.textContent = S.shotSize ? `识别并填入（${S.shotSize}×${S.shotSize}）` : '识别并填入棋盘（自动判尺寸）';
     }
   }
 
@@ -2302,6 +2511,7 @@
     buildBoard();
     bind();
     bindPasteOnce();   // 任何位置按 Ctrl+V 都能直接开始识别
+    applyLang();       // 静态文案按语言刷一遍（内部会 analyze）
     analyze();
   }
 
