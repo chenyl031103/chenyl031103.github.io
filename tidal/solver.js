@@ -311,6 +311,8 @@
     const rect = el.boardScroll.getBoundingClientRect();
     // 下方留给建议条 + 结论条，取值条浮在格子旁边（fixed 定位，不占文档流）
     const below = (el.advice ? el.advice.offsetHeight : 30) +
+                  (document.querySelector('#rec-row') && !document.querySelector('#rec-row').hidden
+                    ? document.querySelector('#rec-row').offsetHeight : 0) +
                   (document.querySelector('.verdict-bar') ? document.querySelector('.verdict-bar').offsetHeight : 48) + 96;
     const availH = Math.max(160, window.innerHeight - rect.top - below - padY);
     const byH = Math.floor((availH - gap * (rows - 1)) / rows);
