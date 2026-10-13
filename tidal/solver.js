@@ -2038,7 +2038,7 @@
   }
 
   function initTheme() {
-    const saved = 'light';   // 只保留一个主题（游戏同款素材皮肤）
+    const saved = localStorage.getItem('theme') || 'dark';   // 默认深色（护眼），可在右上角切换
     document.documentElement.setAttribute('data-theme', saved);
     updateThemeIcon(saved);
     const btn = $('#theme-toggle');
