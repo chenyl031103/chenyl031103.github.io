@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="utf-8">
+<meta name="description" content="时间之海 · 潮汐秘境计算器 使用问卷：1 分钟，匿名，主要用来改进计算器。">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>潮汐秘境计算器 · 使用问卷</title>
+<style>
+  :root { --bd:#31465e; --bg:#0b1420; --fg:#f2f6fb; --dim:#b7c7da; --ok:#57d98a; --gold:#ffd066; --card:#152238; }
+  * { box-sizing:border-box; }
+  body { margin:0; padding:20px 16px 150px; background:var(--bg); color:var(--fg);
+         font:17px/1.75 -apple-system,"Segoe UI","Microsoft YaHei",sans-serif;
+         -webkit-font-smoothing:antialiased; }
+  .wrap { max-width:800px; margin:0 auto; }
+  h1 { font-size:25px; margin:0 0 6px; }
+  .dim { color:var(--dim); font-size:14.5px; }
+  .q { border:1px solid var(--bd); border-radius:12px; background:var(--card); padding:14px 16px; margin:14px 0; }
+  .q h3 { font-size:17.5px; margin:0 0 4px; font-weight:700; }
+  .q h3 .no { color:var(--gold); margin-right:6px; }
+  .q h3 .req { color:#ff8f8f; font-size:13px; margin-left:6px; font-weight:400; }
+  .q .hint { color:var(--dim); font-size:13.5px; margin:0 0 8px; }
+  label.opt { display:block; border:1px solid var(--bd); border-radius:9px; padding:10px 12px; margin:7px 0;
+              cursor:pointer; font-size:16.5px; line-height:1.5; background:#101d2f; }
+  label.opt:hover { border-color:#4d6b8f; }
+  label.opt input { margin-right:9px; accent-color:var(--gold); transform:scale(1.15); }
+  label.opt.other input[type=text] { margin:8px 0 0 26px; width:calc(100% - 30px); }
+  input[type=text], textarea { width:100%; border:1px solid var(--bd); border-radius:9px; background:#101d2f;
+              color:var(--fg); font:16.5px/1.6 inherit; padding:10px 12px; }
+  textarea { min-height:110px; resize:vertical; }
+  .q.missing { border-color:#ff8f8f; box-shadow:0 0 0 1px #ff8f8f inset; }
+  .bar { position:fixed; left:0; right:0; bottom:0; background:#0e1b2b; border-top:1px solid var(--bd);
+         padding:10px 14px calc(10px + env(safe-area-inset-bottom)); z-index:9; }
+  .bar .inner { max-width:800px; margin:0 auto; display:flex; align-items:center; gap:10px; }
+  .bar .prog { color:var(--dim); font-size:14px; flex:1; }
+  button.main { background:var(--gold); color:#20160a; border:0; border-radius:10px; font-size:16.5px;
+                font-weight:700; padding:12px 20px; cursor:pointer; }
+  button.ghost { background:transparent; color:var(--dim); border:1px solid var(--bd); border-radius:10px;
+                 font-size:14.5px; padding:10px 14px; cursor:pointer; }
+  .result { border:1px solid var(--ok); border-radius:12px; background:#12283a; padding:14px 16px; margin:14px 0; display:none; }
+  .result.show { display:block; }
+  .result h3 { margin:0 0 6px; font-size:17.5px; color:var(--ok); }
+  .result textarea { min-height:190px; font-size:15px; }
+  .toast { position:fixed; left:50%; top:14px; transform:translateX(-50%); background:#1d3b57; color:#fff;
+           border:1px solid #3d6f9e; border-radius:10px; padding:9px 16px; font-size:15px; z-index:20; display:none; }
+  .foot { color:var(--dim); font-size:13.5px; margin:18px 0 0; text-align:center; }
+  @media (max-width:640px) { body { font-size:16px; padding:14px 12px 150px; } h1 { font-size:21px; } }
+</style></head><body>
+<div class="wrap">
+  <h1>时间之海 · 潮汐秘境计算器 —— 使用问卷</h1>
+  <p class="dim">大概 1 分钟，全是选择题，点一下就行（最后一题可以随便写）。匿名，你的回答只用来把计算器改得更好用。<br>
+  填完点右下角「生成结果并复制」，把复制到的内容发到群里 / 公众号 <b>chenyl031103</b> 就行。</p>
+
+  <div class="result" id="result">
+    <h3>✅ 已生成，复制到下面这段，发给我就行</h3>
+    <textarea id="result-text" readonly></textarea>
+    <p class="dim" id="copy-tip">如果没自动复制，点一下上面的框再按 Ctrl/长按「全选 → 复制」。</p>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:8px">
+      <button class="main" type="button" id="btn-copy">再复制一次</button>
+      <button class="ghost" type="button" id="btn-back">继续修改答案</button>
+    </div>
+  </div>
+
+  <form id="form"></form>
+
+  <p class="foot">时间之海 · 潮汐秘境计算器 · 海出品 &nbsp;|&nbsp; 公众号：chenyl031103</p>
+</div>
+
+<div class="bar"><div class="inner">
+  <span class="prog" id="prog">已答 0 / 11</span>
+  <button class="ghost" type="button" id="btn-clear">清空重填</button>
+  <button class="main" type="button" id="btn-submit">生成结果并复制</button>
+</div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* 问卷定义：radio=单选，check=多选，text=填空；short=汇总时的短标签 */
+const QS = [
+  { id:'q1', type:'radio', req:true, short:'现在主要用',
+    q:'你现在主要用哪个「潮汐秘境」计算器？',
+    opts:['时间之海（本站 · 潮汐秘境计算器）','呱呱的计算器','风华的计算器','两个以上都用过，换着用','没用过计算器，凭经验挖'],
+    other:'其他（是什么，写一下）' },
+  { id:'q2', type:'radio', req:true, short:'怎么知道的',
+    q:'你是怎么知道本站（时间之海）的？',
+    opts:['公会群 / 群里群友发的链接','朋友、大佬安利','视频平台（B站 / 抖音 / 快手…）','自己搜出来的','从别的计算器跳过来的','记不清了'] },
+  { id:'q3', type:'check', req:true, short:'主要用途',
+    q:'你平时主要用它做什么？', hint:'可多选',
+    opts:['抄盘面：看哪格可能是钻石','看每格含钻概率，决定先点哪','统计「平均 票/宝石」，看这期划不划算','上传截图，自动识别盘面','玩内置的潮汐秘境小游戏','玩扫雷小游戏','看使用说明 / 教程','还没怎么用上，先收藏着'] },
+  { id:'q4', type:'check', req:true, short:'常用设备',
+    q:'你一般在什么设备上用？', hint:'可多选',
+    opts:['安卓手机','苹果手机','电脑浏览器','平板（iPad / 安卓平板）','手机、电脑都用'] },
+  { id:'q5', type:'radio', req:true, short:'使用频率',
+    q:'你用的频率大概是？',
+    opts:['每期潮汐都开，基本全勤','偶尔想起来了用一次','第一次用 / 刚知道不久','用过一两次就没再用了'] },
+  { id:'q6', type:'radio', req:true, short:'整体评分',
+    q:'整体用下来，你给它打几分？',
+    opts:['5 分 · 非常好用','4 分 · 挺好用','3 分 · 一般','2 分 · 有点难用','1 分 · 不好用'] },
+  { id:'q7', type:'check', req:true, short:'别扭/想改',
+    q:'哪些地方让你觉得别扭、或最希望你改？', hint:'可多选',
+    opts:['截图识别有时候不准','手机上格子小、容易点错','概率和提示看不懂，不知道该点哪','抄盘面步骤太多，嫌麻烦','提示的格子不敢点，怕它是坑','界面 / 颜色不太合眼','加载慢 / 有时打不开','没什么问题，挺好'],
+    other:'其他（写一下）' },
+  { id:'q8', type:'radio', req:true, short:'信任提示',
+    q:'它推出的「必定是钻石 / 必定不是钻石」，你信吗？',
+    opts:['完全信，照着点','大部分信，偶尔自己再看一眼','一半一半，当参考','不太信，还是按自己经验来','没太注意这个提示'] },
+  { id:'q9', type:'radio', req:true, short:'和呱呱/风华比',
+    q:'和呱呱 / 风华的计算器比，你觉得本站的提示怎么样？',
+    opts:['本站更准','差不多','不如它们','只用过本站 / 没法比较'] },
+  { id:'q10', type:'check', req:true, short:'希望加什么',
+    q:'接下来你最希望加什么？', hint:'可多选',
+    opts:['识别更准、更省事','数据统计（历史记录、平均票曲线）','一键生成「战绩分享图」，方便发群','更多小玩法','图文教程 / 新手攻略','手机端更好按（大按钮、格子更大）','现在这样就挺好，别加了'] },
+  { id:'q11', type:'radio', req:true, short:'会不会推荐',
+    q:'你会把它推荐给群友吗？',
+    opts:['已经推荐过了','会推荐','看情况','不会'] },
+  { id:'q12', type:'text', req:false, short:'意见/问题',
+    q:'最后：对本站的意见、建议，或者你遇到的问题，想说什么都行',
+    hint:'遇到 bug 的话，写下当时的情况 + 手机型号 / 浏览器，我会照着修。不想写也可以跳过。' },
+  { id:'q13', type:'text', req:false, short:'联系方式',
+    q:'想留个联系方式吗？（微信 / QQ / 群名）',
+    hint:'方便追问细节。不填完全 OK，匿名也欢迎。' },
+];
+
+const $ = (s) => document.querySelector(s);
+const form = $('#form');
+const DRAFT_KEY = 'tidal-survey-draft-v1';
+
+/* ---------- 渲染 ---------- */
+const noOf = {};
+let n = 0;
+for (const q of QS) { noOf[q.id] = ++n; }
+form.innerHTML = QS.map((q) => {
+  const opts = (q.opts || []).map((o, i) => {
+    const t = q.type === 'check' ? 'checkbox' : 'radio';
+    return `<label class="opt"><input type="${t}" name="${q.id}" value="${o.replace(/"/g, '&quot;')}">${o}</label>`;
+  }).join('');
+  const other = q.other
+    ? `<label class="opt"><input type="${q.type === 'check' ? 'checkbox' : 'radio'}" name="${q.id}" value="其他" data-other>${q.other}
+       <input type="text" data-othertext="${q.id}" placeholder="写在这里（可留空）"></label>`
+    : '';
+  const input = q.type === 'text'
+    ? `<textarea name="${q.id}" data-text="${q.id}" placeholder="${q.hint ? '' : '写在这里…'}"></textarea>`
+    : opts + other;
+  return `<div class="q" id="box-${q.id}">
+    <h3><span class="no">${noOf[q.id]}.</span>${q.q}${q.req ? '<span class="req">必答</span>' : '<span class="req" style="color:#8fa8c4">选填</span>'}</h3>
+    ${q.hint && q.type !== 'text' ? `<p class="hint">${q.hint}</p>` : ''}
+    ${q.type === 'text' && q.hint ? `<p class="hint">${q.hint}</p>` : ''}
+    ${input}
+  </div>`;
+}).join('');
+
+/* ---------- 草稿：边填边存，刷新不丢 ---------- */
+function saveDraft() {
+  const d = { _at: Date.now() };
+  for (const q of QS) {
+    if (q.type === 'text') { const el = form.querySelector(`[data-text="${q.id}"]`); d[q.id] = el.value; }
+    else {
+      d[q.id] = [...form.querySelectorAll(`input[name="${q.id}"]:checked`)].map((x) => x.value);
+      const ot = form.querySelector(`[data-othertext="${q.id}"]`);
+      if (ot) d[q.id + '_other'] = ot.value;
+    }
+  }
+  try { localStorage.setItem(DRAFT_KEY, JSON.stringify(d)); } catch (e) {}
+  countAnswered();
+}
+function loadDraft() {
+  let d = null;
+  try { d = JSON.parse(localStorage.getItem(DRAFT_KEY) || 'null'); } catch (e) {}
+  if (!d) return;
+  for (const q of QS) {
+    const v = d[q.id];
+    if (q.type === 'text') { if (typeof v === 'string') form.querySelector(`[data-text="${q.id}"]`).value = v; }
+    else if (Array.isArray(v)) {
+      for (const x of v) {
+        const el = form.querySelector(`input[name="${q.id}"][value="${String(x).replace(/"/g, '\\"')}"]`);
+        if (el) el.checked = true;
+      }
+      const ot = form.querySelector(`[data-othertext="${q.id}"]`);
+      if (ot && d[q.id + '_other']) ot.value = d[q.id + '_other'];
+    }
+  }
+}
+
+/* ---------- 进度 ---------- */
+function answered(q) {
+  if (q.type === 'text') return true;                    // 选填，不算缺
+  return !!form.querySelector(`input[name="${q.id}"]:checked`);
+}
+function countAnswered() {
+  const reqs = QS.filter((q) => q.req);
+  const done = reqs.filter(answered).length;
+  $('#prog').textContent = `已答 ${done} / ${reqs.length}`;
+}
+form.addEventListener('change', saveDraft);
+form.addEventListener('input', (e) => { if (e.target.type === 'text' || e.target.tagName === 'TEXTAREA') saveDraft(); });
+loadDraft();
+countAnswered();
+
+/* ---------- 汇总 ---------- */
+function summary() {
+  const lines = [];
+  for (const q of QS) {
+    let v = '';
+    if (q.type === 'text') {
+      v = (form.querySelector(`[data-text="${q.id}"]`).value || '').trim();
+      if (!v) continue;
+    } else {
+      const picked = [...form.querySelectorAll(`input[name="${q.id}"]:checked`)].map((x) => x.value);
+      if (!picked.length) continue;
+      const ot = form.querySelector(`[data-othertext="${q.id}"]`);
+      const extra = ot && ot.value.trim() ? ot.value.trim() : '';
+      v = picked.map((x) => (x === '其他' ? '其他：' + (extra || '（没写）') : x)).join('；');
+    }
+    lines.push(`${noOf[q.id]}) ${q.short}：${v}`);
+  }
+  const t = new Date();
+  const pad = (x) => String(x).padStart(2, '0');
+  const when = `${t.getFullYear()}-${pad(t.getMonth() + 1)}-${pad(t.getDate())} ${pad(t.getHours())}:${pad(t.getMinutes())}`;
+  return '【潮汐秘境计算器 · 使用问卷】\n' + lines.join('\n') + `\n（填于 ${when}）`;
+}
+
+/* ---------- 提交 ---------- */
+function toast(msg, ms) {
+  const el = $('#toast');
+  el.textContent = msg;
+  el.style.display = 'block';
+  clearTimeout(el._t);
+  el._t = setTimeout(() => { el.style.display = 'none'; }, ms || 2600);
+}
+function markMissing() {
+  let first = null;
+  for (const q of QS) {
+    const box = $('#box-' + q.id);
+    const miss = q.req && !answered(q);
+    box.classList.toggle('missing', miss);
+    if (miss && !first) first = box;
+  }
+  return first;
+}
+async function copyText(t) {
+  try { await navigator.clipboard.writeText(t); return true; } catch (e) {}
+  const ta = $('#result-text');
+  ta.focus(); ta.select();
+  try { return document.execCommand('copy'); } catch (e) { return false; }
+}
+$('#btn-submit').addEventListener('click', async () => {
+  const miss = markMissing();
+  if (miss) {
+    miss.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    toast('还有必答题没选（红框那几道）');
+    return;
+  }
+  const text = summary();
+  $('#result-text').value = text;
+  $('#result').classList.add('show');
+  $('#result').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  const ok = await copyText(text);
+  toast(ok ? '已复制 ✅ 去群里/公众号粘贴发送吧' : '已生成，请手动全选复制');
+  try { localStorage.setItem(DRAFT_KEY + '-done', text); } catch (e) {}
+});
+$('#btn-copy').addEventListener('click', async () => {
+  const ok = await copyText($('#result-text').value);
+  toast(ok ? '已复制 ✅' : '复制失败，请手动全选复制');
+});
+$('#btn-back').addEventListener('click', () => {
+  $('#result').classList.remove('show');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+});
+$('#btn-clear').addEventListener('click', () => {
+  if (!confirm('清空所有已填的答案，重新填？')) return;
+  form.reset();
+  try { localStorage.removeItem(DRAFT_KEY); } catch (e) {}
+  $('#result').classList.remove('show');
+  document.querySelectorAll('.q.missing').forEach((x) => x.classList.remove('missing'));
+  countAnswered();
+  toast('已清空');
+});
+</script>
+</body></html>
