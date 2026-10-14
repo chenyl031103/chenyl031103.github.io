@@ -680,7 +680,8 @@
             // 工具推导"必定不是钻石"：不画 X，直接按概率格显示 0%（蓝瓦片 + 角标）
             cls += ' say-prob prob-lo';
             badge = '0%';
-          } else if (res.probs && res.probs[i] != null && showProb && clueLess(i)) {
+          } else if (res.probs && res.probs[i] != null && showProb && clueLess(i) && v !== 'G' && v !== 'D') {
+            // 注意：已找到/自己标的钻石不是"数字格"，但已经确定了 —— 不能再挂一个密度概率（用户反馈过）
             const p = res.probs[i];
             // 分档以「显示出来的整数百分比」为准，避免出现"显示33%却是低概率蓝色"这种不一致
             const pct = Math.round(p * 100);
@@ -1549,6 +1550,17 @@
       clearAll();
       toast(settle() ? t('reset.done') : t('reset.empty'));
     });
+    // 取值卡开着时，点"卡片以外、且不是正在编辑那格、也不是下方输入栏"的地方就收起它
+    //（以前只有"选值/Esc"才关，点别处一直挂着 —— 用户反馈）
+    document.addEventListener('pointerdown', (e) => {
+      if (S.awaiting < 0) return;
+      const t = e.target;
+      if (!t || typeof t.closest !== 'function') return;
+      if (t.closest('#reveal-bar, .palette, .verdict-bar, .map-bar, .topbar, .board-tools')) return;   // 卡片与输入栏：保留
+      const cell = t.closest('.cell');
+      if (cell && Number(cell.dataset.i) === S.awaiting) return;                                      // 点正在编辑的这格：保留
+      closeRevealBar();
+    }, true);
     $('#btn-undo').addEventListener('click', undo);
     const cbGameHint = $('#cb-game-hint');
     if (cbGameHint) {
