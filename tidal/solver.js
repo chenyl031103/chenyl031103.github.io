@@ -594,7 +594,7 @@
     const { rows, cols, grid } = S;
     // 游戏模式下不叠加任何分析标记（否则会把上一次分析的结果画到游戏盘上）
     // 例外：潮汐秘境 + 开了「自动提示」——这时就是要显示概率与推荐格
-    const gameHintOn = !!(S.game && S.game.kind === 'tidal' && S.game.hint && !S.game.over);
+    const gameHintOn = !!(S.game && S.game.hint && !S.game.over);
     const res = S.game ? (gameHintOn ? S.result : null) : S.result;
     const hasClue = boardHasClue();
     const showProb = hasClue && parseFloat(getComputedStyle(el.board).getPropertyValue('--cell')) >= 26;
@@ -618,7 +618,7 @@
     //   ① 已经能确定的钻石（直接去挖）② 概率最高的那一格（赌一把的靶子）
     // 空盘/还没线索时退化成"第一手点哪"（棋盘中心）。
     // 注意：不闪"必定安全"的格子 —— 那种格子是"稳着探线索"用的，和目标用户预期不符。
-    const wantHint = S.game ? (S.game.kind === 'tidal' && S.game.hint && !S.game.over) : S.autoNext;
+    const wantHint = S.game ? (S.game.hint && !S.game.over) : S.autoNext;
     let hot = -1;
     if (wantHint) {          // 计算器：关掉「自动提示」不再闪烁；游戏：由游戏条上的「自动提示」开关控制
       if (res) hot = pickHotCell(res);
@@ -673,7 +673,7 @@
           if (marked) {
             // 自己标了 ×（= 已确认没钻石），而且推导也支持 → 就是蓝叉，不再加东西
             if (res.knownGem && res.knownGem[i]) { cls += ' say-conflict'; badge = '!'; }
-          } else if (res.knownGem && res.knownGem[i] && v !== 'G') {
+          } else if (res.knownGem && res.knownGem[i] && v !== 'G' && v !== 'D') {
             cls += ' say-gem';
             content = '<svg class="tileico tile-full" aria-hidden="true"><use href="#uw-tile-check"/></svg>';
           } else if (res.knownSafe && res.knownSafe[i]) {
@@ -1556,7 +1556,7 @@
       if (S.awaiting < 0) return;
       const t = e.target;
       if (!t || typeof t.closest !== 'function') return;
-      if (t.closest('#reveal-bar, .palette, .verdict-bar, .map-bar, .topbar, .board-tools')) return;   // 卡片与输入栏：保留
+      if (t.closest('#reveal-bar, .palette')) return;   // 只豁免卡片本身与下方输入栏（点顶栏/信息条/别处都收起）
       const cell = t.closest('.cell');
       if (cell && Number(cell.dataset.i) === S.awaiting) return;                                      // 点正在编辑的这格：保留
       closeRevealBar();
@@ -1567,7 +1567,6 @@
       cbGameHint.addEventListener('change', () => {
         if (!S.game) return;
         S.game.hint = !!cbGameHint.checked;
-        try { localStorage.setItem('tidal_game_hint', S.game.hint ? '1' : '0'); } catch (e) {}
         toast(S.game.hint ? '已开启自动提示：闪烁推荐格 + 显示每格概率' : '已关闭自动提示', '');
         renderGame();
       });
@@ -1829,16 +1828,15 @@
     if (kind === 'mine') {
       const lv = MINE_LEVELS[Number(arg)] || MINE_LEVELS[1];
       setBoardSize(lv.rows, lv.cols);
-      S.game = Object.assign(common, { kind: 'mine', name: lv.name, rows: lv.rows, cols: lv.cols, count: lv.mines, mine: null, adj: null, nbrs: null });
+      S.game = Object.assign(common, { kind: 'mine', name: lv.name, rows: lv.rows, cols: lv.cols, count: lv.mines, mine: null, adj: null, nbrs: null, hint: false });
       document.body.classList.add('is-mine-game');
     } else {
       const n = TIDAL_SIZES.indexOf(Number(arg)) >= 0 ? Number(arg) : (TIDAL_SIZES.indexOf(S.rows) >= 0 ? S.rows : 8);
       setBoardSize(n, n);
       const gems = GEM_TOTAL[n];
       const b = makeBoard(n, n, gems);
-      let hintOn = false;
-      try { hintOn = localStorage.getItem('tidal_game_hint') === '1'; } catch (e) {}
-      S.game = Object.assign(common, { kind: 'tidal', rows: n, cols: n, gems, mine: b.mine, adj: b.adj, nbrs: b.nbrs, found: new Set(), wrong: 0, hint: hintOn });
+      // 「自动提示」每次进游戏默认关闭（不做记忆，想要就自己打开）
+      S.game = Object.assign(common, { kind: 'tidal', rows: n, cols: n, gems, mine: b.mine, adj: b.adj, nbrs: b.nbrs, found: new Set(), wrong: 0, hint: false });
       document.body.classList.remove('is-mine-game');
     }
     S.cursor = -1;
@@ -1901,10 +1899,12 @@
     S.aiCells.clear();
     S.unsure.clear();
     document.body.classList.toggle('is-mine-game', isMineMode);
-    // 潮汐秘境 + 打开「自动提示」：跑一次求解器，让 paint 画概率与金色闪烁推荐格（扫雷模式不给答案）
-    if (!isMineMode && g.hint && !g.over && typeof window.TidalSolver !== 'undefined') {
+    // 打开「自动提示」：跑一次求解器，让 paint 画概率与金色闪烁推荐格（默认关闭，开了才显示）
+    if (g.hint && !g.over && typeof window.TidalSolver !== 'undefined') {
+      // 扫雷里的旗子(F)对求解器来说等于"确定没雷"，转成 ×；钻石(D)求解器已认识
+      const cellsForSolver = isMineMode ? S.grid.map((row) => row.map((v) => (v === 'F' ? 'X' : v))) : S.grid;
       try {
-        S.result = window.TidalSolver.solve({ rows: g.rows, cols: g.cols, cells: S.grid, gemTotal: g.gems, trustMarks: true });
+        S.result = window.TidalSolver.solve({ rows: g.rows, cols: g.cols, cells: cellsForSolver, gemTotal: isMineMode ? g.count : g.gems, trustMarks: true });
       } catch (e) { S.result = null; }
     } else {
       S.result = null;
@@ -1956,8 +1956,8 @@
     show('#gb-left-wrap', isMine);
     show('#gb-gem-wrap', !isMine);
     show('#gb-open-wrap', true);
-    show('#gb-cost-wrap', !isMine);
-    show('#gb-hint-switch', !isMine);
+    show('#gb-cost-wrap', !isMine);      // 成本三件只在潮汐秘境（口径是"票/钻石"）
+    show('#gb-hint-switch', true);        // 自动提示两种玩法都能开（默认关闭）
     show('#gb-time-wrap', isMine);
     show('#gb-marks-wrap', !isMine);
     show('#gb-wrong-wrap', !isMine && g.wrong > 0);
@@ -1978,9 +1978,9 @@
       if (tk) tk.textContent = String(tickets);
       if (sp) sp.textContent = (tickets * 1500).toLocaleString('en-US');
       if (pg) pg.textContent = found > 0 ? (tickets / found).toFixed(2) : '—';
-      const cb = $('#cb-game-hint');
-      if (cb) cb.checked = !!g.hint;
     }
+    const cb = $('#cb-game-hint');      // 两种玩法都同步勾选状态（默认关闭）
+    if (cb) cb.checked = !!g.hint;
   }
 
   /** 标记：扫雷循环 🚩 → ❓ → 无；潮汐秘境是 × 的开关 */
@@ -2134,7 +2134,7 @@
   }
 
   /* ---------- 弹窗 ---------- */
-  function openModal(html) { MODAL_REFRESH = null; el.modalBox.innerHTML = html; el.modal.hidden = false; }
+  function openModal(html) { closeRevealBar(); MODAL_REFRESH = null; el.modalBox.innerHTML = html; el.modal.hidden = false; }   // 弹窗一开就把取值卡收掉
   function closeModal() { el.modal.hidden = true; MODAL_REFRESH = null; }
   function openModalWith(render, reshow) {
     MODAL_REFRESH = reshow || (() => openModalWith(render, reshow));

@@ -49,7 +49,7 @@
       for (let c = 0; c < cols; c++) {
         const v = row[c];
         const i = r * cols + c;
-        if (v === 'G' || v === 9 || v === 'gem' || v === 'GEM') givenGem[i] = 1;
+        if (v === 'G' || v === 'D' || v === 9 || v === 'gem' || v === 'GEM') givenGem[i] = 1;   // 游戏模式里已找到的钻石是 'D'
         else if (v === 'X' || v === 10 || v === 'x') markedX[i] = 1;
         else if (typeof v === 'number' && v >= 0 && v <= 8) clue[i] = v;
         else clue[i] = HIDDEN;
