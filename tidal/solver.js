@@ -160,6 +160,10 @@
       'game.winMine': '通关了！',
       'game.loseMine': '踩到雷了',
       'game.winTidal': '钻石全找出来了！',
+      'game.sumTitleQuit': '本局结束',
+      'game.statFound': '已找出钻石',
+      'game.confirm': '确认',
+      'game.sumExitHint': '点「确认」或右上角 ✕ 即结束本局，界面回到计算器。',
       'game.again': '再来一局',
       'game.quitToastMine': '已退出扫雷',
       'game.quitToast': '已退出游戏模式',
@@ -292,6 +296,10 @@
       'game.winMine': 'Cleared!',
       'game.loseMine': 'Boom — you hit a mine',
       'game.winTidal': 'All gems found!',
+      'game.sumTitleQuit': 'Game ended',
+      'game.statFound': 'Gems found',
+      'game.confirm': 'OK',
+      'game.sumExitHint': 'Click OK or ✕ to end this round and return to the calculator.',
       'game.again': 'Play again',
       'game.quitToastMine': 'Minesweeper closed',
       'game.quitToast': 'Play mode closed',
@@ -1594,10 +1602,21 @@
     $('#btn-sample').addEventListener('click', openGameChooser);
     $('#btn-game-restart').addEventListener('click', () => startGame(S.game ? S.game.kind : 'tidal', S.game ? S.game.n : 0));
     $('#btn-game-switch').addEventListener('click', openGameChooser);
-    $('#btn-game-quit').addEventListener('click', quitGame);
+    $('#btn-game-quit').addEventListener('click', () => {
+      const g = S.game;
+      // 潮汐秘境：先把本局战果结出来，点「确认」或 ✕ 再真正退出（界面重置）；扫雷保持一键退出
+      if (g && g.kind !== 'mine' && !g.over) { tidalSummaryCard(t('game.sumTitleQuit'), []); return; }
+      quitGame();
+    });
 
     el.modal.addEventListener('click', (e) => {
-      if (e.target.closest('[data-close]')) closeModal();
+      const cl = e.target.closest('[data-close]');
+      if (cl) {
+        const exit = cl.hasAttribute('data-quit-exit');   // 结算卡：关闭 = 结束本局（界面重置）
+        closeModal();
+        if (exit) quitGame();
+        return;
+      }
       const play = e.target.closest('[data-play]');
       if (play) { startGame(play.dataset.play, Number(play.dataset.arg)); return; }
       if (e.target.closest('#btn-game-again')) { closeModal(); startGame(S.game ? S.game.kind : 'tidal', S.game ? S.game.n : 0); }
@@ -2061,6 +2080,34 @@
     if (g.found.size >= g.gems) { g.over = 'shown'; return endGame(true); }
   }
 
+  /** 潮汐秘境的结算卡：战果数字 + 关掉它就等于结束本局（界面重置） */
+  function tidalSummaryCard(title, lines) {
+    const g = S.game;
+    if (!g) return;
+    const tickets = g.opened.size, found = g.found.size;
+    const per = found > 0 ? (tickets / found).toFixed(2) : '—';
+    const stat = `${t('game.statFound')} <b>${found}</b>/${g.gems} · ${t('gb.tickets')} <b>${tickets}</b> · ` +
+      `${t('gb.spent')} <b>${(tickets * 1500).toLocaleString('en-US')}</b> · ${t('gb.perGem')} <b>${per}</b> ${t('gb.perGemUnit')}`;
+    const extra = (lines || []).map((x) => `<p>${x}</p>`).join('');
+    openModal(`
+      <div class="modal-head">
+        <h3>${title}</h3>
+        <button class="modal-close" data-close data-quit-exit type="button">✕</button>
+      </div>
+      <div class="rules">
+        <section>
+          <p class="sum-line">${stat}</p>
+          ${extra}
+          <p>${t('game.sumExitHint')}</p>
+        </section>
+      </div>
+      <div class="modal-actions">
+        <button class="ghost-btn" id="btn-game-again" type="button">${t('game.again')}</button>
+        <button class="ghost-btn sm" id="btn-game-other" type="button">${t('gb.switch')}</button>
+        <button class="ghost-btn sm" id="btn-game-quit" type="button">${t('game.confirm')}</button>
+      </div>`);
+  }
+
   function endGame(win) {
     const g = S.game;
     if (!g) return;
@@ -2078,6 +2125,7 @@
            g.wrong ? `${g.wrong} × marks were on actual gems.` : 'And not a single × was wrong.']
         : [`${g.rows}×${g.cols}，共 ${g.gems} 颗钻石。一共翻开 <b>${g.opened.size}</b> 格，钻石全找齐了。`,
            g.wrong ? `中间有 ${g.wrong} 个 × 标在了钻石上（标错了）。` : '而且一个 × 都没标错。']);
+    if (!isMine) { tidalSummaryCard(title, lines); return; }
     openModal(`
       <div class="modal-head">
         <h3>${title}</h3>
