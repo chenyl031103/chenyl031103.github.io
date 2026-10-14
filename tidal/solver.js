@@ -1570,7 +1570,12 @@
     });
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') { closeRevealBar(); closeModal(); }
-      if (e.target && /INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) return;
+      // 只有"真在输入文字"的控件才忽略快捷键 —— 勾选框（如「自动提示」）和按钮不该让键盘失灵
+      const tt = e.target;
+      const typing = tt && (tt.tagName === 'TEXTAREA' ||
+        (tt.tagName === 'INPUT' && !/^(checkbox|radio|button|submit|reset|file)$/i.test(tt.type || 'text')) ||
+        tt.isContentEditable);
+      if (typing) return;
       if (!el.modal.hidden) return;
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); if (!S.game) undo(); return; }
       if (e.ctrlKey || e.metaKey || e.altKey) return;
@@ -1578,7 +1583,11 @@
 
       const cols = S.cols, rows = S.rows;
       const setCell = (v) => {
-        if (S.cursor < 0) { toast('先用鼠标点一个格子选中它', 'warn'); return; }
+        if (S.cursor < 0) {
+          // 和"点下面那排数字"一致：还没选就落到推荐格（没有再退回棋盘中心）
+          const h = pickHotCell(S.result);
+          S.cursor = h >= 0 ? h : Math.floor(rows / 2) * cols + Math.floor(cols / 2);
+        }
         const r = (S.cursor / cols) | 0, c = S.cursor % cols;
         mark();
         S.grid[r][c] = v;
@@ -1612,6 +1621,9 @@
       }
 
       const k = e.key;
+      // 焦点在面板按钮（笔刷/撤销/重置等，格子和格子本身除外）上时，Enter/空格按原生行为走，
+      // 免得"按一下既触发按钮又填一格"
+      if (k === 'Enter' && tt && tt.tagName === 'BUTTON' && !tt.classList.contains('cell')) return;
       if (k >= '0' && k <= '8') { e.preventDefault(); setCell(Number(k)); return; }
       if (k === 'Enter') { e.preventDefault(); setCell('G'); return; }
       if (k === 'x' || k === 'X') { e.preventDefault(); setCell('X'); return; }
