@@ -111,7 +111,13 @@
       'advice.dig': function (hi, hp, why, safe) { return '没有能确定的钻石：想挖钻石就点 ' + hi + '（含钻石 ' + hp + '%' + why + '）；想稳一点先翻开 ' + safe + '（必定不是钻石，可扩开线索）'; },
       'advice.safeSuffix': function (p, q) { return p + '（' + q + '%）'; },
       'advice.dash': '—',
-      'gb.left': '剩余', 'gb.mines': '颗雷', 'gb.found': '已找到钻石', 'gb.opened': '已翻开',
+      'gb.left': '剩余',
+      'gb.tickets': '用票',
+      'gb.spent': '已用钻石',
+      'gb.perGem': '平均',
+      'gb.perGemUnit': '票/宝石',
+      'gb.hintSwitch': '自动提示',
+      'gb.hintSwitch.tip': '打开后：自动闪烁推荐格 + 每格显示含钻概率', 'gb.mines': '颗雷', 'gb.found': '已找到钻石', 'gb.opened': '已翻开',
       'gb.marks': '× 标记', 'gb.wrong': '其中标错', 'gb.wrongUnit': '个',
       'gb.restart': '重开一局', 'gb.switch': '换玩法', 'gb.quit': '退出游戏',
       'ocr.title': '截图识别 · 自动填入棋盘',
@@ -237,7 +243,13 @@
       'advice.dig': function (hi, hp, why, safe) { return 'No certain gem: dig ' + hi + ' (' + hp + '% gem' + why + '); or play safe and open ' + safe + ' (definitely no gem, expands clues)'; },
       'advice.safeSuffix': function (p, q) { return p + ' (' + q + '%)'; },
       'advice.dash': '—',
-      'gb.left': 'Mines left', 'gb.mines': '', 'gb.found': 'Gems found', 'gb.opened': 'Opened',
+      'gb.left': 'Mines left',
+      'gb.tickets': 'Tickets',
+      'gb.spent': 'Diamonds',
+      'gb.perGem': 'avg',
+      'gb.perGemUnit': 'tickets/gem',
+      'gb.hintSwitch': 'Auto-hint',
+      'gb.hintSwitch.tip': 'When on: flash the recommended cell and show per-cell gem probability', 'gb.mines': '', 'gb.found': 'Gems found', 'gb.opened': 'Opened',
       'gb.marks': '× marks', 'gb.wrong': 'wrong', 'gb.wrongUnit': '',
       'gb.restart': 'Restart', 'gb.switch': 'Change mode', 'gb.quit': 'Quit',
       'ocr.title': 'Screenshot OCR · auto-fill the board',
@@ -581,7 +593,9 @@
   function paint() {
     const { rows, cols, grid } = S;
     // 游戏模式下不叠加任何分析标记（否则会把上一次分析的结果画到游戏盘上）
-    const res = S.game ? null : S.result;
+    // 例外：潮汐秘境 + 开了「自动提示」——这时就是要显示概率与推荐格
+    const gameHintOn = !!(S.game && S.game.kind === 'tidal' && S.game.hint && !S.game.over);
+    const res = S.game ? (gameHintOn ? S.result : null) : S.result;
     const hasClue = boardHasClue();
     const showProb = hasClue && parseFloat(getComputedStyle(el.board).getPropertyValue('--cell')) >= 26;
     // 概率画在"没有数字线索的格子"上（未翻开且不是数字/钻石/×）：概率本身就只是这些格子的性质
@@ -604,8 +618,9 @@
     //   ① 已经能确定的钻石（直接去挖）② 概率最高的那一格（赌一把的靶子）
     // 空盘/还没线索时退化成"第一手点哪"（棋盘中心）。
     // 注意：不闪"必定安全"的格子 —— 那种格子是"稳着探线索"用的，和目标用户预期不符。
+    const wantHint = S.game ? (S.game.kind === 'tidal' && S.game.hint && !S.game.over) : S.autoNext;
     let hot = -1;
-    if (!S.game && S.autoNext) {          // 关掉「自动提示」＝不再闪烁提示框（建议仍在下方文字里）
+    if (wantHint) {          // 计算器：关掉「自动提示」不再闪烁；游戏：由游戏条上的「自动提示」开关控制
       if (res) hot = pickHotCell(res);
       // 兜底（概率全 0 / 没有候选）：还是给个"第一手"——棋盘中心
       if (hot < 0) hot = Math.round((rows - 1) / 2) * cols + Math.round((cols - 1) / 2);
@@ -1535,6 +1550,16 @@
       toast(settle() ? t('reset.done') : t('reset.empty'));
     });
     $('#btn-undo').addEventListener('click', undo);
+    const cbGameHint = $('#cb-game-hint');
+    if (cbGameHint) {
+      cbGameHint.addEventListener('change', () => {
+        if (!S.game) return;
+        S.game.hint = !!cbGameHint.checked;
+        try { localStorage.setItem('tidal_game_hint', S.game.hint ? '1' : '0'); } catch (e) {}
+        toast(S.game.hint ? '已开启自动提示：闪烁推荐格 + 显示每格概率' : '已关闭自动提示', '');
+        renderGame();
+      });
+    }
     const framesBtn = $('#btn-clear-frames');
     if (framesBtn) framesBtn.addEventListener('click', clearFrames);
     const wxBtn = $('#btn-wx');
@@ -1799,7 +1824,9 @@
       setBoardSize(n, n);
       const gems = GEM_TOTAL[n];
       const b = makeBoard(n, n, gems);
-      S.game = Object.assign(common, { kind: 'tidal', rows: n, cols: n, gems, mine: b.mine, adj: b.adj, nbrs: b.nbrs, found: new Set(), wrong: 0 });
+      let hintOn = false;
+      try { hintOn = localStorage.getItem('tidal_game_hint') === '1'; } catch (e) {}
+      S.game = Object.assign(common, { kind: 'tidal', rows: n, cols: n, gems, mine: b.mine, adj: b.adj, nbrs: b.nbrs, found: new Set(), wrong: 0, hint: hintOn });
       document.body.classList.remove('is-mine-game');
     }
     S.cursor = -1;
@@ -1862,6 +1889,14 @@
     S.aiCells.clear();
     S.unsure.clear();
     document.body.classList.toggle('is-mine-game', isMineMode);
+    // 潮汐秘境 + 打开「自动提示」：跑一次求解器，让 paint 画概率与金色闪烁推荐格（扫雷模式不给答案）
+    if (!isMineMode && g.hint && !g.over && typeof window.TidalSolver !== 'undefined') {
+      try {
+        S.result = window.TidalSolver.solve({ rows: g.rows, cols: g.cols, cells: S.grid, gemTotal: g.gems, trustMarks: true });
+      } catch (e) { S.result = null; }
+    } else {
+      S.result = null;
+    }
     paint();
     updateGameBar();
     setAdvice(isMineMode ? t('game.adviceMine') : t('game.adviceTidal'));
@@ -1909,6 +1944,8 @@
     show('#gb-left-wrap', isMine);
     show('#gb-gem-wrap', !isMine);
     show('#gb-open-wrap', true);
+    show('#gb-cost-wrap', !isMine);
+    show('#gb-hint-switch', !isMine);
     show('#gb-time-wrap', isMine);
     show('#gb-marks-wrap', !isMine);
     show('#gb-wrong-wrap', !isMine && g.wrong > 0);
@@ -1923,6 +1960,14 @@
       $('#gb-total').textContent = g.gems;
       $('#gb-marks').textContent = Object.keys(g.marks).length;
       $('#gb-wrong').textContent = g.wrong || 0;
+      // 成本三件：每翻开一格算 1 票（× 和没翻开不算），钻石数=已找到；1 票 = 1500 钻石
+      const tickets = g.opened.size, found = g.found.size;
+      const tk = $('#gb-tickets'), sp = $('#gb-spent'), pg = $('#gb-per-gem');
+      if (tk) tk.textContent = String(tickets);
+      if (sp) sp.textContent = (tickets * 1500).toLocaleString('en-US');
+      if (pg) pg.textContent = found > 0 ? (tickets / found).toFixed(2) : '—';
+      const cb = $('#cb-game-hint');
+      if (cb) cb.checked = !!g.hint;
     }
   }
 

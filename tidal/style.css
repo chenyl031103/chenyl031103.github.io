@@ -1366,3 +1366,8 @@ body.use-tile-art:not(.is-mine-game) #board {
 /* 动作组容器：整组一起靠右；放不下时整组换行（不会被拆成两半） */
 .palette .palette-actions { display: flex; align-items: center; gap: 5px; flex: none; flex-wrap: nowrap; }
 @media (max-width: 640px) { .palette .palette-actions { gap: 4px; } }
+
+/* ---------- 游戏条上的「自动提示」开关 ---------- */
+.gb-hint-switch { display: inline-flex; align-items: center; gap: 5px; cursor: pointer; font-size: 0.86rem; color: var(--text-secondary); }
+.gb-hint-switch input { width: 15px; height: 15px; }
+.gb-hint-switch:hover { color: var(--text-primary); }
