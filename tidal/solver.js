@@ -1828,7 +1828,7 @@
     if (kind === 'mine') {
       const lv = MINE_LEVELS[Number(arg)] || MINE_LEVELS[1];
       setBoardSize(lv.rows, lv.cols);
-      S.game = Object.assign(common, { kind: 'mine', name: lv.name, rows: lv.rows, cols: lv.cols, count: lv.mines, mine: null, adj: null, nbrs: null, hint: false });
+      S.game = Object.assign(common, { kind: 'mine', name: lv.name, level: lv.lv, rows: lv.rows, cols: lv.cols, count: lv.mines, mine: null, adj: null, nbrs: null, hint: false });
       document.body.classList.add('is-mine-game');
     } else {
       const n = TIDAL_SIZES.indexOf(Number(arg)) >= 0 ? Number(arg) : (TIDAL_SIZES.indexOf(S.rows) >= 0 ? S.rows : 8);
