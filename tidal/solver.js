@@ -594,7 +594,7 @@
     const { rows, cols, grid } = S;
     // 游戏模式下不叠加任何分析标记（否则会把上一次分析的结果画到游戏盘上）
     // 例外：潮汐秘境 + 开了「自动提示」——这时就是要显示概率与推荐格
-    const gameHintOn = !!(S.game && S.game.hint && !S.game.over);
+    const gameHintOn = !!(S.game && S.game.kind !== 'mine' && S.game.hint && !S.game.over);
     const res = S.game ? (gameHintOn ? S.result : null) : S.result;
     const hasClue = boardHasClue();
     const showProb = hasClue && parseFloat(getComputedStyle(el.board).getPropertyValue('--cell')) >= 26;
@@ -618,7 +618,7 @@
     //   ① 已经能确定的钻石（直接去挖）② 概率最高的那一格（赌一把的靶子）
     // 空盘/还没线索时退化成"第一手点哪"（棋盘中心）。
     // 注意：不闪"必定安全"的格子 —— 那种格子是"稳着探线索"用的，和目标用户预期不符。
-    const wantHint = S.game ? (S.game.hint && !S.game.over) : S.autoNext;
+    const wantHint = S.game ? (S.game.kind !== 'mine' && S.game.hint && !S.game.over) : S.autoNext;
     let hot = -1;
     if (wantHint) {          // 计算器：关掉「自动提示」不再闪烁；游戏：由游戏条上的「自动提示」开关控制
       if (res) hot = pickHotCell(res);
@@ -1899,12 +1899,10 @@
     S.aiCells.clear();
     S.unsure.clear();
     document.body.classList.toggle('is-mine-game', isMineMode);
-    // 打开「自动提示」：跑一次求解器，让 paint 画概率与金色闪烁推荐格（默认关闭，开了才显示）
-    if (g.hint && !g.over && typeof window.TidalSolver !== 'undefined') {
-      // 扫雷里的旗子(F)对求解器来说等于"确定没雷"，转成 ×；钻石(D)求解器已认识
-      const cellsForSolver = isMineMode ? S.grid.map((row) => row.map((v) => (v === 'F' ? 'X' : v))) : S.grid;
+    // 打开「自动提示」（仅潮汐秘境）：跑一次求解器，让 paint 画概率与金色闪烁推荐格
+    if (!isMineMode && g.hint && !g.over && typeof window.TidalSolver !== 'undefined') {
       try {
-        S.result = window.TidalSolver.solve({ rows: g.rows, cols: g.cols, cells: cellsForSolver, gemTotal: isMineMode ? g.count : g.gems, trustMarks: true });
+        S.result = window.TidalSolver.solve({ rows: g.rows, cols: g.cols, cells: S.grid, gemTotal: g.gems, trustMarks: true });
       } catch (e) { S.result = null; }
     } else {
       S.result = null;
@@ -1957,7 +1955,7 @@
     show('#gb-gem-wrap', !isMine);
     show('#gb-open-wrap', true);
     show('#gb-cost-wrap', !isMine);      // 成本三件只在潮汐秘境（口径是"票/钻石"）
-    show('#gb-hint-switch', true);        // 自动提示两种玩法都能开（默认关闭）
+    show('#gb-hint-switch', !isMine);     // 自动提示只给潮汐秘境（扫雷不需要）
     show('#gb-time-wrap', isMine);
     show('#gb-marks-wrap', !isMine);
     show('#gb-wrong-wrap', !isMine && g.wrong > 0);
