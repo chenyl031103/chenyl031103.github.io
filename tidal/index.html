@@ -7,7 +7,7 @@
 <meta name="description" content="《弹壳特攻队》潮汐秘境计算器：把当前棋盘的数字、钻石、× 标记填进来，自动推出哪些格子必定是钻石、哪些必定不是钻石、下一步先点哪里。支持上传截图自动识别。">
 <meta name="theme-color" content="#0f1923">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext y='25' font-size='25'%3E%F0%9F%92%8E%3C/text%3E%3C/svg%3E">
-<link rel="stylesheet" href="style.css?vmv94a8lg">
+<link rel="stylesheet" href="style.css?vmv94gzru">
 <script>var t=localStorage.getItem('theme')||'dark';document.documentElement.setAttribute('data-theme',t);/* 默认深色（护眼），右上角可切换 */</script>
 </head>
 <body>
@@ -125,14 +125,14 @@
         <button class="brush brush-num" data-brush="8" type="button">8</button>
       </span>
       <span class="palette-actions">
-        <button class="brush brush-act" id="btn-undo" type="button" disabled title="撤销上一步改动（Ctrl+Z）" data-i18n-title="vb.undo.tip"><span data-i18n="vb.undo">撤销</span></button>
-        <button class="brush brush-act is-danger" id="btn-clear" type="button" title="重置整个棋盘（会二次确认；可撤销）" data-i18n-title="vb.clear.tip"><span data-i18n="vb.clear">重置</span></button>
-        <label class="rec-card" title="打开：单击格子弹出选项框（默认）；关闭：单击只选中，用下方数字 / 键盘填，不弹框" data-i18n-title="rec.card.tip">
-          <input type="checkbox" id="cb-click-card" checked> <span data-i18n="rec.card">弹框</span>
+        <label class="rec-card" title="打开：单击格子弹出选项卡片（默认）；关闭：单击只选中，用下方数字 / 键盘填，不弹卡片" data-i18n-title="rec.card.tip">
+          <input type="checkbox" id="cb-click-card" checked> <span data-i18n="rec.card">选项卡片</span>
         </label>
         <label class="rec-auto" title="录入一个格子后自动提示下一个推荐格（点 0 展开一片时可以关掉，逐个点选）" data-i18n-title="rec.auto.tip">
           <input type="checkbox" id="cb-auto-next" checked> <span data-i18n="rec.auto">自动提示</span>
         </label>
+        <button class="brush brush-act" id="btn-undo" type="button" disabled title="撤销上一步改动（Ctrl+Z）" data-i18n-title="vb.undo.tip"><span data-i18n="vb.undo">撤销</span></button>
+        <button class="brush brush-act is-danger" id="btn-clear" type="button" title="重置整个棋盘（会二次确认；可撤销）" data-i18n-title="vb.clear.tip"><span data-i18n="vb.clear">重置</span></button>
       </span>
       <span class="palette-tip" data-i18n="palette.tip">单击选中格子 → 键盘 0-8 填数字、Enter 钻石、X 标×、Delete 清除 · 双击也可选值 · 右键快速标钻石</span>
     </div>
@@ -200,9 +200,9 @@
 <script>window.TIDAL_OCR = false;/* 有没有同源服务器识别：静态托管版由构建脚本改成 false */</script>
 <script>window.TIDAL_OCR_MODE = 'local';/* 'local'（只本机识别）| 'server'（只服务器）| 'off'（关掉）；静态版构建时写成 local */</script>
 <script>window.TIDAL_OCR_URL = 'http://chenyl.free.idcfengye.com/';/* 静态版构建时填入「带截图识别的网址」 */</script>
-<script src="sweeper-icons.js?vmv94a8lg"></script>
-<script src="vision.js?vmv94a8lg"></script>
-<script src="solver-core.js?vmv94a8lg"></script>
-<script src="solver.js?vmv94a8lg"></script>
+<script src="sweeper-icons.js?vmv94gzru"></script>
+<script src="vision.js?vmv94gzru"></script>
+<script src="solver-core.js?vmv94gzru"></script>
+<script src="solver.js?vmv94gzru"></script>
 </body>
 </html>

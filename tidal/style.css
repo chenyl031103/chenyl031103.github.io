@@ -767,7 +767,7 @@ main {
   .palette > * { flex: none; }
   .palette-label { display: none; }              /* 「单击涂」标签省掉，腾地方 */
   .palette #brush-nums { order: 9; flex-basis: 100%; gap: 3px; }
-  .palette .rec-auto { margin-left: auto; }      /* 自动跳转留在第一行右侧 */
+  .palette .rec-card { margin-left: auto; }      /* 两个开关 + 撤销/重置 留在第一行右侧 */
   .palette-tip { display: none; }
   .brush { height: 30px; min-width: 30px; padding: 0 8px; }
   .brush-num { width: 28px; }
@@ -1219,8 +1219,8 @@ body.is-mine-game #chip-gem-progress, body.is-mine-game #chip-cost { display: no
 .rec-auto input { accent-color: var(--accent); }
 
 /* 笔刷栏挪到棋盘下方后：顺手把"自动跳转"开关排好 */
-.palette .rec-auto { margin-left: auto; }
-@media (max-width: 640px) { .palette .rec-auto { margin-left: 0; } }
+.palette .rec-card { margin-left: auto; }
+@media (max-width: 640px) { .palette .rec-card { margin-left: 0; } }
 
 /* 重置按钮：二次确认时的醒目态 */
 .ghost-btn.is-armed { background: var(--danger) !important; color: var(--ink-on-warn) !important; border-color: var(--danger) !important; }
@@ -1392,3 +1392,10 @@ body.use-tile-art:not(.is-mine-game) #board {
 .rec-card { display: inline-flex; align-items: center; gap: 5px; font-size: 0.78rem;
             color: var(--text-muted); cursor: pointer; user-select: none; }
 .rec-card input { accent-color: var(--accent); }
+
+/* 手机：把「选项卡片 / 自动提示 / 撤销 / 重置」这一组和左边的 ×/清除/💎 挤在一行（字保持够大，只收边距） */
+@media (max-width: 640px) {
+  .palette { gap: 5px 4px; padding: 8px 7px; }
+  .palette .rec-card, .palette .rec-auto { font-size: 0.76rem; gap: 4px; }
+  .palette-actions .brush-act { padding: 0 5px; }
+}

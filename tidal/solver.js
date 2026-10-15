@@ -62,7 +62,7 @@
       'palette.x.tip': '把选中的格子标成 ×',
       'palette.clear.tip': '清除选中的格子',
       'palette.gem.tip': '把选中的格子标成钻石',
-      'palette.tip': '单击格子选中（右侧「弹框」开着就顺便弹选项框）→ 点下面数字 / × / 钻石 / 清除 直接填入 · 键盘：方向键换格（选中哪格就填哪格，不弹框）、0-8 填数字、Enter 钻石、X 标×、Delete 清除 · 右键快速标钻石',
+      'palette.tip': '单击格子选中（右侧「选项卡片」开着就顺便弹卡片）→ 点下面数字 / × / 钻石 / 清除 直接填入 · 键盘：方向键换格（选中哪格就填哪格，不弹框）、0-8 填数字、Enter 钻石、X 标×、Delete 清除 · 右键快速标钻石',
       'tools.tip': '调格子大小（自动按屏幕适配）',
       'tools.auto': '自动',
       'tools.auto.tip': '恢复自动适配屏幕',
@@ -79,8 +79,8 @@
       'chip.cells': '格',
       'rec.label': '建议点击',
       'rec.auto': '自动提示',
-      'rec.card': '弹框',
-      'rec.card.tip': '打开：单击格子弹出选项框（默认）；关闭：单击只选中格子，用下方数字 / 键盘填，不弹框',
+      'rec.card': '选项卡片',
+      'rec.card.tip': '打开：单击格子弹出选项卡片（默认）；关闭：单击只选中格子，用下方数字 / 键盘填，不弹卡片',
       'rec.auto.tip': '开着：默认选中推荐格 + 每次录入后选中框自动跳回推荐格（不弹卡片）。关掉：完全手动，填完停在你填的那一格',
       'vb.gem': '钻石',
       'vb.safe': '不是钻石',
@@ -218,8 +218,8 @@
       'chip.cells': 'cells',
       'rec.label': 'Suggested',
       'rec.auto': 'Auto-hint',
-      'rec.card': 'Card',
-      'rec.card.tip': 'On: clicking a cell opens the value card (default). Off: clicking only selects the cell — fill it with the bar below or the keyboard',
+      'rec.card': 'Value card',
+      'rec.card.tip': 'On: clicking a cell opens the value card (default). Off: clicking only selects the cell — fill it with the bar below or the keyboard (no card)',
       'rec.auto.tip': 'On: starts on the suggested cell and the selection returns there after each entry (no card). Off: full manual control — it stays on the cell you filled',
       'vb.gem': 'gems',
       'vb.safe': 'safe',
@@ -1428,7 +1428,7 @@
         S.clickCard = !!el.cbClickCard.checked;
         try { localStorage.setItem('tidal_clickcard', S.clickCard ? '1' : '0'); } catch (e) {}
         if (!S.clickCard) closeRevealBar();      // 关掉弹框：顺手把已经开着的卡片收起来
-        toast(S.clickCard ? '已开启：单击格子弹出选项框' : '已关闭弹框：单击只选中（用下方数字 / 键盘填）', '');
+        toast(S.clickCard ? '已开启：单击格子弹出选项卡片' : '已关闭选项卡片：单击只选中（用下方数字 / 键盘填）', '');
       });
     }
     if (el.cbAutoNext) {
