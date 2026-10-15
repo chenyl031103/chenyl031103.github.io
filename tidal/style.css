@@ -592,12 +592,13 @@ main {
 .vb b { font-size: 1rem; font-variant-numeric: tabular-nums; }
 .vb-gem .ico, .vb-gem b { color: var(--gold); }
 .vb-safe .ico, .vb-safe b { color: var(--success); }
+.vb-unknown { margin-left: auto; }        /* 「待定」贴在这一行最右边 */
 .vb-unknown b { color: var(--accent2); }
-.vb-err { margin-left: auto; color: var(--danger); }
+.vb-err { margin-left: 0; color: var(--danger); }
 .vb-err b { color: var(--danger); font-size: 0.85rem; }
 .verdict-bar .ghost-btn.sm { margin-left: 8px; padding: 6px 12px; font-size: 0.8rem; }
 /* 撤销 / 清空：放在棋盘正下方，点击区域比顶栏那种小按钮大一圈 */
-.vb-actions { margin-left: auto; display: inline-flex; align-items: center; gap: 8px; }
+.vb-actions { margin-left: 0; display: inline-flex; align-items: center; gap: 8px; }
 .vb-actions .ghost-btn { padding: 9px 16px; font-size: 0.88rem; min-height: 38px; }
 .ghost-btn.is-danger:hover { border-color: var(--danger); color: var(--danger); }
 
@@ -1398,4 +1399,12 @@ body.use-tile-art:not(.is-mine-game) #board {
   .palette { gap: 5px 4px; padding: 8px 7px; }
   .palette .rec-card, .palette .rec-auto { font-size: 0.76rem; gap: 4px; }
   .palette-actions .brush-act { padding: 0 5px; }
+}
+
+/* 手机：地图尺寸按钮（8×8 / 10×10 / 12×12）撑满第一行，剩余宝石等 chips 落到第二行 */
+@media (max-width: 640px) {
+  .map-bar { gap: 8px 10px; }
+  .status-bar .verdict-bar { flex: 1 1 100%; }   /* 结论条占满一行：「待定」贴到最右边 */
+  .map-bar .seg-sm { flex: 1 1 100%; }
+  .map-bar .seg-sm .seg-btn { flex: 1 1 0; justify-content: center; padding-left: 0; padding-right: 0; }
 }

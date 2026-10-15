@@ -948,9 +948,9 @@
 
   function renderPanels(res) {
     const c = res.counts;
-    el.vbGem.textContent = c.certainGems;
-    el.vbSafe.textContent = c.certainSafe;
-    el.vbUnknown.textContent = c.undecided;
+    if (el.vbGem) el.vbGem.textContent = c.certainGems;      // 元素可能已移除（结论条改版）
+    if (el.vbSafe) el.vbSafe.textContent = c.certainSafe;
+    if (el.vbUnknown) el.vbUnknown.textContent = c.undecided;
 
     /* 建议条 */
     const adv = adviceLine(res);
