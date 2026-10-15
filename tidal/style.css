@@ -1446,7 +1446,8 @@ body.use-tile-art:not(.is-mine-game) #board {
 
 /* 手机：棋盘底部给浮动按钮留的空收窄（46→26px），少一截空白；按钮也矮一点 */
 @media (max-width: 640px) {
-  .board-scroll { padding: 10px 10px 26px; }
-  .board-tools { right: 8px; bottom: 5px; gap: 3px; }
-  .board-tools .bb-btn { height: 24px; padding: 0 8px; font-size: 0.72rem; }
+  /* 底部留白要放得下浮动按钮（按钮高 22 + 底距 4 + 余量），别压到格子 */
+  .board-scroll { padding: 10px 10px 36px; }
+  .board-tools { right: 8px; bottom: 6px; gap: 3px; }   /* 和棋盘留 2px 视觉间隙 */
+  .board-tools .bb-btn { height: 22px; padding: 0 7px; font-size: 0.7rem; }
 }
