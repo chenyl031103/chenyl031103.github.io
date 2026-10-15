@@ -101,11 +101,11 @@
       'advice.empty': '先把残局填进来，或点右上角「随机玩一盘」体验一下。',
       'advice.full': '棋盘已填满，没有未翻开的格子了。',
       'advice.noclue0': function (w, why) { return '这张图还没开过：先点 ' + w + why + ' —— 翻开后再把盘面抄进来（或直接截图识别）'; },
-      'advice.noclue': function (w, why) { return '还没有数字线索：先点 ' + w + why + '，翻开后把翻开的数字/钻石填进来'; },
+      'advice.noclue': function (w, why) { return '还没有数字线索：先点 ' + w + why + '，翻开后把数字/钻石填进来'; },
       'advice.center9': function (r, c) { return '9×9 范围的中心格（' + r + '行' + c + '列）'; },
       'advice.center': function (r, c) { return '棋盘中心（' + r + '行' + c + '列）'; },
       'advice.cell': function (r, c) { return r + '行' + c + '列'; },
-      'advice.open3': function (n) { return '，这格周围 3×3 里有 ' + n + ' 格没翻开'; },
+      'advice.open3': function (n) { return '（周围 3×3 有 ' + n + ' 格没翻开）'; },
       'advice.gem': function (p, why) { return '先点开 ' + p + ' —— 必定是钻石（' + why + '）'; },
       'advice.gemTail': '由数字推出',
       'advice.safe': function (p, why) { return '没有能确定的钻石；先翻开 ' + p + '（必定不是钻石，可扩开线索）—— ' + why; },
@@ -244,7 +244,7 @@
       'advice.center9': function (r, c) { return 'the center of the 9×9 area (R' + r + 'C' + c + ')'; },
       'advice.center': function (r, c) { return 'the board center (R' + r + 'C' + c + ')'; },
       'advice.cell': function (r, c) { return 'R' + r + 'C' + c; },
-      'advice.open3': function (n) { return ', ' + n + ' of its 3×3 neighbours are unrevealed'; },
+      'advice.open3': function (n) { return ' (' + n + ' unrevealed in its 3×3)'; },
       'advice.gem': function (p, why) { return 'Open ' + p + ' — it must be a gem (' + why + ')'; },
       'advice.gemTail': 'from the numbers',
       'advice.safe': function (p, why) { return 'No certain gem; open ' + p + ' first (definitely safe, expands clues) — ' + why; },
@@ -1385,7 +1385,8 @@
 
       // 右键 = 快速标记 / 取消钻石
       if (e.button === 2) {
-        if (S.awaiting === i) closeRevealBar();
+        const keepCard = S.awaiting >= 0;     // 卡片开着的话，标完也让它跟着回推荐格
+        closeRevealBar();
         mark();
         S.grid[r][c] = S.grid[r][c] === 'G' ? -1 : 'G';
         S.aiCells.delete(i);
@@ -1394,6 +1395,9 @@
         paint();
         analyze();
         settle();
+        S.cursorManual = true;               // 先停在这一格
+        paint();
+        autoAdvance(keepCard);               // 「自动提示」开着：选中框跟着推荐格走，不留在这
         return;
       }
 

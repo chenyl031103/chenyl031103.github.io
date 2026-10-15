@@ -1405,3 +1405,10 @@ body.use-tile-art:not(.is-mine-game) #board {
   .map-bar .seg-sm { flex: 1 1 100%; }
   .map-bar .seg-sm .seg-btn { flex: 1 1 0; justify-content: center; padding-left: 0; padding-right: 0; }
 }
+
+/* 手机：收紧底部留白与页脚间距 —— 让「《弹壳特攻队》潮汐秘境计算器 · 海出品」完整显示 */
+@media (max-width: 640px) {
+  main { padding-bottom: 18px; }
+  .credit { margin: 2px 0 2px; }
+  .credit-wx { margin: 4px 0 2px; }
+}
