@@ -263,7 +263,7 @@ main {
   flex: 1 1 100%;          /* 自己占一整行：写全每个键的作用，不被截断 */
   min-width: 0;
   white-space: normal;
-  text-align: right;
+  text-align: center;      /* 居中显示 */
   line-height: 1.6;
 }
 @media (max-width: 640px) {

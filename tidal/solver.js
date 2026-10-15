@@ -608,6 +608,8 @@
 
   function paint() {
     const { rows, cols, grid } = S;
+    // 保险：卡片已经收起来时，待填标记一并清掉（避免格子上留一个幽灵框）
+    if (el.revealBar.hidden && S.awaiting >= 0) S.awaiting = -1;
     // 游戏模式下不叠加任何分析标记（否则会把上一次分析的结果画到游戏盘上）
     // 例外：潮汐秘境 + 开了「自动提示」——这时就是要显示概率与推荐格
     const gameHintOn = !!(S.game && S.game.kind !== 'mine' && S.game.hint && !S.game.over);
@@ -665,7 +667,7 @@
           cls += ' is-open';
           cls += ' n' + v; text = String(v);      // 0 也显示（灰色，最不显眼）
         }
-        if (i === hot) {
+        if (i === hot && v === -1) {      // 闪烁的推荐格只落在还没填的格子上
           cls += ' is-hot';
           // 闪烁颜色跟着"这一格现在的概率档位"走：高=红、中=黄、低=蓝（和格子里的百分比标签同色系）
           let tier = 'mid';
@@ -705,7 +707,7 @@
             cls += ' say-prob ' + (near1 || (!near0 && pct >= 67) ? 'prob-hi' : (near0 || pct < 33) ? 'prob-lo' : 'prob-mid');
             badge = near1 ? '≈1' : near0 ? '≈0' : pct + '%';
           }
-          if (res.pick && res.pick.i === i) cls += ' pick';
+          if (res.pick && res.pick.i === i && v === -1) cls += ' pick';   // 推荐框只画在还没填的格子上
           if (S.cursor === i) cls += ' cursor';
         }
 
@@ -771,8 +773,13 @@
    */
   function pickHotCell(res) {
     if (!res) return -1;
-    if (res.pick && res.pick.type === 'gem' && res.pick.i != null) return res.pick.i;
-    const und = res.undecided || [];
+    // 只在还没填的格子里挑（数字 / 宝石 / × 都已经填过了，不该再被选中/闪烁）
+    const isHidden = (r, c) => !!(S.grid[r] && S.grid[r][c] === -1);
+    if (res.pick && res.pick.type === 'gem' && res.pick.i != null) {
+      const r0 = (res.pick.i / S.cols) | 0, c0 = res.pick.i % S.cols;
+      if (isHidden(r0, c0)) return res.pick.i;
+    }
+    const und = (res.undecided || []).filter((u) => isHidden(u.r, u.c));
     if (!und.length) return -1;
     let maxP = 0;
     for (const u of und) if (u.p > maxP) maxP = u.p;
