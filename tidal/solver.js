@@ -131,7 +131,7 @@
       'ocr.changeImg': '换一张',
       'ocr.size1': '2. 确认这张图是哪一档地图',
       'ocr.sizeFootAuto': '默认「自动」判尺寸，认不准时再手动指定。',
-      'ocr.go1': '3. 开始识别',
+      'ocr.go1': '2. 开始识别',
       'ocr.go': '识别并填入棋盘（自动判尺寸）',
       'ocr.goN': function (n) { return '识别并填入（' + n + '×' + n + '）'; },
       'ocr.cancel': '取消识别',
@@ -270,7 +270,7 @@
       'ocr.changeImg': 'Change image',
       'ocr.size1': '2. Map size',
       'ocr.sizeFootAuto': 'Defaults to Auto; pick a size manually only if the auto-detect looks wrong.',
-      'ocr.go1': '3. Recognize',
+      'ocr.go1': '2. Recognize',
       'ocr.go': 'Recognize & fill in (auto size)',
       'ocr.goN': function (n) { return 'Recognize & fill in (' + n + '×' + n + ')'; },
       'ocr.cancel': 'Cancel',
@@ -2406,7 +2406,7 @@
         </div>`);
       return;
     }
-    S.shotSize = 0;      // 0 = 自动判尺寸（默认）
+    S.shotSize = 0;      // 恒为 0 = 自动判尺寸（尺寸选项已移除）
     S.ocrBlob = null;
     S.ocrFile = null;
     showShotModal();
@@ -2440,16 +2440,6 @@
           </div>
         </section>
         <section>
-          <h4>${t('ocr.size1')}</h4>
-          <div class="seg seg-sm" id="shot-size-seg">
-            <button class="seg-btn" data-size="0" type="button">自动</button>
-            <button class="seg-btn" data-size="8" type="button">8×8</button>
-            <button class="seg-btn" data-size="10" type="button">10×10</button>
-            <button class="seg-btn" data-size="12" type="button">12×12</button>
-          </div>
-          <p class="card-foot">${t(LOCAL_OCR ? 'ocr.sizeFootAuto' : 'ocr.sizeFootAutoServer')}</p>
-        </section>
-        <section>
           <h4>${t('ocr.go1')}</h4>
           <div class="go-row">
             <button class="btn" id="btn-ocr-go" type="button" disabled>${t('ocr.go')}</button>
@@ -2461,19 +2451,22 @@
   }
 
   function bindShotModal() {
-    const seg = $('#shot-size-seg');
+    const seg = $('#shot-size-seg');    // 尺寸选项已移除：恒为「自动判定」，识别不准就重新识别
     const markSize = () => {
+      if (!seg) return;
       seg.querySelectorAll('.seg-btn').forEach((b) => b.classList.toggle('is-on', Number(b.dataset.size) === S.shotSize));
       const go = $('#btn-ocr-go');
       if (go && S.ocrBlob) go.textContent = S.shotSize ? t('ocr.goN', S.shotSize) : t('ocr.go');
     };
-    seg.addEventListener('click', (e) => {
-      const b = e.target.closest('.seg-btn');
-      if (!b) return;
-      S.shotSize = Number(b.dataset.size);
+    if (seg) {
+      seg.addEventListener('click', (e) => {
+        const b = e.target.closest('.seg-btn');
+        if (!b) return;
+        S.shotSize = Number(b.dataset.size);
+        markSize();
+      });
       markSize();
-    });
-    markSize();
+    }
 
     const input = $('#shot-file');
     $('#btn-shot').addEventListener('click', () => input.click());
