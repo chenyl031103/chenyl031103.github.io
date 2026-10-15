@@ -764,33 +764,47 @@
 
   /* ---------- 分析 ---------- */
   /**
-   * 「下一步该动哪一格」的唯一口径 —— 建议文字、选中框、闪烁框、金色推荐框全用它，保证永远同一格。
-   * 只挑"还没填过"的格子（数字 / 宝石 / × 都已定，不该再被推荐）：
-   *   ① 必定是宝石 → 直接挖；② 否则概率最高的未知格（赌一把的靶子）；③ 再退到"必定不是宝石"。
+   * 金色闪烁/建议的目标格（原来的启发式，保持不变）：
+   *   ① 已经能确定是钻石的格 → 直接去挖；
+   *   ② 否则取概率最高的格；概率并列时优先"未打开 3×3 正中心"；
+   *   ③ 再没有就取并列组里求解器排最后的那个（保持和建议条一致）；
+   *   ④ 概率全为 0 / 盘上没线索 → 返回 -1（空盘由调用方退回"棋盘中心"）。
+   * 另外：只挑"还没填过"的格子（数字 / 宝石 / × 都已定，不该再被选中/闪烁）。
    */
-  function actionCell(res) {
-    if (!res) return null;
-    const hidden = (x) => {
-      if (!x || x.i == null) return false;
-      const r = (x.i / S.cols) | 0, c = x.i % S.cols;
-      return !!(S.grid[r] && S.grid[r][c] === -1);
-    };
-    const gem = (res.certainGems || []).find(hidden);
-    if (gem) return { r: gem.r, c: gem.c, i: gem.i, p: 1, why: gem.why, type: 'gem' };
-    const und = (res.undecided || []).filter(hidden);
-    if (und.length) {
-      let hi = und[0];
-      for (const u of und) if (u.p > hi.p) hi = u;
-      return { r: hi.r, c: hi.c, i: hi.i, p: hi.p, type: 'guess' };
-    }
-    const sf = (res.certainSafe || []).find(hidden);
-    if (sf) return { r: sf.r, c: sf.c, i: sf.i, p: 0, why: sf.why, type: 'safe' };
-    return null;
-  }
-
   function pickHotCell(res) {
-    const a = actionCell(res);
-    return a ? a.i : -1;
+    if (!res) return -1;
+    const isHidden = (r, c) => !!(S.grid[r] && S.grid[r][c] === -1);
+    if (res.pick && res.pick.type === 'gem' && res.pick.i != null) {
+      const r0 = (res.pick.i / S.cols) | 0, c0 = res.pick.i % S.cols;
+      if (isHidden(r0, c0)) return res.pick.i;
+    }
+    const und = (res.undecided || []).filter((u) => isHidden(u.r, u.c));
+    if (!und.length) return -1;
+    let maxP = 0;
+    for (const u of und) if (u.p > maxP) maxP = u.p;
+    if (!(maxP > 0)) return -1;
+    const cands = und.filter((u) => u.p >= maxP - 1e-9);
+    const midR = (S.rows - 1) / 2, midC = (S.cols - 1) / 2;
+    const openedCount = (r, c, rad) => {
+      let n = 0;
+      for (let dr = -rad; dr <= rad; dr++) {
+        for (let dc = -rad; dc <= rad; dc++) {
+          const rr = r + dr, cc = c + dc;
+          if (rr < 0 || cc < 0 || rr >= S.rows || cc >= S.cols) continue;
+          if (S.grid[rr][cc] === -1) n++;
+        }
+      }
+      return n;
+    };
+    let best = -1, bestScore = -Infinity;
+    for (const u of cands) {
+      const o3 = openedCount(u.r, u.c, 1);
+      const o5 = openedCount(u.r, u.c, 2);
+      const score = o3 * 1000 + o5 * 10 - (Math.abs(u.r - Math.round(midR)) + Math.abs(u.c - Math.round(midC)));
+      if (score > bestScore) { bestScore = score; best = u.i; }
+    }
+    if (best >= 0) return best;
+    return cands[cands.length - 1].i;
   }
 
   // 盘上有没有数字线索（没有任何数字时求解器给不出建议，只能提示"第一手点哪"）
@@ -880,7 +894,7 @@
       };
     }
     if (c.hiddenCells === 0) return { kind: '', text: t('advice.full') };
-    const pick = actionCell(res);
+    const pick = res.pick;
     if (!pick) return { kind: '', text: t('advice.needClue') };
     if (pick.type === 'gem') {
       return { kind: 'gem', text: t('advice.gem', coord(pick.r, pick.c), pick.why || t('advice.gemTail')) };
@@ -1140,7 +1154,7 @@
     S.cursor = i;
     S.cursorManual = true;
     paint();
-    autoAdvance(keepCard);    // 「自动提示」开着：选中框（以及原本开着的卡片）一起回推荐格
+    autoAdvance(keepCard); dropCursorIfFilled();    // 「自动提示」开着：选中框（以及原本开着的卡片）一起回推荐格
   }
 
   /**
@@ -1160,6 +1174,13 @@
     S.cursor = next;
     paint();
     try { S.nodes[next].scrollIntoView({ block: 'nearest', inline: 'nearest' }); } catch (e) {}
+  }
+
+  // 没有推荐格可跳（比如盘面已算尽）时：把选中框收掉，别停在刚填过的格子上
+  function dropCursorIfFilled() {
+    if (S.cursor < 0) return;
+    const r = (S.cursor / S.cols) | 0, c = S.cursor % S.cols;
+    if (S.grid[r] && S.grid[r][c] !== -1) { S.cursor = -1; paint(); }
   }
 
   /* ---------- 撤销：记录「每一步之前」的盘面 ----------
@@ -1376,7 +1397,7 @@
         settle();
         S.cursorManual = true;               // 先停在这一格
         paint();
-        autoAdvance(keepCard);               // 「自动提示」开着：选中框跟着推荐格走，不留在这
+        autoAdvance(keepCard); dropCursorIfFilled();               // 「自动提示」开着：选中框跟着推荐格走，不留在这
         return;
       }
 
@@ -1481,7 +1502,7 @@
       S.cursor = target;
       S.cursorManual = true;
       paint();
-      autoAdvance(keepCard);  // 「自动提示」开着：选中框（以及原本开着的卡片）一起回推荐格
+      autoAdvance(keepCard); dropCursorIfFilled();  // 「自动提示」开着：选中框（以及原本开着的卡片）一起回推荐格
     });
 
     // 尺寸
@@ -1626,7 +1647,7 @@
         // 先停在这一格（「自动提示」关掉时就是最终效果：完全手动）
         S.cursorManual = true;
         paint();
-        autoAdvance(keepCard);  // 「自动提示」开着：选中框（以及原本开着的卡片）一起回推荐格
+        autoAdvance(keepCard); dropCursorIfFilled();  // 「自动提示」开着：选中框（以及原本开着的卡片）一起回推荐格
       };
 
       // 方向键：移动选中的格子
