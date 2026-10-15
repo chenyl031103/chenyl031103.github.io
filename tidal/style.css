@@ -498,8 +498,8 @@ main {
   z-index: 70;
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 14px;
+  gap: 7px;
+  padding: 9px 10px;
   width: max-content;
   max-width: calc(100vw - 20px);
   background: var(--bg-card);
@@ -523,12 +523,12 @@ main {
 .reveal-bar.arrow-top::before { top: -7px; border-right: none; border-bottom: none; }
 .reveal-bar.arrow-bottom::before { bottom: -7px; border-left: none; border-top: none; }
 
-.rb-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.rb-label { font-size: 0.82rem; color: var(--text-muted); white-space: nowrap; }
-.rb-label b { color: var(--accent); font-size: 0.95rem; }
+.rb-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.rb-label { font-size: 0.76rem; color: var(--text-muted); white-space: nowrap; }
+.rb-label b { color: var(--accent); font-size: 0.86rem; }
 .rb-close {
-  width: 26px;
-  height: 26px;
+  width: 22px;
+  height: 22px;
   display: grid;
   place-items: center;
   padding: 0;
@@ -536,28 +536,31 @@ main {
   color: var(--text-muted);
   border: 1px solid transparent;
   border-radius: 50%;
-  font-size: 0.78rem;
+  font-size: 0.7rem;
   cursor: pointer;
   transition: all 0.15s;
 }
 .rb-close:hover { color: var(--danger); background: rgba(224, 85, 85, 0.1); }
 .rb-values {
   display: grid;
-  grid-template-columns: repeat(3, minmax(66px, 1fr));
-  gap: 8px;
+  /* 固定小方块 + 自动换行：手机上不再"占满一行"（12 个值 → 3 行 4 列，约 220px 宽） */
+  grid-template-columns: repeat(4, 46px);
+  gap: 5px;
+  justify-content: start;
 }
 .rb-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 4px;
-  height: 42px;
-  padding: 0 14px;
+  height: 40px;
+  min-width: 46px;
+  padding: 0 6px;
   background: var(--bg-primary);
   color: var(--text-primary);
   border: 1px solid var(--border);
-  border-radius: 12px;
-  font-size: 1rem;
+  border-radius: 10px;
+  font-size: 0.95rem;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   cursor: pointer;
@@ -569,7 +572,7 @@ main {
 .rb-gem { background: rgba(212, 146, 10, 0.12); border-color: rgba(212, 146, 10, 0.45); }
 .rb-gem:hover { background: rgba(212, 146, 10, 0.22); border-color: var(--gold); }
 .rb-gem .ico { width: 20px; height: 20px; }
-.rb-hint { font-size: 0.72rem; color: var(--text-muted); text-align: center; }
+.rb-hint { max-width: 205px; font-size: 0.72rem; color: var(--text-muted); text-align: center; }
 .rb-zero { font-weight: 400; color: var(--text-secondary); }
 
 /* ---------- 9. 结论条 ---------- */
@@ -1374,4 +1377,13 @@ body.use-tile-art:not(.is-mine-game) #board {
 
 /* 选项框：键盘焦点要看得见（方向键在值之间移动时） + 框内键盘提示 */
 .reveal-bar .rb-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-.reveal-bar .rb-keys { font-size: 0.72rem; color: var(--text-muted); }
+.reveal-bar .rb-keys { font-size: 0.7rem; color: var(--text-muted); max-width: 200px; }
+/* 手机/触摸设备没有实体键盘：这行提示别占地方 */
+@media (hover: none), (pointer: coarse) { .reveal-bar .rb-keys { display: none; } }
+
+/* 手机上的选项框再紧凑一档（固定 44px 小方块，两行放得下 0~8 + 💎/×/清除） */
+@media (max-width: 480px) {
+  .reveal-bar .rb-values { grid-template-columns: repeat(4, 44px); gap: 5px; }
+  .reveal-bar .rb-btn { height: 38px; min-width: 44px; font-size: 0.92rem; }
+  .reveal-bar { padding: 8px 9px; gap: 6px; }
+}
