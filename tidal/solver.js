@@ -62,7 +62,7 @@
       'palette.x.tip': '把选中的格子标成 ×',
       'palette.clear.tip': '清除选中的格子',
       'palette.gem.tip': '把选中的格子标成钻石',
-      'palette.tip': '单击格子弹出选项框（那一格就是当前格）→ 点下面数字 / × / 钻石 / 清除 直接填入 · 键盘：0-8 填数字、Enter 钻石、X 标×、Delete 清除、方向键换格（选项框跟着走）· 右键快速标钻石',
+      'palette.tip': '单击格子弹出选项框（那一格就是当前格）→ 点下面数字 / × / 钻石 / 清除 直接填入 · 键盘：方向键换格（选中哪格就填哪格，不弹框）、0-8 填数字、Enter 钻石、X 标×、Delete 清除 · 右键快速标钻石',
       'tools.tip': '调格子大小（自动按屏幕适配）',
       'tools.auto': '自动',
       'tools.auto.tip': '恢复自动适配屏幕',
@@ -92,7 +92,7 @@
       'vb.clear.tip': '重置整个棋盘（会二次确认；可撤销）',
       'credit.by': '潮汐秘境计算器 · 海出品',
       'credit.wx': '公众号',
-      'rb.keys': '数字键 0-8 直接填 · 方向键换格（框跟着走） · Esc 关闭',
+      'rb.keys': '数字键 0-8 直接填 · 方向键换格（选中哪格填哪格） · Esc 关闭',
       'rb.opened': '翻开的',
       'rb.is': '是：',
       'rec.gem': '钻石',
@@ -199,7 +199,7 @@
       'palette.x.tip': 'Mark the selected cell as ×',
       'palette.clear.tip': 'Clear the selected cell',
       'palette.gem.tip': 'Mark the selected cell as gem',
-      'palette.tip': 'Click a cell to open the value card (that cell becomes the target) → tap a number / × / gem / clear below to fill it · keys: 0-8 fill, Enter gem, X mark, Delete clear, arrows move cells (the card follows) · right-click = gem',
+      'palette.tip': 'Click a cell to open the value card (that cell becomes the target) → tap a number / × / gem / clear below to fill it · keys: arrows move the selection (no card; fill with 0-8/Enter/X/Delete) · right-click = gem',
       'tools.tip': 'Cell size (auto-fits the screen by default)',
       'tools.auto': 'Auto',
       'tools.auto.tip': 'Back to auto-fit',
@@ -229,7 +229,7 @@
       'vb.clear.tip': 'Clear the whole board (undoable)',
       'credit.by': 'Tidal Realm Solver · by Hai',
       'credit.wx': 'WeChat',
-      'rb.keys': '0-8 fills · arrows move the cell (card follows) · Esc closes',
+      'rb.keys': '0-8 fills · arrows move the selection (fills the selected cell) · Esc closes',
       'rb.opened': 'Cell',
       'rb.is': 'is:',
       'rec.gem': 'GEM',
@@ -1625,8 +1625,10 @@
           nc = Math.max(0, Math.min(cols - 1, nc));
           S.cursor = nr * cols + nc;
         }
+        // 纯键盘换格：选中框走、选项框不动（键盘直接数字键填空，不需要弹框）
+        S.cursorManual = true;                              // 钉住：别被"吸附回推荐格"拽回去
+        if (S.awaiting >= 0) closeRevealBar();
         paint();
-        if (S.awaiting >= 0) openRevealBar(S.cursor);     // 选项框开着：跟着选中的格子走
         try { S.nodes[S.cursor].focus({ preventScroll: true }); } catch (err) {}
         return;
       }
