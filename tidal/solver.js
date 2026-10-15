@@ -131,7 +131,7 @@
       'ocr.changeImg': '换一张',
       'ocr.size1': '2. 确认这张图是哪一档地图',
       'ocr.sizeFootAuto': '默认「自动」判尺寸，认不准时再手动指定。',
-      'ocr.go1': '2. 开始识别',
+      'ocr.go1': '2. 自动识别',
       'ocr.go': '识别并填入棋盘（自动判尺寸）',
       'ocr.goN': function (n) { return '识别并填入（' + n + '×' + n + '）'; },
       'ocr.cancel': '取消识别',
@@ -270,7 +270,7 @@
       'ocr.changeImg': 'Change image',
       'ocr.size1': '2. Map size',
       'ocr.sizeFootAuto': 'Defaults to Auto; pick a size manually only if the auto-detect looks wrong.',
-      'ocr.go1': '2. Recognize',
+      'ocr.go1': '2. Auto-recognize',
       'ocr.go': 'Recognize & fill in (auto size)',
       'ocr.goN': function (n) { return 'Recognize & fill in (' + n + '×' + n + ')'; },
       'ocr.cancel': 'Cancel',
@@ -2441,7 +2441,6 @@
         <section>
           <h4>${t('ocr.go1')}</h4>
           <div class="go-row">
-            <button class="btn" id="btn-ocr-go" type="button" disabled>${t('ocr.go')}</button>
             <button class="btn" id="btn-ocr-cancel" type="button" hidden>${t('ocr.cancel')}</button>
             <span class="import-status" id="import-status">${t('ocr.waitPick')}</span>
           </div>
@@ -2476,12 +2475,13 @@
     });
 
     $('#btn-ocr-clear').addEventListener('click', () => { clearPick(); });
-    $('#btn-ocr-go').addEventListener('click', () => { if (S.ocrBlob) recognize(S.ocrFile || S.ocrBlob); });
+    const goBtn = $('#btn-ocr-go');
+    if (goBtn) goBtn.addEventListener('click', () => { if (S.ocrBlob) recognize(S.ocrFile || S.ocrBlob); });
     $('#btn-ocr-cancel').addEventListener('click', () => {
       S.ocrCanceled = true;
       stopImportClock();
       setGoState(false);
-      setImportStatus(LANG === 'en' ? 'Cancelled — hit Recognize again.' : '已取消。可以重新点「开始识别」。', '');
+      setImportStatus(LANG === 'en' ? 'Cancelled — drop or paste the image again to re-run.' : '已取消。重新拖入 / 粘贴图片即可再识别。', '');
     });
 
     // 拖拽
@@ -2497,7 +2497,7 @@
   /** 识别中：切换按钮状态 */
   function setGoState(running) {
     const go = $('#btn-ocr-go'), cancel = $('#btn-ocr-cancel'), clear = $('#btn-ocr-clear');
-    if (go) { go.hidden = !!running; go.disabled = !S.ocrBlob || !!running; }
+    if (go) go.hidden = true;                 // 「开始识别」按钮已去掉：放图就自动识别
     if (cancel) cancel.hidden = !running;
     if (clear) clear.hidden = !!running;
   }
