@@ -56,13 +56,13 @@
       'nav.game': '游戏模式',
       'nav.game.tip': '随便玩玩：潮汐秘境 / 扫雷',
       'map.size': '地图尺寸',
-      'palette.label': '单击涂',
+      'palette.label': '填值',
       'palette.select': '选中',
       'palette.select.tip': '单击格子只是选中它（不改内容）',
-      'palette.x.tip': '点格子标上 / 取消 ×',
-      'palette.clear.tip': '单击格子清除',
-      'palette.gem.tip': '标记钻石',
-      'palette.tip': '单击格子弹取值卡；也可以直接按键盘：0-8 数字、Enter 钻石、X 标×、Delete 清除、方向键移动 · 右键快速标钻石',
+      'palette.x.tip': '把选中的格子标成 ×',
+      'palette.clear.tip': '清除选中的格子',
+      'palette.gem.tip': '把选中的格子标成钻石',
+      'palette.tip': '单击格子弹出选项框（那一格就是当前格）→ 点下面数字 / × / 钻石 / 清除 直接填入 · 也可键盘：0-8、Enter 钻石、X 标×、Delete 清除、方向键换格 · 右键快速标钻石',
       'tools.tip': '调格子大小（自动按屏幕适配）',
       'tools.auto': '自动',
       'tools.auto.tip': '恢复自动适配屏幕',
@@ -192,13 +192,13 @@
       'nav.game': 'Play mode',
       'nav.game.tip': 'Just for fun: Tidal Realm / Minesweeper',
       'map.size': 'Map size',
-      'palette.label': 'Click to paint',
+      'palette.label': 'Fill',
       'palette.select': 'Select',
       'palette.select.tip': 'Clicking a cell only selects it (no change)',
-      'palette.x.tip': 'Toggle × mark',
-      'palette.clear.tip': 'Click a cell to clear it',
-      'palette.gem.tip': 'Mark as gem',
-      'palette.tip': 'Click a cell to open the value card; or use keys: 0-8 digit, Enter gem, X mark, Delete clear, arrows move · right-click = gem',
+      'palette.x.tip': 'Mark the selected cell as ×',
+      'palette.clear.tip': 'Clear the selected cell',
+      'palette.gem.tip': 'Mark the selected cell as gem',
+      'palette.tip': 'Click a cell to open the value card (that cell becomes the target) → tap a number / × / gem / clear below to fill it · keys: 0-8, Enter gem, X mark, Delete clear, arrows move · right-click = gem',
       'tools.tip': 'Cell size (auto-fits the screen by default)',
       'tools.auto': 'Auto',
       'tools.auto.tip': 'Back to auto-fit',
@@ -415,7 +415,7 @@
     gemTotal: GEM_TOTAL[8],
     grid: [],
     nodes: [],
-    brush: 'select',      // 默认笔刷 = 选中（单击只选中，不改内容）
+    brush: 'select',      // 旧字段：新交互不用"笔刷连涂"了（单击 = 选中 + 弹选项框）
     aiCells: new Set(),   // 截图识别填进来的格子，需人工核对
     unsure: new Set(),    // 识图模型自己没把握的格子
     result: null,
@@ -1038,22 +1038,6 @@
     S.detailHtml = html;
   }
 
-  /* ---------- 交互：涂格子 ---------- */
-  function applyBrush(node, mode) {
-    const r = +node.dataset.r, c = +node.dataset.c;
-    const i = r * S.cols + c;
-    let v;
-    if (mode === 'erase' || S.brush === 'hide') v = -1;               // 右键 / 清除笔刷 → 清除为未翻开
-    else if (S.brush === 'X') v = S.grid[r][c] === 'X' ? -1 : 'X';    // 单击 = 切换 ×（与游戏一致）
-    else v = S.brush === 'G' ? 'G' : Number(S.brush);
-    if (!(v === -1 || v === 'X' || v === 'G' || (typeof v === 'number' && Number.isFinite(v)))) v = -1;  // 兜底：绝不让 NaN 进棋盘
-    if (S.grid[r][c] === v && !S.aiCells.has(i)) return;
-    S.grid[r][c] = v;
-    S.aiCells.delete(i);
-    S.unsure.delete(i);
-    analyze();
-  }
-
   /* ---------- 取值卡：选择这一格翻出来是什么（单击格子弹出） ---------- */
   /**
    * 这一格周围可能出现的数字范围。
@@ -1117,10 +1101,14 @@
     const bar = el.revealBar.getBoundingClientRect();
     const vw = window.innerWidth, vh = window.innerHeight;
     const gap = 14, pad = 8;   // 与格子的距离留一点空，不贴脸
-    const below = cell.bottom + gap + bar.height <= vh - pad;   // 下方放得下才放下面
+    // 下方选项条在页面流里：卡片压住它就点不到选项了 —— 卡片最多停到选项条上方
+    const palRect = el.palette ? el.palette.getBoundingClientRect() : null;
+    let bottomLimit = vh - pad;
+    if (palRect && palRect.top > 0 && palRect.top < bottomLimit) bottomLimit = Math.max(pad, palRect.top - pad);
+    const below = cell.bottom + gap + bar.height <= bottomLimit;   // 下方放得下才放下面
     let top = below ? cell.bottom + gap : cell.top - bar.height - gap;
     if (top < pad) top = pad;
-    if (top + bar.height > vh - pad) top = Math.max(pad, vh - bar.height - pad);
+    if (top + bar.height > bottomLimit) top = Math.max(pad, bottomLimit - bar.height);
     let left = cell.left + cell.width / 2 - bar.width / 2;      // 水平居中对齐该格
     left = Math.max(pad, Math.min(left, vw - bar.width - pad));
     el.revealBar.style.left = Math.round(left) + 'px';
@@ -1213,12 +1201,6 @@
     updateUndoBtn();
     persist();
     return true;
-  }
-
-  // 双击把第一次按下的改动抵消掉之后调用：那一步已经不存在了，别留撤销位
-  function dropNoopTop() {
-    const top = S.history[S.history.length - 1];
-    if (top && sameSnap(top, snap())) { S.history.pop(); updateUndoBtn(); }
   }
 
   function resetHistory() { S.history.length = 0; S.histBase = null; updateUndoBtn(); }
@@ -1378,7 +1360,6 @@
 
       // 右键 = 快速标记 / 取消钻石
       if (e.button === 2) {
-        S.painting = null;
         if (S.awaiting === i) closeRevealBar();
         mark();
         S.grid[r][c] = S.grid[r][c] === 'G' ? -1 : 'G';
@@ -1391,43 +1372,15 @@
         return;
       }
 
-      // 双击 = 打开取值卡（可选路径：手机想用弹窗选值时用它；平时直接点下方数字更快）
-      if (S.lastTap.i === i && now - S.lastTap.t < DOUBLE_MS) {
-        S.lastTap = { i: -1, t: 0 };
-        S.painting = null;
-        if (S.pressBackup && S.pressBackup.i === i) {
-          S.grid[r][c] = S.pressBackup.prev;   // 撤销第一次按下的改动
-          S.pressBackup = null;
-          dropNoopTop();                       // 那一步随之作废，不留撤销位
-        }
-        openRevealBar(i);
-        return;
-      }
-
+      // 单击 = 选中这一格并弹出选项框：之后点下方选项条 / 按键盘都能直接填进它。
+      //（不再有"笔刷连涂"：点别的格子会直接弹那一格的选项框，一次只填一格）
       S.lastTap = { i, t: now };
-      // 单击 = 选中这一格（键盘 0-8 / Enter / X / Delete 都作用在它上面）
       S.cursor = i;
       S.cursorManual = true;   // 亲手点过 → 先停在他点的格子上（填完值再回到推荐格）
-      if (S.brush === 'select') {
-        // 选中笔刷：单击只选中这一格（不改内容，也不弹窗）—— 之后点下方数字 / 按键盘都能快速填入
-        S.painting = null;
-        paint();
-        return;
-      }
-      // 选了具体笔刷时：顺带连续涂（方便批量填）
-      S.pressBackup = { i, prev: S.grid[r][c] };
-      S.painting = 'paint';
-      mark();
-      applyBrush(node, 'paint');
+      openRevealBar(i);
     });
 
-    el.board.addEventListener('pointerover', (e) => {
-      if (!S.painting) return;
-      const node = e.target.closest('.cell');
-      if (node) applyBrush(node, S.painting);
-    });
     window.addEventListener('pointerup', () => {
-      S.painting = null;
       // 扫雷：抬手就是翻开（长按已经插旗了，就不要再翻）
       if (S.game && S.game.kind === 'mine' && S.tap) {
         const tap = S.tap;
@@ -1437,15 +1390,9 @@
       }
       settle();
     });
-    window.addEventListener('blur', () => { S.painting = null; settle(); });
+    window.addEventListener('blur', () => { settle(); });
     el.board.addEventListener('contextmenu', (e) => e.preventDefault());
 
-    // 键盘操作（按钮 Enter/Space 触发 click，detail === 0）
-    el.board.addEventListener('click', (e) => {
-      if (e.detail !== 0) return;
-      const node = e.target.closest('.cell');
-      if (node) { mark(); applyBrush(node, 'paint'); settle(); }
-    });
 
     // 取值条
     if (el.recChips) {
@@ -1488,18 +1435,15 @@
     window.addEventListener('resize', () => { if (S.awaiting >= 0) positionRevealBar(); });
     window.addEventListener('scroll', () => { if (S.awaiting >= 0) positionRevealBar(); }, true);
 
-    // 笔刷
+    // 选项条：点数字 / × / 钻石 / 清除 = 直接填进"当前格"
+    //（选项框开着就是它那一格；没开就用键盘选中的格子；都没有就填推荐格）
     el.palette.addEventListener('click', (e) => {
       const b = e.target.closest('.brush');
       if (!b) return;
       const val = b.dataset.brush;
-      if (val == null) return;              // 撤销/重置这类动作按钮：只管自己的 click，不改笔刷
-      S.brush = val;
-      el.palette.querySelectorAll('.brush').forEach((x) => x.classList.toggle('is-on', x === b));
-      // 点下方数字 / × / 钻石 = 立刻填进"当前目标格"（选中的格子；还没选就填推荐那格），
-      // 不用再"先点格子、再从弹窗里选一遍"。之后这个笔刷保持选中，可以直接连着点别的格子刷。
-      if (S.game || val === 'select') return;
-      const target = S.cursor >= 0 ? S.cursor : pickHotCell(S.result);
+      if (val == null) return;              // 撤销/重置这类动作按钮：只管自己的 click
+      if (S.game) return;                   // 游戏模式的点击由游戏自己处理
+      const target = S.awaiting >= 0 ? S.awaiting : (S.cursor >= 0 ? S.cursor : pickHotCell(S.result));
       if (target < 0) return;
       const v = val === 'hide' ? -1 : (val === 'G' || val === 'X') ? val : Number(val);
       if (typeof v === 'number' && !Number.isFinite(v)) return;
@@ -1671,6 +1615,7 @@
           S.cursor = nr * cols + nc;
         }
         paint();
+        if (S.awaiting >= 0) openRevealBar(S.cursor);     // 选项框开着：跟着选中的格子走
         try { S.nodes[S.cursor].focus({ preventScroll: true }); } catch (err) {}
         return;
       }
@@ -1724,13 +1669,6 @@
       if (el.boardFs) el.boardFs.textContent = on ? '退出全屏' : '全屏';
       setTimeout(() => { fitBoard(); paint(); if (S.awaiting >= 0) positionRevealBar(); }, 80);
     });
-  }
-
-  function selectBrush(name) {
-    const b = el.palette.querySelector(`.brush[data-brush="${name}"]`);
-    if (!b) return;
-    S.brush = name;
-    el.palette.querySelectorAll('.brush').forEach((x) => x.classList.toggle('is-on', x === b));
   }
 
   /* ---------- 尺寸 / 清空 / 示例 ---------- */
@@ -3120,7 +3058,6 @@
     const restored = restoreState();          // 有存档就恢复上次的盘面 + 撤销栈
     setGemTotalDisplay();
     el.sizeSeg.querySelectorAll('.seg-btn').forEach((b) => b.classList.toggle('is-on', Number(b.dataset.size) === S.rows));
-    el.palette.querySelectorAll('.brush').forEach((b) => b.classList.toggle('is-on', b.dataset.brush === S.brush));
     buildBoard();
     bind();
     bindPasteOnce();   // 任何位置按 Ctrl+V 都能直接开始识别
