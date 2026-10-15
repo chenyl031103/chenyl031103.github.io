@@ -81,7 +81,7 @@
       'rec.auto': '自动提示',
       'rec.card': '选项卡片',
       'rec.card.tip': '打开：单击格子弹出选项卡片（默认）；关闭：单击只选中格子，用下方数字 / 键盘填，不弹卡片',
-      'rec.auto.tip': '开着：默认选中推荐格 + 每次录入后选中框自动跳回推荐格（不弹卡片）。关掉：完全手动，填完停在你填的那一格',
+      'rec.auto.tip': '开着：默认选中推荐格 + 每次录入后选中框自动跳回推荐格（选项卡片原本开着的话，也跟着一起回去；不会自己弹出来）。关掉：完全手动，填完停在你填的那一格',
       'vb.gem': '钻石',
       'vb.safe': '不是钻石',
       'vb.unknown': '待定',
@@ -220,7 +220,7 @@
       'rec.auto': 'Auto-hint',
       'rec.card': 'Value card',
       'rec.card.tip': 'On: clicking a cell opens the value card (default). Off: clicking only selects the cell — fill it with the bar below or the keyboard (no card)',
-      'rec.auto.tip': 'On: starts on the suggested cell and the selection returns there after each entry (no card). Off: full manual control — it stays on the cell you filled',
+      'rec.auto.tip': 'On: starts on the suggested cell and the selection returns there after each entry (an already-open card follows along; nothing pops up on its own). Off: full manual control — it stays on the cell you filled',
       'vb.gem': 'gems',
       'vb.safe': 'safe',
       'vb.unknown': 'undecided',
@@ -1148,26 +1148,29 @@
     S.unsure.delete(i);
     analyze();
     settle();
-    closeRevealBar();         // 填完把卡片收起来（要卡片再点格子）
+    const keepCard = S.awaiting >= 0;    // 填之前卡片是开着的吗（开着就让它跟着回推荐格）
+    closeRevealBar();
     // 先停在这一格（「自动提示」关掉时就是最终效果：完全手动）
     S.cursor = i;
     S.cursorManual = true;
     paint();
-    autoAdvance();            // 「自动提示」开着：选中框跳回推荐格
+    autoAdvance(keepCard);    // 「自动提示」开着：选中框（以及原本开着的卡片）一起回推荐格
   }
 
   /**
    * 录入后把"选中框"挪回推荐格：接着录入不用点来点去（选项卡片不自动弹，要就点格子）。
    * 「自动提示」关掉时不做任何事 —— 那就完全是手动控制（填完停在你填的那一格）。
    */
-  function autoAdvance() {
+  function autoAdvance(followCard) {
     if (!S.autoNext || S.game) return;
     const res = S.result;
     if (!res) return;
     const next = pickHotCell(res);
     if (next < 0) return;
     S.cursorManual = false;
-    // 只把"选中框"挪到推荐格（键盘/下方数字键接着填）——不自动弹选项卡片
+    // 卡片本来就开着（followCard）+ 没有关掉「选项卡片」：连卡片一起挪到推荐格
+    if (followCard && S.clickCard) { openRevealBar(next); return; }
+    // 本来没开：只把"选中框"挪到推荐格，不弹卡片
     S.cursor = next;
     paint();
     try { S.nodes[next].scrollIntoView({ block: 'nearest', inline: 'nearest' }); } catch (e) {}
@@ -1482,12 +1485,13 @@
       paint();
       analyze();
       settle();
-      closeRevealBar();       // 填完把卡片收起来（要卡片再点格子）
+      const keepCard = S.awaiting >= 0;    // 填之前卡片是开着的吗（开着就让它跟着回推荐格）
+      closeRevealBar();
       // 先停在这一格（「自动提示」关掉时就是最终效果：完全手动）
       S.cursor = target;
       S.cursorManual = true;
       paint();
-      autoAdvance();          // 「自动提示」开着：选中框跳回推荐格
+      autoAdvance(keepCard);  // 「自动提示」开着：选中框（以及原本开着的卡片）一起回推荐格
     });
 
     // 尺寸
@@ -1625,11 +1629,12 @@
         paint();
         analyze();
         settle();
-        closeRevealBar();     // 填完把卡片收起来（要卡片再点格子）
+        const keepCard = S.awaiting >= 0;    // 填之前卡片是开着的吗（开着就让它跟着回推荐格）
+        closeRevealBar();
         // 先停在这一格（「自动提示」关掉时就是最终效果：完全手动）
         S.cursorManual = true;
         paint();
-        autoAdvance();        // 「自动提示」开着：选中框跳回推荐格
+        autoAdvance(keepCard);  // 「自动提示」开着：选中框（以及原本开着的卡片）一起回推荐格
       };
 
       // 方向键：移动选中的格子
@@ -3102,7 +3107,7 @@
     applyLang();       // 静态文案按语言刷一遍（内部会 analyze）
     analyze();
     updateUndoBtn();
-    autoAdvance();       // 默认把选中框 + 选项框放在推荐格上（「自动提示」开着时）
+    autoAdvance();       // 开局把选中框放到推荐格上（「自动提示」开着时；不弹卡片）
     if (restored) toast('已恢复上次的盘面', 'gold');
     // 版面变化（笔刷栏换行、页内滚动条出现/消失、手机地址栏收起、旋转屏幕）后重算格子大小，
     // 保证整盘放得下始终成立；手动调过格子大小就不动（尊重用户选择）
