@@ -1459,7 +1459,8 @@ body.use-tile-art:not(.is-mine-game) #board {
 /* 手机顶栏：只露出一两个按钮（默认「游戏模式」），其余横向滑动查看，不再压住左边标题 */
 @media (max-width: 640px) {
   body:not(.is-game) .topbar-nav { flex: none; flex-wrap: nowrap; overflow: visible; }   /* 能放几个放几个，放不下由 JS 隐藏（不留半截按钮） */
-  .topbar-nav .ghost-btn[hidden] { display: none !important; }   /* hidden 必须真的藏住（否则被 flex 覆盖） */
+  .topbar-nav { -webkit-overflow-scrolling: touch; scrollbar-width: none; }   /* 手机顶栏：可横向滑动，滚动条不显示 */
+  .topbar-nav::-webkit-scrollbar { height: 0; width: 0; display: none; }
   .topbar .brand { min-width: 0; flex: 1 1 auto; }
 }
 /* 「截图识别」按钮：字色提亮、字号稍大，深色底上更显眼 */

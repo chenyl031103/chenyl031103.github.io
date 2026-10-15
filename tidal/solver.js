@@ -378,20 +378,28 @@
   // 页脚不再列"相关网址"：现在主要入口就是 chenyl031103.github.io/tidal（静态版自带本机识别）
   function renderSiteLinks() {}
 
-  /** 顶栏按钮按剩余空间显示：能放下就显示，放不下就藏起来（绝不出现半截按钮）。
-      至少保留「游戏模式」和主题切换；其余按 使用说明 → 中文 → EN 的顺序依次尝试。 */
+  /** 顶栏布局：
+   *  窄屏（手机）：只露出「游戏模式 + 主题切换」两个完整按钮的宽度，其余按钮靠横向滑动查看（不隐藏、不留半截）；
+   *  宽屏：全部按钮一次显示。 */
+  let topbarMoved = false;
   function layoutTopbar() {
     const bar = document.querySelector('.topbar');
     const nav = document.querySelector('.topbar-nav');
-    const strong = document.querySelector('.brand-text strong');
+    const sample = document.getElementById('btn-sample');
+    const theme = document.getElementById('theme-toggle');
     if (!bar || !nav) return;
-    const optional = ['btn-help', 'btn-lang-zh', 'btn-lang-en'].map((id) => document.getElementById(id)).filter(Boolean);
-    optional.forEach((b) => { b.hidden = true; });          // 先只留「游戏模式」+ 主题
-    for (const b of optional) {
-      b.hidden = false;                                     // 试放一个
-      const overflow = nav.scrollWidth > nav.clientWidth + 1 || bar.scrollWidth > bar.clientWidth + 1;
-      const brandCut = strong ? strong.scrollWidth > strong.clientWidth + 1 : false;   // 品牌字被截断 = 没位置
-      if (overflow || brandCut) { b.hidden = true; break; }  // 放不下：撤回并停止
+    if (!topbarMoved && sample && theme && theme.previousElementSibling !== sample) {
+      sample.after(theme);          // 主题切换挪到「游戏模式」旁边，默认露出的就是这两个
+      topbarMoved = true;
+    }
+    const narrow = window.innerWidth <= 640;
+    if (narrow && sample && theme) {
+      const w = Math.round(sample.offsetWidth + theme.offsetWidth + 6);   // 正好两个按钮+间隙：右边不会露出半截下一个按钮
+      nav.style.maxWidth = w + 'px';
+      nav.style.overflowX = 'auto';
+    } else {
+      nav.style.maxWidth = '';
+      nav.style.overflowX = '';
     }
   }
 
