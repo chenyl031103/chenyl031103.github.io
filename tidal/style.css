@@ -1387,3 +1387,8 @@ body.use-tile-art:not(.is-mine-game) #board {
   .reveal-bar .rb-btn { height: 38px; min-width: 44px; font-size: 0.92rem; }
   .reveal-bar { padding: 8px 9px; gap: 6px; }
 }
+
+/* 「单击弹框」开关：排在「自动提示」左边 */
+.rec-card { display: inline-flex; align-items: center; gap: 5px; font-size: 0.78rem;
+            color: var(--text-muted); cursor: pointer; user-select: none; }
+.rec-card input { accent-color: var(--accent); }

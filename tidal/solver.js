@@ -62,7 +62,7 @@
       'palette.x.tip': '把选中的格子标成 ×',
       'palette.clear.tip': '清除选中的格子',
       'palette.gem.tip': '把选中的格子标成钻石',
-      'palette.tip': '单击格子弹出选项框（那一格就是当前格）→ 点下面数字 / × / 钻石 / 清除 直接填入 · 键盘：方向键换格（选中哪格就填哪格，不弹框）、0-8 填数字、Enter 钻石、X 标×、Delete 清除 · 右键快速标钻石',
+      'palette.tip': '单击格子选中（右侧「弹框」开着就顺便弹选项框）→ 点下面数字 / × / 钻石 / 清除 直接填入 · 键盘：方向键换格（选中哪格就填哪格，不弹框）、0-8 填数字、Enter 钻石、X 标×、Delete 清除 · 右键快速标钻石',
       'tools.tip': '调格子大小（自动按屏幕适配）',
       'tools.auto': '自动',
       'tools.auto.tip': '恢复自动适配屏幕',
@@ -79,6 +79,8 @@
       'chip.cells': '格',
       'rec.label': '建议点击',
       'rec.auto': '自动提示',
+      'rec.card': '弹框',
+      'rec.card.tip': '打开：单击格子弹出选项框（默认）；关闭：单击只选中格子，用下方数字 / 键盘填，不弹框',
       'rec.auto.tip': '开着：默认选中推荐格 + 每次录入后自动跳回推荐格（选中框和选项框一起走）。关掉：完全手动，填完停在你填的那一格',
       'vb.gem': '钻石',
       'vb.safe': '不是钻石',
@@ -216,6 +218,8 @@
       'chip.cells': 'cells',
       'rec.label': 'Suggested',
       'rec.auto': 'Auto-hint',
+      'rec.card': 'Card',
+      'rec.card.tip': 'On: clicking a cell opens the value card (default). Off: clicking only selects the cell — fill it with the bar below or the keyboard',
       'rec.auto.tip': 'On: starts on the suggested cell and returns there after each entry (selection + card move together). Off: full manual control — it stays on the cell you filled',
       'vb.gem': 'gems',
       'vb.safe': 'safe',
@@ -389,6 +393,7 @@
     recRow: $('#rec-row'),
     recChips: $('#rec-chips'),
     cbAutoNext: $('#cb-auto-next'),
+    cbClickCard: $('#cb-click-card'),
     ticketsUsed: $('#tickets-used'),
     perGem: $('#per-gem'),
     diamondsUsed: $('#diamonds-used'),
@@ -433,6 +438,7 @@
     history: [],          // 撤销栈：每项是「那一步之前」的盘面快照
     histBase: null,       // 本次操作开始前的快照，抬手时才入栈（拖动连涂算一步）
     autoNext: true,       // 录入后自动跳到下一个推荐格（可在建议条上关掉）
+    clickCard: true,      // 单击格子是否弹选项框（可在「弹框」开关上关掉：关掉变成"只选中"）
     importTimer: null,
     importPreviewUrl: null,
     ocrBlob: null,        // 待识别的图片（送服务器的压缩版）
@@ -1160,7 +1166,11 @@
     const next = pickHotCell(res);
     if (next < 0) return;
     S.cursorManual = false;
-    openRevealBar(next);      // 内部会把 S.cursor 指到这格，并把选项框挪过来
+    if (S.clickCard) { openRevealBar(next); return; }   // 内部会把 S.cursor 指到这格，并把选项框挪过来
+    // 关掉弹框：只把选中框挪到推荐格（键盘/下方数字键接着填），不弹东西
+    S.cursor = next;
+    paint();
+    try { S.nodes[next].scrollIntoView({ block: 'nearest', inline: 'nearest' }); } catch (e) {}
   }
 
   /* ---------- 撤销：记录「每一步之前」的盘面 ----------
@@ -1377,12 +1387,12 @@
         return;
       }
 
-      // 单击 = 选中这一格并弹出选项框：之后点下方选项条 / 按键盘都能直接填进它。
-      //（不再有"笔刷连涂"：点别的格子会直接弹那一格的选项框，一次只填一格）
+      // 单击 = 选中这一格；「弹框」开关打开时顺便弹出选项框（关掉就只选中，用下方数字 / 键盘填）
       S.lastTap = { i, t: now };
       S.cursor = i;
       S.cursorManual = true;   // 亲手点过 → 先停在他点的格子上（填完值再回到推荐格）
-      openRevealBar(i);
+      if (S.clickCard) openRevealBar(i);
+      else { closeRevealBar(); paint(); }
     });
 
     window.addEventListener('pointerup', () => {
@@ -1408,7 +1418,17 @@
         const i = Number(b.dataset.i);
         if (!Number.isFinite(i) || i < 0) return;
         S.cursor = i;
-        openRevealBar(i);
+        S.cursorManual = true;
+        if (S.clickCard) openRevealBar(i);
+        else { closeRevealBar(); paint(); }
+      });
+    }
+    if (el.cbClickCard) {
+      el.cbClickCard.addEventListener('change', () => {
+        S.clickCard = !!el.cbClickCard.checked;
+        try { localStorage.setItem('tidal_clickcard', S.clickCard ? '1' : '0'); } catch (e) {}
+        if (!S.clickCard) closeRevealBar();      // 关掉弹框：顺手把已经开着的卡片收起来
+        toast(S.clickCard ? '已开启：单击格子弹出选项框' : '已关闭弹框：单击只选中（用下方数字 / 键盘填）', '');
       });
     }
     if (el.cbAutoNext) {
@@ -3071,6 +3091,8 @@
     const restored = restoreState();          // 有存档就恢复上次的盘面 + 撤销栈
     setGemTotalDisplay();
     el.sizeSeg.querySelectorAll('.seg-btn').forEach((b) => b.classList.toggle('is-on', Number(b.dataset.size) === S.rows));
+    try { if (localStorage.getItem('tidal_clickcard') === '0') S.clickCard = false; } catch (e) {}
+    if (el.cbClickCard) el.cbClickCard.checked = !!S.clickCard;
     buildBoard();
     bind();
     bindPasteOnce();   // 任何位置按 Ctrl+V 都能直接开始识别
