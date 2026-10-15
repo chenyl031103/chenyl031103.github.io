@@ -492,7 +492,7 @@
     const cols = S.cols, rows = S.rows;
     const gap = cols > 10 ? 5 : 6;
     // 手动模式：用户点过「格子大小 −/+」，固定尺寸（棋盘放不下就滚动），不再自动缩放
-    if (S.manualCell && !document.fullscreenElement) {   // 全屏时不认手动格子大小（按屏幕重新适配，别留一大片空白）
+    if (S.manualCell) {   // 手动调过格子大小（含全屏下点 −/＋）：固定尺寸，不自动缩放
       const cell = clamp(S.manualCell, 14, 120);
       el.board.style.setProperty('--gap', gap + 'px');
       el.board.style.setProperty('--cell', cell + 'px');
