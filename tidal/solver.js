@@ -81,7 +81,7 @@
       'rec.auto': '自动提示',
       'rec.card': '弹框',
       'rec.card.tip': '打开：单击格子弹出选项框（默认）；关闭：单击只选中格子，用下方数字 / 键盘填，不弹框',
-      'rec.auto.tip': '开着：默认选中推荐格 + 每次录入后自动跳回推荐格（选中框和选项框一起走）。关掉：完全手动，填完停在你填的那一格',
+      'rec.auto.tip': '开着：默认选中推荐格 + 每次录入后选中框自动跳回推荐格（不弹卡片）。关掉：完全手动，填完停在你填的那一格',
       'vb.gem': '钻石',
       'vb.safe': '不是钻石',
       'vb.unknown': '待定',
@@ -220,7 +220,7 @@
       'rec.auto': 'Auto-hint',
       'rec.card': 'Card',
       'rec.card.tip': 'On: clicking a cell opens the value card (default). Off: clicking only selects the cell — fill it with the bar below or the keyboard',
-      'rec.auto.tip': 'On: starts on the suggested cell and returns there after each entry (selection + card move together). Off: full manual control — it stays on the cell you filled',
+      'rec.auto.tip': 'On: starts on the suggested cell and the selection returns there after each entry (no card). Off: full manual control — it stays on the cell you filled',
       'vb.gem': 'gems',
       'vb.safe': 'safe',
       'vb.unknown': 'undecided',
@@ -1148,15 +1148,16 @@
     S.unsure.delete(i);
     analyze();
     settle();
+    closeRevealBar();         // 填完把卡片收起来（要卡片再点格子）
     // 先停在这一格（「自动提示」关掉时就是最终效果：完全手动）
     S.cursor = i;
     S.cursorManual = true;
     paint();
-    autoAdvance();            // 「自动提示」开着：跳回推荐格，选项框一起过去
+    autoAdvance();            // 「自动提示」开着：选中框跳回推荐格
   }
 
   /**
-   * 录入后跳回"推荐格"：选中框和选项框一起过去，接着录入不用点来点去。
+   * 录入后把"选中框"挪回推荐格：接着录入不用点来点去（选项卡片不自动弹，要就点格子）。
    * 「自动提示」关掉时不做任何事 —— 那就完全是手动控制（填完停在你填的那一格）。
    */
   function autoAdvance() {
@@ -1166,8 +1167,7 @@
     const next = pickHotCell(res);
     if (next < 0) return;
     S.cursorManual = false;
-    if (S.clickCard) { openRevealBar(next); return; }   // 内部会把 S.cursor 指到这格，并把选项框挪过来
-    // 关掉弹框：只把选中框挪到推荐格（键盘/下方数字键接着填），不弹东西
+    // 只把"选中框"挪到推荐格（键盘/下方数字键接着填）——不自动弹选项卡片
     S.cursor = next;
     paint();
     try { S.nodes[next].scrollIntoView({ block: 'nearest', inline: 'nearest' }); } catch (e) {}
@@ -1482,11 +1482,12 @@
       paint();
       analyze();
       settle();
+      closeRevealBar();       // 填完把卡片收起来（要卡片再点格子）
       // 先停在这一格（「自动提示」关掉时就是最终效果：完全手动）
       S.cursor = target;
       S.cursorManual = true;
       paint();
-      autoAdvance();          // 「自动提示」开着：跳回推荐格，选项框一起过去
+      autoAdvance();          // 「自动提示」开着：选中框跳回推荐格
     });
 
     // 尺寸
@@ -1624,10 +1625,11 @@
         paint();
         analyze();
         settle();
+        closeRevealBar();     // 填完把卡片收起来（要卡片再点格子）
         // 先停在这一格（「自动提示」关掉时就是最终效果：完全手动）
         S.cursorManual = true;
         paint();
-        autoAdvance();        // 「自动提示」开着：跳回推荐格，选项框一起过去
+        autoAdvance();        // 「自动提示」开着：选中框跳回推荐格
       };
 
       // 方向键：移动选中的格子
