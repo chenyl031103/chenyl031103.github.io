@@ -93,7 +93,7 @@
       'vb.clear': '重置',
       'vb.clear.tip': '重置整个棋盘（会二次确认；可撤销）',
       'credit.by': '潮汐秘境计算器 · 时间之海出品',
-      'credit.wx': '公众号',
+      'credit.wx': '微信号',
       'rb.keys': '数字键 0-8 直接填 · 方向键换格（选中哪格填哪格） · Esc 关闭',
       'rb.opened': '翻开的',
       'rb.is': '是：',
@@ -232,7 +232,7 @@
       'vb.clear': 'Reset',
       'vb.clear.tip': 'Clear the whole board (undoable)',
       'credit.by': 'Tidal Realm Solver · by Shijian Zhihai',
-      'credit.wx': 'WeChat',
+      'credit.wx': 'WeChat ID',
       'rb.keys': '0-8 fills · arrows move the selection (fills the selected cell) · Esc closes',
       'rb.opened': 'Cell',
       'rb.is': 'is:',
@@ -1573,8 +1573,8 @@
     const wxBtn = $('#btn-wx');
     if (wxBtn) {
       wxBtn.addEventListener('click', () => {
-        const id = 'chenyl031103';
-        const done = () => toast((LANG === 'en' ? 'Copied WeChat ID: ' : '已复制公众号：') + id, 'gold');
+        const id = 'wx_cyl031103';
+        const done = () => toast((LANG === 'en' ? 'Copied WeChat ID: ' : '已复制微信号：') + id, 'gold');
         if (navigator.clipboard && navigator.clipboard.writeText) {
           navigator.clipboard.writeText(id).then(done, () => fallback());
         } else fallback();
@@ -1584,7 +1584,7 @@
             ta.value = id; ta.style.position = 'fixed'; ta.style.opacity = '0';
             document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove();
             done();
-          } catch (e) { toast('公众号：' + id, 'gold'); }
+          } catch (e) { toast('微信号：' + id, 'gold'); }
         }
       });
     }
@@ -2222,8 +2222,8 @@
           <p>工具会自动检查。哪个数字和周围对不上，上方会提示「N 处数字对不上」，下面「当前盘面」里会列出具体是哪一格，改掉它就好。</p>
         </section>
         <section>
-          <h4>关注公众号</h4>
-          <p>工具的更新、活动攻略和反馈入口都发在公众号：<b>chenyl031103</b>（点页脚那行也能复制微信号）。用着有问题、想加功能，在公众号里说一声就行。</p>
+          <h4>关注 / 加微信号</h4>
+          <p>工具的更新、活动攻略和反馈入口都发在微信公众号：<b>wx_cyl031103</b>（点页脚那行也能复制微信号）。用着有问题、想加功能，直接说一声就行。</p>
         </section>`,
     en: `
         <section>

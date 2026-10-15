@@ -1424,10 +1424,9 @@ body.use-tile-art:not(.is-mine-game) #board {
 /* 手机：页脚一行放完，不再多占一行（公众号按钮只留「公众号」，点一下仍会复制微信号） */
 @media (max-width: 640px) {
   .footer { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 2px 10px; }
-  .footer .credit { margin: 0; font-size: 0.72rem; }
-  .footer .credit-wx { margin: 0; }
+  .footer .credit { flex: 1 1 100%; margin: 0; font-size: 0.72rem; }      /* 出品那行独占一行 */
+  .footer .credit-wx { flex: 1 1 100%; margin: 0; }                       /* 微信号跟在下面一行 */
   .footer .wx-btn { font-size: 0.7rem; padding: 2px 9px; }
-  .footer .wx-btn .wx-id { display: none; }
 }
 
 /* 手机：待定那块（建议框）收紧，少占高度 */
