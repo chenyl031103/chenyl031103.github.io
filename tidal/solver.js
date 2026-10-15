@@ -62,7 +62,7 @@
       'palette.x.tip': '把选中的格子标成 ×',
       'palette.clear.tip': '清除选中的格子',
       'palette.gem.tip': '把选中的格子标成钻石',
-      'palette.tip': '单击格子弹出选项框（那一格就是当前格）→ 点下面数字 / × / 钻石 / 清除 直接填入 · 也可键盘：0-8、Enter 钻石、X 标×、Delete 清除、方向键换格 · 右键快速标钻石',
+      'palette.tip': '单击格子弹出选项框（那一格就是当前格）→ 点下面数字 / × / 钻石 / 清除 直接填入 · 键盘：0-8 填数字、Enter 钻石、X 标×、Delete 清除、方向键换格；焦点在框里时 ←→ 选值、Enter 选定 · 右键快速标钻石',
       'tools.tip': '调格子大小（自动按屏幕适配）',
       'tools.auto': '自动',
       'tools.auto.tip': '恢复自动适配屏幕',
@@ -92,6 +92,7 @@
       'vb.clear.tip': '重置整个棋盘（会二次确认；可撤销）',
       'credit.by': '潮汐秘境计算器 · 海出品',
       'credit.wx': '公众号',
+      'rb.keys': '←→ 选值 · Enter 选定 · 0-8 直接填 · Esc 关闭',
       'rb.opened': '翻开的',
       'rb.is': '是：',
       'rec.gem': '钻石',
@@ -198,7 +199,7 @@
       'palette.x.tip': 'Mark the selected cell as ×',
       'palette.clear.tip': 'Clear the selected cell',
       'palette.gem.tip': 'Mark the selected cell as gem',
-      'palette.tip': 'Click a cell to open the value card (that cell becomes the target) → tap a number / × / gem / clear below to fill it · keys: 0-8, Enter gem, X mark, Delete clear, arrows move · right-click = gem',
+      'palette.tip': 'Click a cell to open the value card (that cell becomes the target) → tap a number / × / gem / clear below to fill it · keys: 0-8 fill, Enter gem, X mark, Delete clear, arrows move cells; with the card focused ←→ picks a value, Enter selects · right-click = gem',
       'tools.tip': 'Cell size (auto-fits the screen by default)',
       'tools.auto': 'Auto',
       'tools.auto.tip': 'Back to auto-fit',
@@ -228,6 +229,7 @@
       'vb.clear.tip': 'Clear the whole board (undoable)',
       'credit.by': 'Tidal Realm Solver · by Hai',
       'credit.wx': 'WeChat',
+      'rb.keys': '←→ pick · Enter select · 0-8 fill · Esc close',
       'rb.opened': 'Cell',
       'rb.is': 'is:',
       'rec.gem': 'GEM',
@@ -1090,6 +1092,9 @@
     paint();
     try { S.nodes[i].scrollIntoView({ block: 'nearest', inline: 'nearest' }); } catch (e) {}
     positionRevealBar();
+    // 键盘直接能操作这张卡：焦点落在第一个值上（←→ 选值、Enter/空格 选定、数字键直接填、Esc 关闭）
+    const firstBtn = el.revealBar.querySelector('.rb-btn');
+    if (firstBtn) { try { firstBtn.focus({ preventScroll: true }); } catch (e) {} }
   }
 
   /* 把取值卡挪到正在取值那一格的旁边：优先格子下方，放不下换上方，再不行夹在视口内；小箭头对准格子 */
@@ -1122,9 +1127,12 @@
 
   function closeRevealBar() {
     if (S.awaiting < 0) return;
+    const i = S.awaiting;
+    const hadFocus = el.revealBar.contains(document.activeElement);
     S.awaiting = -1;
     el.revealBar.hidden = true;
     paint();
+    if (hadFocus && S.nodes[i]) { try { S.nodes[i].focus({ preventScroll: true }); } catch (e) {} }
   }
 
   function setReveal(v) {
@@ -1392,7 +1400,38 @@
     });
     window.addEventListener('blur', () => { settle(); });
     el.board.addEventListener('contextmenu', (e) => e.preventDefault());
+    // 点格子时别让浏览器把焦点给这格 —— 焦点留给选项框，键盘才能直接操作它
+    el.board.addEventListener('mousedown', (e) => { if (e.target.closest('.cell')) e.preventDefault(); });
 
+
+    // 选项框里的方向键：在「值」之间移动（拦下来，不去换格子）
+    el.revealBar.addEventListener('keydown', (e) => {
+      const k = e.key;
+      // Enter / 空格 = 选定焦点所在的那个值（实测有些环境不会触发按钮的默认激活，这里自己处理）
+      if (k === 'Enter' || k === ' ' || k === 'Spacebar') {
+        const t2 = e.target && e.target.closest ? e.target : null;
+        const vbtn = t2 && t2.closest('.rb-btn');
+        const cbtn = t2 && t2.closest('[data-rb="cancel"]');
+        if (vbtn || cbtn) {
+          e.preventDefault();
+          e.stopPropagation();
+          if (cbtn) { closeRevealBar(); return; }
+          const raw = vbtn.dataset.val;
+          const v = raw === 'G' ? 'G' : raw === 'X' ? 'X' : raw === 'CLEAR' ? -1 : Number(raw);
+          if (!(typeof v === 'number' && !Number.isFinite(v))) setReveal(v);
+          return;
+        }
+      }
+      if (k !== 'ArrowLeft' && k !== 'ArrowRight' && k !== 'ArrowUp' && k !== 'ArrowDown') return;
+      const btns = Array.from(el.revealBar.querySelectorAll('.rb-btn'));
+      if (!btns.length) return;
+      const cur = btns.indexOf(document.activeElement);
+      const step = (k === 'ArrowRight' || k === 'ArrowDown') ? 1 : -1;
+      const next = Math.max(0, Math.min(btns.length - 1, (cur < 0 ? 0 : cur) + step));
+      e.preventDefault();
+      e.stopPropagation();
+      try { btns[next].focus({ preventScroll: true }); } catch (err) {}
+    });
 
     // 取值条
     if (el.recChips) {

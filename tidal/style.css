@@ -1371,3 +1371,7 @@ body.use-tile-art:not(.is-mine-game) #board {
 .gb-hint-switch { display: inline-flex; align-items: center; gap: 5px; cursor: pointer; font-size: 0.86rem; color: var(--text-secondary); }
 .gb-hint-switch input { width: 15px; height: 15px; }
 .gb-hint-switch:hover { color: var(--text-primary); }
+
+/* 选项框：键盘焦点要看得见（方向键在值之间移动时） + 框内键盘提示 */
+.reveal-bar .rb-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.reveal-bar .rb-keys { font-size: 0.72rem; color: var(--text-muted); }
