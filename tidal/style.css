@@ -1470,3 +1470,11 @@ body.use-tile-art:not(.is-mine-game) #board {
 @media (max-width: 640px) {
   .board-tools { bottom: 12px; }
 }
+
+/* 全屏：尺寸栏、信息条、页脚收起来，把空间都给棋盘（退出全屏就回来） */
+:fullscreen .map-bar, :fullscreen .footer { display: none !important; }
+:fullscreen .board-scroll { display: flex; justify-content: center; align-items: center; }
+:fullscreen .board { flex: none; }   /* 关键：别让弹性布局把网格压变形 */
+@supports (justify-content: safe center) {
+  :fullscreen .board-scroll { justify-content: safe center; }
+}

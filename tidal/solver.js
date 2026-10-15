@@ -492,7 +492,7 @@
     const cols = S.cols, rows = S.rows;
     const gap = cols > 10 ? 5 : 6;
     // 手动模式：用户点过「格子大小 −/+」，固定尺寸（棋盘放不下就滚动），不再自动缩放
-    if (S.manualCell) {
+    if (S.manualCell && !document.fullscreenElement) {   // 全屏时不认手动格子大小（按屏幕重新适配，别留一大片空白）
       const cell = clamp(S.manualCell, 14, 120);
       el.board.style.setProperty('--gap', gap + 'px');
       el.board.style.setProperty('--cell', cell + 'px');
@@ -521,7 +521,15 @@
     const byCalc = window.innerHeight - rect.top - below - padY;
     const availH = Math.max(160, Math.max(window.innerHeight * 0.5, Math.max(byBox, byCalc)));
     const byH = Math.floor((availH - gap * (rows - 1)) / rows);
-    if (byH > 0) cell = Math.min(cell, byH);
+    const fsOn = !!document.fullscreenElement;
+    if (fsOn) {
+      // 全屏：优先把高度用满（宽度允许轻微横向滚动），别在棋盘周围留一大片空白
+      // 全屏：直接用「整盘放下的尺寸」和「屏幕高度能给的尺寸」重算（不依赖可能过期的容器值）
+      const availW2 = Math.min(window.innerWidth, el.boardScroll.clientWidth || window.innerWidth) - padX - 2;
+      const wCell = Math.max(8, Math.floor((availW2 - gap * (cols - 1)) / cols));
+      const hCell = Math.floor((window.innerHeight * 0.92 - gap * (rows - 1)) / rows);
+      cell = Math.max(wCell, Math.min(hCell, Math.round(wCell * 1.4), 140));   // 最多比整盘放下大 40%
+    } else if (byH > 0) cell = Math.min(cell, byH);
 
     // 默认就让整盘完整放下（手机也一样）：宁可格子小一点，也不出现横向滚动。
     // 想放大就用右下角「格子大小 ＋」——手动模式保持尺寸，放不下时才滚动。
@@ -535,13 +543,16 @@
     applyCell(cell);
     // 自纠：算完之后若仍出现横向滚动（常见于纵向滚动条刚出现、可用宽度又少了十几像素），
     // 按多出来的宽度再缩一次（最多两轮）——手机端保证整盘放得下
-    for (let k = 0; k < 2; k++) {
-      const over = el.boardScroll.scrollWidth - el.boardScroll.clientWidth;
-      if (over <= 1) break;
-      const next = clamp(cell - (Math.floor(over / cols) + 1), minCell, 78);
-      if (next === cell) break;
-      cell = next;
-      applyCell(cell);
+    // 全屏：允许轻微横向滚动（刚按高度放大过），不做'整盘塞进宽度'的自纠
+    if (!fsOn) {
+      for (let k = 0; k < 2; k++) {
+        const over = el.boardScroll.scrollWidth - el.boardScroll.clientWidth;
+        if (over <= 1) break;
+        const next = clamp(cell - (Math.floor(over / cols) + 1), minCell, 78);
+        if (next === cell) break;
+        cell = next;
+        applyCell(cell);
+      }
     }
     renderAuxLines();          // 格子尺寸变了，辅助虚线要跟着摆
     return cell;
@@ -1750,6 +1761,7 @@
       const on = !!document.fullscreenElement;
       if (el.boardFs) el.boardFs.textContent = on ? '退出全屏' : '全屏';
       setTimeout(() => { fitBoard(); paint(); if (S.awaiting >= 0) positionRevealBar(); }, 80);
+      setTimeout(() => { fitBoard(); paint(); if (S.awaiting >= 0) positionRevealBar(); }, 320);   // 全屏动画结束后再算一次，确保用的是新高度
     });
   }
 
