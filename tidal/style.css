@@ -1451,3 +1451,7 @@ body.use-tile-art:not(.is-mine-game) #board {
   .board-tools { right: 8px; bottom: 2px; gap: 3px; }
   .board-tools .bb-btn { height: 20px; padding: 0 6px; font-size: 0.68rem; }
 }
+
+/* 「截图识别」挪到棋盘工具行后：图标+文字紧凑一点 */
+.board-tools .bb-shot { display: inline-flex; align-items: center; gap: 4px; }
+.board-tools .bb-shot .ico { width: 13px; height: 13px; }

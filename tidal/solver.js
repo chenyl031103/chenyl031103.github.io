@@ -2283,7 +2283,7 @@
       ? ''
       : (LANG === 'en'
         ? '<section><h4>No OCR in this build</h4><p>This build has no backend, so screenshot OCR is unavailable; manual entry still has everything. The OCR-enabled site link is in the "Screenshot OCR" dialog.</p></section>'
-        : '<section><h4>这个版本没有截图识别</h4><p>静态托管版没有后端，所以不提供截图识别；手动填写可以用全部功能。想用截图识别，点右上角的<b>「截图识别」</b>按钮，里面有两个带识别功能的网址。</p></section>');
+        : '<section><h4>这个版本没有截图识别</h4><p>静态托管版没有后端，所以不提供截图识别；手动填写可以用全部功能。想用截图识别，点棋盘右下角的<b>「截图识别」</b>按钮，里面有两个带识别功能的网址。</p></section>');
     return `
       <div class="modal-head">
         <h3>${t('nav.help')}</h3>
@@ -3083,7 +3083,7 @@
               <ul>
                 <li>截图时<b>把整个棋盘连边框一起截进来</b>（别裁掉四周），尽量用原图不要转发压缩过的图</li>
                 <li>确认上面选的档位和截图一致，然后<b>再识别一次</b></li>
-                <li>也可以点右上角「截图识别」旁边那个按钮换一张更清晰的图</li>
+                <li>也可以点棋盘右下角「截图识别」旁边那个按钮换一张更清晰的图</li>
               </ul>
               <p>实在认不出来也没关系：<b>手动把已翻开的数字和钻石填进棋盘</b>，分析结果一样准确。</p>
               <p class="card-foot">需要时也可以用服务器识别（更慢、要联网）：<a class="btn sm" href="${svc}" target="_blank" rel="noopener">${svc}</a></p>

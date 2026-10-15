@@ -7,7 +7,7 @@
 <meta name="description" content="《弹壳特攻队》潮汐秘境计算器：把当前棋盘的数字、钻石、× 标记填进来，自动推出哪些格子必定是钻石、哪些必定不是钻石、下一步先点哪里。支持上传截图自动识别。">
 <meta name="theme-color" content="#0f1923">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext y='25' font-size='25'%3E%F0%9F%92%8E%3C/text%3E%3C/svg%3E">
-<link rel="stylesheet" href="style.css?vmv98ti8l">
+<link rel="stylesheet" href="style.css?vmv999qoh">
 <script>var t=localStorage.getItem('theme')||'dark';document.documentElement.setAttribute('data-theme',t);/* 默认深色（护眼），右上角可切换 */</script>
 </head>
 <body>
@@ -52,9 +52,6 @@
     </span>
   </div>
   <nav class="topbar-nav">
-    <button class="ghost-btn" id="btn-shot-open" type="button">
-      <svg class="ico"><use href="#ico-image"/></svg><span data-i18n="nav.ocr">截图识别</span>
-    </button>
     <button class="ghost-btn" id="btn-help" type="button" data-i18n="nav.help">使用说明</button>
     <button class="ghost-btn" id="btn-sample" type="button" title="随便玩玩：潮汐秘境 / 扫雷" data-i18n="nav.game" data-i18n-title="nav.game.tip">游戏模式</button>
     <button class="ghost-btn sm" id="btn-lang-zh" type="button" title="中文">中文</button>
@@ -95,6 +92,9 @@
         <div class="board" id="board" role="grid" aria-label="残局棋盘"></div>
       </div>
       <span class="board-tools" id="board-tools" title="调格子大小（自动按屏幕适配）" data-i18n-title="tools.tip">
+        <button class="bb-btn bb-shot" id="btn-shot-open" type="button" title="上传 / 粘贴截图，自动识别并填入棋盘">
+          <svg class="ico"><use href="#ico-image"/></svg><span data-i18n="nav.ocr">截图识别</span>
+        </button>
         <button class="bb-btn" id="cell-minus" type="button" title="格子改小">−</button>
         <button class="bb-btn" id="cell-plus" type="button" title="格子改大">＋</button>
         <button class="bb-btn bb-auto" id="cell-auto" type="button" title="恢复自动适配屏幕" data-i18n="tools.auto" data-i18n-title="tools.auto.tip">自动</button>
@@ -199,9 +199,9 @@
 <script>window.TIDAL_OCR = false;/* 有没有同源服务器识别：静态托管版由构建脚本改成 false */</script>
 <script>window.TIDAL_OCR_MODE = 'local';/* 'local'（只本机识别）| 'server'（只服务器）| 'off'（关掉）；静态版构建时写成 local */</script>
 <script>window.TIDAL_OCR_URL = 'http://chenyl.free.idcfengye.com/';/* 静态版构建时填入「带截图识别的网址」 */</script>
-<script src="sweeper-icons.js?vmv98ti8l"></script>
-<script src="vision.js?vmv98ti8l"></script>
-<script src="solver-core.js?vmv98ti8l"></script>
-<script src="solver.js?vmv98ti8l"></script>
+<script src="sweeper-icons.js?vmv999qoh"></script>
+<script src="vision.js?vmv999qoh"></script>
+<script src="solver-core.js?vmv999qoh"></script>
+<script src="solver.js?vmv999qoh"></script>
 </body>
 </html>
