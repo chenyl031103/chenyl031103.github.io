@@ -92,7 +92,7 @@
       'vb.undo.tip': '撤销上一步改动（Ctrl+Z）',
       'vb.clear': '重置',
       'vb.clear.tip': '重置整个棋盘（会二次确认；可撤销）',
-      'credit.by': '潮汐秘境计算器 · 海出品',
+      'credit.by': '潮汐秘境计算器 · 时间之海出品',
       'credit.wx': '公众号',
       'rb.keys': '数字键 0-8 直接填 · 方向键换格（选中哪格填哪格） · Esc 关闭',
       'rb.opened': '翻开的',
@@ -231,7 +231,7 @@
       'vb.frames.tip': 'Done checking the imported cells: hide the gold/red frames (board contents unchanged, undoable)',
       'vb.clear': 'Reset',
       'vb.clear.tip': 'Clear the whole board (undoable)',
-      'credit.by': 'Tidal Realm Solver · by Hai',
+      'credit.by': 'Tidal Realm Solver · by Shijian Zhihai',
       'credit.wx': 'WeChat',
       'rb.keys': '0-8 fills · arrows move the selection (fills the selected cell) · Esc closes',
       'rb.opened': 'Cell',
@@ -707,7 +707,7 @@
             cls += ' say-prob ' + (near1 || (!near0 && pct >= 67) ? 'prob-hi' : (near0 || pct < 33) ? 'prob-lo' : 'prob-mid');
             badge = near1 ? '≈1' : near0 ? '≈0' : pct + '%';
           }
-          if (res.pick && res.pick.i === i && v === -1) cls += ' pick';   // 推荐框只画在还没填的格子上
+          if (hot === i && v === -1) cls += ' pick';   // 推荐框 = 闪烁格 = 选中框目标（同一格）；只画在还没填的格子上
           if (S.cursor === i) cls += ' cursor';
         }
 
@@ -764,54 +764,33 @@
 
   /* ---------- 分析 ---------- */
   /**
-   * 金色闪烁/建议的目标格：
-   *   ① 已经能确定是钻石的格 → 直接去挖；
-   *   ② 否则取概率最高的格；概率并列时优先"未打开 3×3 的正中心"
-   *      （周围 9 格全没翻开 → 翻一下最多能带出 9 格新线索，比在角落里瞎点强）；
-   *   ③ 再没有就取并列组里求解器排最后的那个（保持和建议条一致）；
-   *   ④ 概率全为 0 / 盘上没线索 → 返回 -1（空盘由调用方退回"棋盘中心"）。
+   * 「下一步该动哪一格」的唯一口径 —— 建议文字、选中框、闪烁框、金色推荐框全用它，保证永远同一格。
+   * 只挑"还没填过"的格子（数字 / 宝石 / × 都已定，不该再被推荐）：
+   *   ① 必定是宝石 → 直接挖；② 否则概率最高的未知格（赌一把的靶子）；③ 再退到"必定不是宝石"。
    */
-  function pickHotCell(res) {
-    if (!res) return -1;
-    // 只在还没填的格子里挑（数字 / 宝石 / × 都已经填过了，不该再被选中/闪烁）
-    const isHidden = (r, c) => !!(S.grid[r] && S.grid[r][c] === -1);
-    if (res.pick && res.pick.type === 'gem' && res.pick.i != null) {
-      const r0 = (res.pick.i / S.cols) | 0, c0 = res.pick.i % S.cols;
-      if (isHidden(r0, c0)) return res.pick.i;
-    }
-    const und = (res.undecided || []).filter((u) => isHidden(u.r, u.c));
-    if (!und.length) return -1;
-    let maxP = 0;
-    for (const u of und) if (u.p > maxP) maxP = u.p;
-    if (!(maxP > 0)) return -1;
-    const cands = und.filter((u) => u.p >= maxP - 1e-9);
-    const midR = (S.rows - 1) / 2, midC = (S.cols - 1) / 2;
-    // 在"没翻开"的格子里挑点下去收益最大的：
-    //   ① 3×3 里没翻开的格数最多 —— "3×3 正中心"（9 格全没开）只是它的特例；
-    //      中局往往没有整片没开的地方，所以退一步取"周围没开的最多"那格，
-    //      比角落/边缘格更可能一翻带出好几格新线索。
-    //   ② 其次看 5×5 里没翻开的格数；③ 再按离棋盘中心近。
-    const openedCount = (r, c, rad) => {
-      let n = 0;
-      for (let dr = -rad; dr <= rad; dr++) {
-        for (let dc = -rad; dc <= rad; dc++) {
-          const rr = r + dr, cc = c + dc;
-          if (rr < 0 || cc < 0 || rr >= S.rows || cc >= S.cols) continue;
-          if (S.grid[rr][cc] === -1) n++;               // -1 = 还没翻开（数字/钻石/× 都算已定）
-        }
-      }
-      return n;
+  function actionCell(res) {
+    if (!res) return null;
+    const hidden = (x) => {
+      if (!x || x.i == null) return false;
+      const r = (x.i / S.cols) | 0, c = x.i % S.cols;
+      return !!(S.grid[r] && S.grid[r][c] === -1);
     };
-    let best = -1, bestScore = -Infinity;
-    for (const u of cands) {
-      const o3 = openedCount(u.r, u.c, 1);
-      const o5 = openedCount(u.r, u.c, 2);
-      // 用"取整后的正中那格"作参照，空盘时结果稳定落在棋盘中心，不会因浮点并列乱跳
-      const score = o3 * 1000 + o5 * 10 - (Math.abs(u.r - Math.round(midR)) + Math.abs(u.c - Math.round(midC)));
-      if (score > bestScore) { bestScore = score; best = u.i; }
+    const gem = (res.certainGems || []).find(hidden);
+    if (gem) return { r: gem.r, c: gem.c, i: gem.i, p: 1, why: gem.why, type: 'gem' };
+    const und = (res.undecided || []).filter(hidden);
+    if (und.length) {
+      let hi = und[0];
+      for (const u of und) if (u.p > hi.p) hi = u;
+      return { r: hi.r, c: hi.c, i: hi.i, p: hi.p, type: 'guess' };
     }
-    if (best >= 0) return best;
-    return cands[cands.length - 1].i;
+    const sf = (res.certainSafe || []).find(hidden);
+    if (sf) return { r: sf.r, c: sf.c, i: sf.i, p: 0, why: sf.why, type: 'safe' };
+    return null;
+  }
+
+  function pickHotCell(res) {
+    const a = actionCell(res);
+    return a ? a.i : -1;
   }
 
   // 盘上有没有数字线索（没有任何数字时求解器给不出建议，只能提示"第一手点哪"）
@@ -901,7 +880,7 @@
       };
     }
     if (c.hiddenCells === 0) return { kind: '', text: t('advice.full') };
-    const pick = res.pick;
+    const pick = actionCell(res);
     if (!pick) return { kind: '', text: t('advice.needClue') };
     if (pick.type === 'gem') {
       return { kind: 'gem', text: t('advice.gem', coord(pick.r, pick.c), pick.why || t('advice.gemTail')) };
