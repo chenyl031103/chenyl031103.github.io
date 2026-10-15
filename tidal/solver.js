@@ -1621,6 +1621,8 @@
           const h = pickHotCell(S.result);
           S.cursor = h >= 0 ? h : Math.floor(rows / 2) * cols + Math.floor(cols / 2);
         }
+        // 「选项框在哪，输入就填哪」：卡片开着时以卡片那一格为准（平时它俩本来就是同一格）
+        if (S.awaiting >= 0 && S.awaiting !== S.cursor) S.cursor = S.awaiting;
         const r = (S.cursor / cols) | 0, c = S.cursor % cols;
         mark();
         S.grid[r][c] = v;
