@@ -527,7 +527,12 @@
       // 全屏：直接用「整盘放下的尺寸」和「屏幕高度能给的尺寸」重算（不依赖可能过期的容器值）
       const availW2 = Math.min(window.innerWidth, el.boardScroll.clientWidth || window.innerWidth) - padX - 2;
       const wCell = Math.max(8, Math.floor((availW2 - gap * (cols - 1)) / cols));
-      const hCell = Math.floor((window.innerHeight * 0.92 - gap * (rows - 1)) / rows);
+      // 高度预算 = 屏幕高 - 上面的尺寸栏 - 下面的笔刷栏/建议框/页脚（全屏也要让页脚完整显示）
+      const aboveH = (document.querySelector('.map-bar') ? document.querySelector('.map-bar').offsetHeight : 0) + 30;
+      const belowH = (document.querySelector('.palette') ? document.querySelector('.palette').offsetHeight : 87) +
+                     (document.querySelector('.status-bar') ? document.querySelector('.status-bar').offsetHeight : 60) +
+                     (document.querySelector('.footer') ? document.querySelector('.footer').offsetHeight : 56) + 40;
+      const hCell = Math.floor(((window.innerHeight - aboveH - belowH) - gap * (rows - 1)) / rows);
       cell = Math.max(wCell, Math.min(hCell, Math.round(wCell * 1.4), 140));   // 最多比整盘放下大 40%
     } else if (byH > 0) cell = Math.min(cell, byH);
 
