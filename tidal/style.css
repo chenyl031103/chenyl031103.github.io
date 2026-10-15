@@ -1429,3 +1429,10 @@ body.use-tile-art:not(.is-mine-game) #board {
   .footer .wx-btn { font-size: 0.7rem; padding: 2px 9px; }
   .footer .wx-btn .wx-id { display: none; }
 }
+
+/* 手机：待定那块（建议框）收紧，少占高度 */
+@media (max-width: 640px) {
+  .status-bar { padding: 6px 10px; }
+  .status-bar .advice { font-size: 0.75rem; line-height: 1.55; }
+  .status-bar .advice .vb-err, .status-bar .vb-err { font-size: 0.78rem; }
+}
