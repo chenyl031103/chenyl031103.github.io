@@ -170,7 +170,7 @@
       'game.again': '再来一局',
       'game.quitToastMine': '已退出扫雷',
       'game.quitToast': '已退出游戏模式',
-      'reset.armed': '再点一次确认重置',
+      'reset.armed': '确定',   // 等宽两字：点「重置」后按钮宽度不变，不会把这一行挤下去
       'reset.done': '已重置棋盘 · 可撤销',
       'reset.empty': '棋盘本来就是空的',
       'ocr.crossOk': function (a, b, c) { return '截图里写着 <b>' + a + '/' + b + '</b>（已收集/总数）：识别出 <b>' + c + '</b> 颗钻石、总数 ' + b + ' —— 两边对得上，交叉核对通过。'; },
@@ -309,7 +309,7 @@
       'game.again': 'Play again',
       'game.quitToastMine': 'Minesweeper closed',
       'game.quitToast': 'Play mode closed',
-      'reset.armed': 'Click again to confirm',
+      'reset.armed': 'OK',     // same width as Reset: no layout shift
       'reset.done': 'Board reset · undoable',
       'reset.empty': 'Board was already empty',
       'ocr.crossOk': function (a, b, c) { return 'The screenshot says <b>' + a + '/' + b + '</b> (collected/total) and we read <b>' + c + '</b> gems with total ' + b + ' — cross-check passed.'; },
