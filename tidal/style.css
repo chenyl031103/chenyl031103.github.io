@@ -1471,16 +1471,3 @@ body.use-tile-art:not(.is-mine-game) #board {
   .board-tools { bottom: 12px; }
 }
 
-/* 全屏：棋盘区贴住棋盘（不再撑满整屏留大片空白）；页脚/尺寸栏都保留 */
-.stage:fullscreen .board-shell { flex: 0 0 auto; min-height: 0; }
-.stage:fullscreen .board-scroll { flex: 0 0 auto; }
-.stage:fullscreen { justify-content: flex-start; }
-
-/* 全屏：笔刷栏按手机那套收紧（某些环境全屏后媒体查询不生效，这里显式写一遍），保证两行放下、页脚可见 */
-:fullscreen .palette { gap: 5px 3px; padding: 6px 8px; }
-:fullscreen .palette .rec-card, :fullscreen .palette .rec-auto { font-size: 0.72rem; gap: 4px; }
-:fullscreen .palette-actions .brush-act { padding: 0 5px; font-size: 0.76rem; }
-:fullscreen .palette .brush:not(.brush-act):not(.brush-num) { min-width: 26px; padding: 0 5px; }
-:fullscreen .palette #brush-nums { gap: 3px; }
-:fullscreen .palette #brush-nums .brush-num { width: 28px; }
-:fullscreen .map-bar { padding: 6px 12px; gap: 6px 8px; }
