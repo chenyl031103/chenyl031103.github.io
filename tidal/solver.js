@@ -147,7 +147,7 @@
       'ocr.back': '换一张重来',
       'ocr.applyTip': '填进去以后每格都能再手动改；识别没把握的格子会带红框提醒。',
       'ocr.crossH4': '和游戏里的计数对一下',
-      'ocr.applyDone': '已填进棋盘，逐格核对一下吧',
+      'ocr.applyDone': '已填进棋盘',
       'ocr.weakTitle': '这次没读出内容',
       'ocr.badTitle': '识别结果可能不对',
       'ocr.failTitle': '本机没能认出棋盘',
@@ -176,7 +176,7 @@
       'ocr.crossOk': function (a, b, c) { return '截图里写着 <b>' + a + '/' + b + '</b>（已收集/总数）：识别出 <b>' + c + '</b> 颗钻石、总数 ' + b + ' —— 两边对得上，交叉核对通过。'; },
       'ocr.crossSize': function (a, b, nx, tot) { return '<b>尺寸可能选错了</b>：截图里写的是 ' + a + '/' + b + '，而 ' + nx + '×' + nx + ' 的总数应该是 ' + tot + '。请核对地图档位后重新识别。'; },
       'ocr.crossBad': function (a, b, c) { return '截图里写着 <b>' + a + '/' + b + '</b>，但识别出 <b>' + c + '</b> 颗钻石，两者不一致 —— 可能有格子读错了，重点核对钻石格（金框）。'; },
-      'ocr.doneAuto': function (nx, filled, miss, un) { return '识别完成（自动判定 ' + nx + '×' + nx + '）：读出 ' + filled + ' 格，未翻开 ' + miss + ' 格' + (un ? '，' + un + ' 处待核对' : ''); },
+      'ocr.doneAuto': function (nx, filled, miss, un) { return '识别完成（自动判定 ' + nx + '×' + nx + '）：读出 ' + filled + ' 格，未翻开 ' + miss + ' 格'; },
       'ocr.constrained': function (n) { return '；其中 ' + n + ' 处按盘面约束复核过（红框，照着游戏画面确认一下）'; },
       'ocr.doneLocal': function (ms, nx, miss) { return '本机识别完成（' + ms + ' 毫秒，自动判定 ' + nx + '×' + nx + '），还有 ' + miss + ' 个没翻开的格子'; },
       'ocr.unopenedMsg': function (w) { return '这张图还没开过：先点 ' + w; },
@@ -683,8 +683,7 @@
           }
           node.dataset.hot = tier;
         } else if (node.dataset.hot) node.dataset.hot = '';
-        if (S.aiCells.has(i)) cls += ' is-ai';
-        if (S.unsure.has(i)) cls += ' is-unsure';
+        // 识别框（金=识别填的 / 红=待核对）已按用户要求去掉：识别结果直接干净落到棋盘
         if (S.awaiting === i) cls += ' awaiting';
 
         // 结论用「符号」表达，不再画框：绿 √ = 必定是钻石，红 × = 工具推导的「不是钻石」提示，蓝 × = 自己打上的「不是钻石」
@@ -1242,7 +1241,7 @@
   // 「核对完成」：识别导入的框（金=识别填的，红=待核对）核对完了一键清掉（§18.3 问题 B-2）
   function updateFramesBtn() {
     const b = $('#btn-clear-frames');
-    if (b) b.hidden = !(S.aiCells.size || S.unsure.size);
+    if (b) b.hidden = true;   // 「核对完成」按钮已停用（识别框不再画，不需要核对这一步）
   }
 
   function clearFrames() {
@@ -2752,7 +2751,7 @@
       const gemN = cells.flat().filter((v) => v === 9).length;
       const filled = cells.flat().filter((v) => v !== -1).length;
       st.textContent = `${rows}×${cols} · 读出 ${filled} 格 · 钻石 ${gemN} 颗`
-        + ` · 未翻开 ${rows * cols - filled} 格${unsureN ? ` · ${unsureN} 处待核对` : ''}`;
+        + ` · 未翻开 ${rows * cols - filled} 格`;   // 「待核对」提示已去掉
     }
     // 四角黄点：可直接拖拽框住棋盘外框（松手重算）。位置存画布像素，供 pointer 命中
     const cn = grid.n;
