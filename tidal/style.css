@@ -587,7 +587,7 @@ main {
   border-radius: var(--radius);
   font-size: 0.85rem;
 }
-.vb { display: inline-flex; align-items: center; gap: 6px; color: var(--text-secondary); }
+.vb { display: inline-flex; align-items: center; gap: 6px; color: var(--text-secondary); white-space: nowrap; flex: 0 0 auto; }
 .vb .ico { width: 14px; height: 14px; }
 .vb b { font-size: 1rem; font-variant-numeric: tabular-nums; }
 .vb-gem .ico, .vb-gem b { color: var(--gold); }
@@ -807,7 +807,7 @@ main {
   border-radius: 0;
 }
 .status-bar .verdict-bar {
-  flex: 0 1 auto;      /* 计数与按钮收缩时在内部换行，始终和建议在同一水平带 */
+  flex: 0 0 auto;      /* 不许被压扁：手机上也横着写、就贴在文字最后一行的右边 */
   justify-content: flex-end;
   padding: 0;
   background: none;
