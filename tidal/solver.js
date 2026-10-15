@@ -49,7 +49,7 @@
   const I18N = {
     zh: {
       'doc.title': '《弹壳特攻队》-潮汐秘境计算器',
-      'brand.name': '潮汐秘境计算器',
+      'brand.name': '时间之海·潮汐秘境计算器',
       'brand.tag': '填好残局 → 棋盘上直接标出哪格是钻石、哪格可以标 ×',
       'nav.ocr': '截图识别',
       'nav.help': '使用说明',
@@ -188,7 +188,7 @@
     },
     en: {
       'doc.title': 'Survivor.io · Tidal Realm Solver',
-      'brand.name': 'Tidal Realm Solver',
+      'brand.name': 'Shijian Zhihai · Tidal Realm Solver',
       'brand.tag': 'Fill in the board → it marks which cells are gems and which are safe',
       'nav.ocr': 'Screenshot OCR',
       'nav.help': 'Help',
@@ -355,6 +355,7 @@
     }
     if (MODAL_REFRESH && el.modal && !el.modal.hidden) MODAL_REFRESH();   // 开着的弹窗一起换语言
     if (!S.game && S.grid && S.grid.length) analyze();   // 动态文案（建议条/结论条）重绘
+    if (typeof layoutTopbar === 'function') layoutTopbar();   // 换语言后按钮文字长度变了，重算顶栏
   }
 
   const OCR_SERVICE = resolveOcrService();
@@ -376,6 +377,23 @@
   const GATEWAY_URL = 'https://chenyl031103.github.io';
   // 页脚不再列"相关网址"：现在主要入口就是 chenyl031103.github.io/tidal（静态版自带本机识别）
   function renderSiteLinks() {}
+
+  /** 顶栏按钮按剩余空间显示：能放下就显示，放不下就藏起来（绝不出现半截按钮）。
+      至少保留「游戏模式」和主题切换；其余按 使用说明 → 中文 → EN 的顺序依次尝试。 */
+  function layoutTopbar() {
+    const bar = document.querySelector('.topbar');
+    const nav = document.querySelector('.topbar-nav');
+    const strong = document.querySelector('.brand-text strong');
+    if (!bar || !nav) return;
+    const optional = ['btn-help', 'btn-lang-zh', 'btn-lang-en'].map((id) => document.getElementById(id)).filter(Boolean);
+    optional.forEach((b) => { b.hidden = true; });          // 先只留「游戏模式」+ 主题
+    for (const b of optional) {
+      b.hidden = false;                                     // 试放一个
+      const overflow = nav.scrollWidth > nav.clientWidth + 1 || bar.scrollWidth > bar.clientWidth + 1;
+      const brandCut = strong ? strong.scrollWidth > strong.clientWidth + 1 : false;   // 品牌字被截断 = 没位置
+      if (overflow || brandCut) { b.hidden = true; break; }  // 放不下：撤回并停止
+    }
+  }
 
   const $ = (s) => document.querySelector(s);
   const el = {
@@ -3106,6 +3124,8 @@
     initTheme();
     // 静态托管版：隐藏截图识别入口；两种版本都在页脚上方列出对应网址
     renderSiteLinks();
+    layoutTopbar();                                    // 顶栏按可用宽度决定显示几个按钮
+    window.addEventListener('resize', () => { clearTimeout(window.__topbarT); window.__topbarT = setTimeout(layoutTopbar, 150); });
     S.grid = newGrid(S.rows, S.cols);
     const restored = restoreState();          // 有存档就恢复上次的盘面 + 撤销栈
     setGemTotalDisplay();
