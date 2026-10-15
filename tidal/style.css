@@ -258,15 +258,13 @@ main {
 .brush-gem .ico { color: var(--gold); }
 .brush-x .ico { color: var(--text-secondary); }
 .palette-tip {
-  margin-left: auto;
   font-size: 0.75rem;
   color: var(--text-muted);
-  flex: 0 1 auto;
+  flex: 1 1 100%;          /* 自己占一整行：写全每个键的作用，不被截断 */
   min-width: 0;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  white-space: normal;
   text-align: right;
+  line-height: 1.6;
 }
 @media (max-width: 640px) {
   .palette-tip { display: none; }   /* 手机上不用键盘提示，别占地方 */
