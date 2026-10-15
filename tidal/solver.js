@@ -79,7 +79,7 @@
       'chip.cells': '格',
       'rec.label': '建议点击',
       'rec.auto': '自动提示',
-      'rec.auto.tip': '默认把选中框放在推荐格上、闪出推荐；你一动手（点格子 / 方向键）它就跟着你走，不会自动跳回',
+      'rec.auto.tip': '开着：默认选中推荐格 + 每次录入后自动跳回推荐格（选中框和选项框一起走）。关掉：完全手动，填完停在你填的那一格',
       'vb.gem': '钻石',
       'vb.safe': '不是钻石',
       'vb.unknown': '待定',
@@ -216,7 +216,7 @@
       'chip.cells': 'cells',
       'rec.label': 'Suggested',
       'rec.auto': 'Auto-hint',
-      'rec.auto.tip': 'Selection starts on the suggested cell and flashes it; once you click or use arrow keys it follows you instead of snapping back',
+      'rec.auto.tip': 'On: starts on the suggested cell and returns there after each entry (selection + card move together). Off: full manual control — it stays on the cell you filled',
       'vb.gem': 'gems',
       'vb.safe': 'safe',
       'vb.unknown': 'undecided',
@@ -1142,10 +1142,25 @@
     S.unsure.delete(i);
     analyze();
     settle();
-    // 填完就停在这一格：选中框留在原地、选项框也保持开着（不再自动跳回推荐格）
+    // 先停在这一格（「自动提示」关掉时就是最终效果：完全手动）
     S.cursor = i;
     S.cursorManual = true;
     paint();
+    autoAdvance();            // 「自动提示」开着：跳回推荐格，选项框一起过去
+  }
+
+  /**
+   * 录入后跳回"推荐格"：选中框和选项框一起过去，接着录入不用点来点去。
+   * 「自动提示」关掉时不做任何事 —— 那就完全是手动控制（填完停在你填的那一格）。
+   */
+  function autoAdvance() {
+    if (!S.autoNext || S.game) return;
+    const res = S.result;
+    if (!res) return;
+    const next = pickHotCell(res);
+    if (next < 0) return;
+    S.cursorManual = false;
+    openRevealBar(next);      // 内部会把 S.cursor 指到这格，并把选项框挪过来
   }
 
   /* ---------- 撤销：记录「每一步之前」的盘面 ----------
@@ -1447,10 +1462,11 @@
       paint();
       analyze();
       settle();
-      // 填完就停在这一格：选中框留在原地、选项框也保持开着（不再自动跳回推荐格）
+      // 先停在这一格（「自动提示」关掉时就是最终效果：完全手动）
       S.cursor = target;
       S.cursorManual = true;
       paint();
+      autoAdvance();          // 「自动提示」开着：跳回推荐格，选项框一起过去
     });
 
     // 尺寸
@@ -1588,9 +1604,10 @@
         paint();
         analyze();
         settle();
-        // 填完就停在这一格：选中框留在原地、选项框也保持开着（不再自动跳回推荐格）
+        // 先停在这一格（「自动提示」关掉时就是最终效果：完全手动）
         S.cursorManual = true;
         paint();
+        autoAdvance();        // 「自动提示」开着：跳回推荐格，选项框一起过去
       };
 
       // 方向键：移动选中的格子
@@ -3059,6 +3076,7 @@
     applyLang();       // 静态文案按语言刷一遍（内部会 analyze）
     analyze();
     updateUndoBtn();
+    autoAdvance();       // 默认把选中框 + 选项框放在推荐格上（「自动提示」开着时）
     if (restored) toast('已恢复上次的盘面', 'gold');
     // 版面变化（笔刷栏换行、页内滚动条出现/消失、手机地址栏收起、旋转屏幕）后重算格子大小，
     // 保证整盘放得下始终成立；手动调过格子大小就不动（尊重用户选择）
