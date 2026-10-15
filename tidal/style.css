@@ -1435,3 +1435,18 @@ body.use-tile-art:not(.is-mine-game) #board {
   .status-bar .advice { font-size: 0.75rem; line-height: 1.55; }
   .status-bar .advice .vb-err, .status-bar .vb-err { font-size: 0.78rem; }
 }
+
+/* 手机：把省下来的高度让给棋盘（消掉棋盘与「待定」之间的空白） */
+@media (max-width: 640px) {
+  .stage { gap: 8px; }
+  .map-bar { padding: 6px 12px; gap: 6px 8px; }
+  .palette { padding: 6px 8px; }
+  .status-bar { padding: 5px 9px; }
+}
+
+/* 手机：棋盘底部给浮动按钮留的空收窄（46→26px），少一截空白；按钮也矮一点 */
+@media (max-width: 640px) {
+  .board-scroll { padding: 10px 10px 26px; }
+  .board-tools { right: 8px; bottom: 5px; gap: 3px; }
+  .board-tools .bb-btn { height: 24px; padding: 0 8px; font-size: 0.72rem; }
+}

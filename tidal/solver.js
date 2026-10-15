@@ -488,8 +488,12 @@
                   (el.advice ? el.advice.offsetHeight : 30) +
                   (document.querySelector('#rec-row') && !document.querySelector('#rec-row').hidden
                     ? document.querySelector('#rec-row').offsetHeight : 0) +
-                  (document.querySelector('.verdict-bar') ? document.querySelector('.verdict-bar').offsetHeight : 48) + 96;
-    const availH = Math.max(160, Math.max(window.innerHeight * 0.5, window.innerHeight - rect.top - below - padY) - 0);
+                  (document.querySelector('.verdict-bar') ? document.querySelector('.verdict-bar').offsetHeight : 48) +
+                  (document.querySelector('.footer') ? document.querySelector('.footer').offsetHeight : 0) + 96;
+    // 可用高度：以棋盘容器（#board-scroll）的实际高度为准 —— 最准，不会白白留空白
+    const byBox = el.boardScroll.clientHeight ? el.boardScroll.clientHeight - padY : 0;
+    const byCalc = window.innerHeight - rect.top - below - padY;
+    const availH = Math.max(160, Math.max(window.innerHeight * 0.5, Math.max(byBox, byCalc)));
     const byH = Math.floor((availH - gap * (rows - 1)) / rows);
     if (byH > 0) cell = Math.min(cell, byH);
 
@@ -2268,7 +2272,7 @@
         </section>
         <section>
           <h4>Follow us</h4>
-          <p>Updates, event guides and feedback all go to our WeChat official account: <b>chenyl031103</b> (click the footer line to copy the ID).</p>
+          <p>Updates, event guides and feedback all go to our WeChat official account: <b>wx_cyl031103</b> (click the footer line to copy the ID).</p>
         </section>`,
   };
 
