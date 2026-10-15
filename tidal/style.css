@@ -1455,3 +1455,17 @@ body.use-tile-art:not(.is-mine-game) #board {
 /* 「截图识别」挪到棋盘工具行后：图标+文字紧凑一点 */
 .board-tools .bb-shot { display: inline-flex; align-items: center; gap: 4px; }
 .board-tools .bb-shot .ico { width: 13px; height: 13px; }
+
+/* 手机顶栏：只露出一两个按钮（默认「游戏模式」），其余横向滑动查看，不再压住左边标题 */
+@media (max-width: 640px) {
+  body:not(.is-game) .topbar-nav { flex: none; max-width: 108px; overflow-x: auto; flex-wrap: nowrap; -webkit-overflow-scrolling: touch; }   /* 只露出「游戏模式」，其余滑动 */
+  .topbar-nav::-webkit-scrollbar { height: 0; width: 0; display: none; }
+  .topbar .brand { min-width: 0; flex: 1 1 auto; }
+}
+/* 「截图识别」按钮：字色提亮、字号稍大，深色底上更显眼 */
+.board-tools .bb-shot { color: var(--accent); font-weight: 600; }
+.board-tools .bb-shot .ico { color: var(--accent); }
+/* 手机：浮动按钮上移，别压住横向滑动条（滚动条约 8px） */
+@media (max-width: 640px) {
+  .board-tools { bottom: 12px; }
+}
