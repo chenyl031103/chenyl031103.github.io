@@ -2567,6 +2567,9 @@
     if (go) { go.disabled = false; go.textContent = S.shotSize ? t('ocr.goN', S.shotSize) : t('ocr.go'); }
     setGoState(false);
     setImportStatus(t('ocr.ready'), '');
+    // 选好图就直接开始识别（尺寸默认「自动」）——不用再点尺寸或「开始识别」；
+    // 识别不对时，用户可以手动选尺寸再点「开始识别」重来。
+    if (!S.ocrCanceled) setTimeout(() => { try { recognize(S.ocrFile || S.ocrBlob); } catch (e) {} }, 60);
   }
 
   /** 本机识别（vision.js 模板匹配）：不用服务器、秒级返回；返回结构与服务端一致 */
