@@ -25,13 +25,14 @@
   <div id="links"></div>
 </div>
 <script>
-// 同时探测所有 HTTPS 入口，谁先连上就跳谁；全部失败则用主入口 HTTP 兜底
+// 同时探测所有 HTTPS 入口，谁先连上就跳谁；全部失败则用主入口 HTTP 兜底。
+// 探测必须用「真图片」而不是 fetch(no-cors)：隧道域名过期后（例如 cpolar 到期）仍会返回 200 的
+// 404 页面，no-cors 拿不到状态码分不出来，访客会被直接跳到隧道商的报错页上。
 var CANDIDATES = [
-  "http://chenyl.free.idcfengye.com",
-  "https://189c97cc.r7.vip.cpolar.cn",
   "https://korea-flood-grade-bargains.trycloudflare.com"
 ];
 var FALLBACK = "http://chenyl.free.idcfengye.com";
+var PROBE_IMG = "/contact_qr.jpg";     // 只有这个路径返回真图片，才算入口活着
 var jumped = false;
 
 function go(url) {
@@ -42,10 +43,13 @@ function go(url) {
 
 function probe(url) {
   return new Promise(function (resolve) {
-    var timer = setTimeout(function () { resolve(null); }, 3000);
-    fetch(url + "/api/config", { mode: "no-cors", cache: "no-store" })
-      .then(function () { clearTimeout(timer); resolve(url); })
-      .catch(function () { clearTimeout(timer); resolve(null); });
+    var done = false, timer = null;
+    function finish(v) { if (done) return; done = true; if (timer) clearTimeout(timer); resolve(v); }
+    timer = setTimeout(function () { finish(null); }, 3000);
+    var img = new Image();
+    img.onload = function () { finish(url); };
+    img.onerror = function () { finish(null); };
+    img.src = url + PROBE_IMG + "?_=" + Date.now();
   });
 }
 
