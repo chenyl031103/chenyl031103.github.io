@@ -367,7 +367,8 @@
      本地识别能用时不走这里；本地失败才作为兜底。 */
   function serverOcrUrls() {
     const out = [];
-    if (OCR_MODE !== 'local' && /^https?:$/.test(location.protocol)) out.push('api/parse-board');
+    // 静态版有独立识别服务时只走服务，避免同源 api/parse-board 的 404 截断后续尝试
+    if (OCR_MODE !== 'local' && !OCR_SERVICE && /^https?:$/.test(location.protocol)) out.push('api/parse-board');
     if (OCR_SERVICE) out.push(OCR_SERVICE.replace(/\/+$/, '') + '/api/parse-board');
     return out.filter((u, i) => out.indexOf(u) === i);
   }
@@ -2363,7 +2364,7 @@
     const t0 = Date.now();
     clearInterval(S.importTimer);
     S.ocrStage = '';      // 服务端报告的当前进度（例如"正在改用备选模型…"）
-    const tip = LANG === 'en' ? (LOCAL_OCR ? 'on-device, about 1s' : 'usually 10-60s') : (LOCAL_OCR ? '本机识别，一般 1 秒内' : `按 ${sizeLabel} 识别，通常十几秒，忙的时候要一分钟`);
+    const tip = LANG === 'en' ? (LOCAL_OCR ? 'on-device, about 1s' : 'usually a few seconds') : (LOCAL_OCR ? '本机识别，一般 1 秒内' : `按 ${sizeLabel} 识别，通常几秒`);
     const line = (s) => `${LANG === 'en' ? 'Recognizing… ' + s + 's' : '识别中… 已用 ' + s + 's'}`
       + (S.ocrStage ? ` · ${S.ocrStage}` : `（${tip}）`);
     setImportStatus(line(0), 'busy');
@@ -2591,6 +2592,18 @@
   }
 
   /** 本机识别（vision.js 模板匹配）：不用服务器、秒级返回；返回结构与服务端一致 */
+  // 本机网格定位合理性检查：网格明显超出图片/格子宽高比异常时，宁可交给服务器重认
+  function localGridBad(r) {
+    const g = r && r.debug && r.debug.grid;
+    const img = r && r.image;
+    if (!g || !img) return false;
+    const x1 = g.x0 + g.cellX * g.n;
+    const y1 = g.y0 + g.cellY * g.n;
+    return !(g.cellX > 0 && g.cellY > 0)
+      || x1 > img.width * 1.02 || y1 > img.height * 1.02
+      || g.cellX / g.cellY < 0.55 || g.cellX / g.cellY > 1.8;
+  }
+
   async function recognizeLocal(file, forceN) {
     const url = URL.createObjectURL(file);
     try {
@@ -2614,6 +2627,12 @@
       const r = window.TidalVision.recognize(id, forceN ? { forceN } : {});   // 尺寸优先本地判定，再和用户选的档位核对
       r.localMs = Math.round(performance.now() - t0);
       if (!r.image) r.image = id;   // 旋转识别时 vision 会带回旋转后的图，预览必须用它（坐标才一致）
+      if (localGridBad(r)) throw new Error('本机定位棋盘失败（网格超出截图范围）');
+      const g = r.debug && r.debug.grid;
+      // 蓝色背景截图时本机常用 blue 兜底定位；读得太少说明网格/字形不可靠，交给服务器重认
+      if (g && g.src === 'blue' && !r.unopened && (r.coverage || 0) < 0.25) {
+        throw new Error('本机识别可信度低，改用服务器识别');
+      }
       return r;
     } finally {
       try { URL.revokeObjectURL(url); } catch (e) {}
