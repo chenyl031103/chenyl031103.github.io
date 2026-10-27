@@ -75,8 +75,9 @@
     X_LUM: 188, X_RGB_MIN: 158,
     X_FRAC_MIN: 0.025, X_FRAC_MAX: 0.42,
     X_SPAN_MIN: 0.50,
-    X_MINCOV: 0.62,             // 未翻开分支
-    X_MINCOV_OPEN: 0.75,        // 已翻开分支（误判代价大）
+    // 浅蓝底上的白色 × 经过 JPEG/缩放后两条对角线会断开，0.62/0.75 会把整批 × 漏掉；仍由覆盖率、跨度和亮色像素占比三重门控防误判。
+    X_MINCOV: 0.40,             // 未翻开分支
+    X_MINCOV_OPEN: 0.40,        // 已翻开分支
     RETRY_R: 3, RETRY_R_SMALL: 2,
     RETRY_R_UNOPENED: 1,        // 未翻开格只需查 X 标记（纹样不参与数字投票），半径可小
     UPSCALE_BELOW: 62,          // 格宽小于此值（微信压缩图）先放大再读数
