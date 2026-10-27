@@ -7,41 +7,10 @@
 
   // 各尺寸的钻石总数由活动固定，不可更改
   const GEM_TOTAL = { 8: 20, 10: 30, 12: 45 };
-  /* 截图识别有两个引擎：
-     · 本机识别（vision.js，零依赖模板匹配）—— 秒级、不联网、不花额度，默认优先
-     · 服务器识别（api/parse-board）—— 本机没认准时兜底；只有服务版有 */
-  const OCR_SERVER_ON = window.TIDAL_OCR !== false;   // 静态托管版把 window.TIDAL_OCR 设为 false
+  /* 截图识别只使用浏览器本机 vision.js：零依赖、不联网、不花 API 额度。 */
   const HAS_LOCAL_VISION = !!(window.TidalVision && typeof window.TidalVision.recognize === 'function');
-  const OCR_MODE = String(window.TIDAL_OCR_MODE || '').toLowerCase();   // 'local' | 'server' | 'off'
-  const LOCAL_OCR = HAS_LOCAL_VISION && OCR_MODE !== 'server' && OCR_MODE !== 'off';
-  const SERVER_OCR = OCR_SERVER_ON && OCR_MODE !== 'local' && OCR_MODE !== 'off';
-  const OCR_ENABLED = LOCAL_OCR || SERVER_OCR;
-
-  /* 静态版：「去用截图识别版」指向的地址（构建时写入）。
-     隧道地址会变，所以支持用 ?ocr=新地址 覆盖，存本地，改地址不必重新上传。 */
-  const OCR_URL_KEY = 'tidal_ocr_url';
-
-  function resolveOcrService() {
-    const clean = (u) => (u ? u.replace(/\/+$/, '') + '/' : '');
-    let saved = '';
-    try { saved = localStorage.getItem(OCR_URL_KEY) || ''; } catch (e) {}
-    try {
-      const params = new URLSearchParams(location.search);
-      if (params.has('ocr')) {
-        const raw = (params.get('ocr') || '').trim();
-        if (raw) {
-          saved = /^https?:\/\//i.test(raw) ? raw : 'https://' + raw;
-          try { localStorage.setItem(OCR_URL_KEY, saved); } catch (e) {}
-        } else {
-          saved = '';   // ?ocr= 留空 = 清除覆盖，回到构建时写入的地址
-          try { localStorage.removeItem(OCR_URL_KEY); } catch (e) {}
-        }
-      }
-    } catch (e) {}
-    const built = typeof window.TIDAL_OCR_URL === 'string' ? window.TIDAL_OCR_URL.trim() : '';
-    return clean(saved || built);
-  }
-
+  const LOCAL_OCR = HAS_LOCAL_VISION;
+  const OCR_ENABLED = LOCAL_OCR;
 
   let MODAL_REFRESH = null;   // 当前弹窗的"重新打开"函数（切语言时用它把弹窗内容一起刷新）
 
@@ -138,7 +107,6 @@
       'ocr.waitPick': '先把截图拖进来或粘贴',
       'ocr.ready': '图片已就绪 —— 点「识别并填入」就行',
       'ocr.recognizing': '识别中… 正在本机识别（不用服务器）',
-      'ocr.switchServer': '本机没认准，改用服务器识别…',
       'ocr.previewTitle': '识别结果 · 先看网格对没对齐',
       'ocr.previewH4': '对照预览：红线要正好压在格缝上',
       'ocr.nudgeTip': '红线偏了：直接拖预览图四角的黄点框住棋盘外框（松手自动重算）；也可以用下面的按钮每次挪 1/4 格。',
@@ -277,7 +245,6 @@
       'ocr.waitPick': 'Drop or paste a screenshot first',
       'ocr.ready': 'Image ready — just hit Recognize',
       'ocr.recognizing': 'Recognizing on this device (no server)…',
-      'ocr.switchServer': 'Local recognition failed, trying the server…',
       'ocr.previewTitle': 'Result · check the grid alignment',
       'ocr.previewH4': 'The red lines should sit right on the grid seams',
       'ocr.nudgeTip': 'If the lines are off, drag the yellow corner dots on the preview to frame the board (re-runs on release); or nudge with the buttons below (1/4 cell per step).',
@@ -358,25 +325,9 @@
     if (typeof layoutTopbar === 'function') layoutTopbar();   // 换语言后按钮文字长度变了，重算顶栏
   }
 
-  const OCR_SERVICE = resolveOcrService();
   const DOUBLE_MS = 340;   // 两次按下间隔小于此值算「双击」（涂色笔刷下双击 = 弹取值卡）
 
-  /* 服务器识别的候选地址（按序尝试）：
-     · 服务版：同源 api/parse-board
-     · 静态版：构建时写入的隧道地址（?ocr= 可临时覆盖）
-     本地识别能用时不走这里；本地失败才作为兜底。 */
-  function serverOcrUrls() {
-    const out = [];
-    // 静态版有独立识别服务时只走服务，避免同源 api/parse-board 的 404 截断后续尝试
-    if (OCR_MODE !== 'local' && !OCR_SERVICE && /^https?:$/.test(location.protocol)) out.push('api/parse-board');
-    if (OCR_SERVICE) out.push(OCR_SERVICE.replace(/\/+$/, '') + '/api/parse-board');
-    return out.filter((u, i) => out.indexOf(u) === i);
-  }
-
-  // 页脚上方的相关链接：静态版列出「带识别」的网址，服务版列出「静态版」网址
-  const OCR_FALLBACK = 'http://chenyl.free.idcfengye.com/';
-  const GATEWAY_URL = 'https://chenyl031103.github.io';
-  // 页脚不再列"相关网址"：现在主要入口就是 chenyl031103.github.io/tidal（静态版自带本机识别）
+  // 页脚不再列相关网址：当前页面直接使用本机识别。
   function renderSiteLinks() {}
 
   /** 顶栏布局：
@@ -2307,10 +2258,12 @@
   }
   function helpHtml() {
     const ocrNote = OCR_ENABLED
-      ? ''
+      ? (LANG === 'en'
+        ? '<section><h4>Screenshot OCR</h4><p>Recognition runs entirely in this browser. No screenshot is uploaded and no API quota is used. If a picture cannot be read, fill the cells manually.</p></section>'
+        : '<section><h4>截图识别</h4><p>识别完全在当前浏览器本机运行，不上传截图，也不消耗 API 额度。如果图片无法识别，请按截图手动填写棋盘。</p></section>')
       : (LANG === 'en'
-        ? '<section><h4>No OCR in this build</h4><p>This build has no backend, so screenshot OCR is unavailable; manual entry still has everything. The OCR-enabled site link is in the "Screenshot OCR" dialog.</p></section>'
-        : '<section><h4>这个版本没有截图识别</h4><p>静态托管版没有后端，所以不提供截图识别；手动填写可以用全部功能。想用截图识别，点棋盘右下角的<b>「截图识别」</b>按钮，里面有两个带识别功能的网址。</p></section>');
+        ? '<section><h4>Local OCR unavailable</h4><p>This browser did not load the local OCR engine. Manual entry is still available.</p></section>'
+        : '<section><h4>本机识别不可用</h4><p>当前浏览器没有加载本机识别引擎，但仍可以手动填写棋盘。</p></section>');
     return `
       <div class="modal-head">
         <h3>${t('nav.help')}</h3>
@@ -2363,8 +2316,8 @@
   function startImportClock(sizeLabel) {
     const t0 = Date.now();
     clearInterval(S.importTimer);
-    S.ocrStage = '';      // 服务端报告的当前进度（例如"正在改用备选模型…"）
-    const tip = LANG === 'en' ? (LOCAL_OCR ? 'on-device, about 1s' : 'usually a few seconds') : (LOCAL_OCR ? '本机识别，一般 1 秒内' : `按 ${sizeLabel} 识别，通常几秒`);
+    S.ocrStage = '';
+    const tip = LANG === 'en' ? 'on-device, about 1s' : '本机识别，一般 1 秒内';
     const line = (s) => `${LANG === 'en' ? 'Recognizing… ' + s + 's' : '识别中… 已用 ' + s + 's'}`
       + (S.ocrStage ? ` · ${S.ocrStage}` : `（${tip}）`);
     setImportStatus(line(0), 'busy');
@@ -2417,17 +2370,13 @@
 
   function openShotModal() {
     if (!OCR_ENABLED) {
-      const svc = OCR_SERVICE || OCR_FALLBACK;
       openModal(`
         <div class="modal-head"><h3>截图识别</h3>
           <button class="modal-close" data-close type="button">✕</button></div>
         <div class="rules">
           <section>
-            <p>当前打开的是<b>静态版</b>（放在静态空间里，没有后端），所以这一版不带截图识别。</p>
-            <p>想用截图识别，点下面任一地址过去 —— 那边是<b>服务器版</b>，功能完全一样，还多一个截图识别：</p>
-            <p style="margin-top:12px"><a class="btn" href="${svc}" target="_blank" rel="noopener">${svc}</a></p>
-            <p style="margin-top:8px"><a class="btn" href="${GATEWAY_URL}" target="_blank" rel="noopener">${GATEWAY_URL}（总入口，自动跳转）</a></p>
-            <p class="card-foot">这两个地址需要那台服务器开着；服务器关了也能用当前这个静态版手动填写。</p>
+            <p>当前浏览器没有加载本机识别引擎。</p>
+            <p>请刷新页面或按下面的棋盘按钮手动填写；截图不会上传到服务器。</p>
           </section>
         </div>`);
       return;
@@ -2453,6 +2402,9 @@
       <div class="rules">
         <section>
           <h4>${t('ocr.drop1')}</h4>
+          <p class="card-foot">${LANG === 'en'
+            ? 'Recognition runs only in this browser: no upload and no API quota.'
+            : '截图只在当前浏览器本机识别：不上传图片，也不消耗 API 额度。'}</p>
           <div class="dropzone" id="dropzone">
             <svg class="ico"><use href="#ico-image"/></svg>
             <span>${t('ocr.dropHere')}</span>
@@ -2627,70 +2579,16 @@
       const r = window.TidalVision.recognize(id, forceN ? { forceN } : {});   // 尺寸优先本地判定，再和用户选的档位核对
       r.localMs = Math.round(performance.now() - t0);
       if (!r.image) r.image = id;   // 旋转识别时 vision 会带回旋转后的图，预览必须用它（坐标才一致）
-      if (localGridBad(r)) throw new Error('本机定位棋盘失败（网格超出截图范围）');
+      if (localGridBad(r)) r.thin = true;   // 网格不可靠时打开本机预览，不直接填盘
       const g = r.debug && r.debug.grid;
-      // 蓝色背景截图时本机常用 blue 兜底定位；读得太少说明网格/字形不可靠，交给服务器重认
+      // 蓝色背景截图时本机常用 blue 兜底定位；读得太少说明网格/字形不可靠，交给用户核对
       if (g && g.src === 'blue' && !r.unopened && (r.coverage || 0) < 0.25) {
-        throw new Error('本机识别可信度低，改用服务器识别');
+        r.thin = true;
       }
       return r;
     } finally {
       try { URL.revokeObjectURL(url); } catch (e) {}
     }
-  }
-
-  /** 服务器识别：POST 拿任务号 + 轮询取结果（长请求会被公网网关掐断） */
-  async function recognizeViaServer(blob, size) {
-    const urls = serverOcrUrls();
-    if (!urls.length) { const e = new Error('没有可用的服务器识别地址'); e.netErr = true; throw e; }
-    let lastErr = null;
-    for (const base of urls) {
-      try {
-        return await serverJob(base, blob, size);
-      } catch (e) {
-        lastErr = e;
-        if (!(e && e.netErr)) throw e;   // 业务性错误（尺寸不符等）不换地址重试
-      }
-    }
-    throw lastErr || new Error('服务器识别失败');
-  }
-
-  async function serverJob(base, blob, size) {
-    const fd = new FormData();
-    fd.append('image', blob, 'shot.jpg');
-    fd.append('rows', String(size));
-    fd.append('cols', String(size));
-    const post = async (u, opt) => {
-      try { return await fetch(u, opt); }
-      catch (e) { const er = new Error('连不上识别服务'); er.netErr = true; throw er; }
-    };
-    const resp = await post(base, { method: 'POST', body: fd });
-    const posted = await resp.json().catch(() => null);
-    if (!resp.ok || !posted) throw new Error((posted && posted.error) || `服务返回 ${resp.status}`);
-    if (!posted.ok) throw new Error(posted.error || '上传失败');
-    const jobId = posted.jobId;
-    if (!jobId) throw new Error('服务没有返回任务号');
-
-    let data = null;
-    const poll = base.replace(/\/parse-board$/, '') + '/parse-board/';
-    for (let i = 0; i < 150; i++) {          // 最长约 5 分钟
-      await new Promise((r) => setTimeout(r, 2000));
-      if (S.ocrCanceled) return null;
-      const r2 = await post(poll + encodeURIComponent(jobId));
-      if (r2.status === 404) throw new Error('识别任务已失效（服务可能重启过），请重新识别');
-      const j = await r2.json().catch(() => null);
-      if (!j) continue;
-      if (j.status === 'running') {
-        if (j.stage && j.stage !== S.ocrStage) S.ocrStage = j.stage;   // 让用户看到服务端在做什么
-        continue;
-      }
-      if (!j.ok || j.status === 'error') throw new Error(j.error || '识别失败');
-      data = j.data;
-      break;
-    }
-    if (S.ocrCanceled) return null;
-    if (!data) throw new Error('识别超时（超过 5 分钟没有结果）');
-    return data;
   }
 
   /** 识别结果预览 + 网格微调（本地识别专用；网格对不齐时不用重截图） */
@@ -3052,50 +2950,21 @@
     }
   }
 
-  /** 识别入口：本机优先 → 失败再问服务器（静态版会提示手动填写） */
+  /** 识别入口：仅使用本机 OCR，不上传截图、不调用服务器模型。 */
   async function recognize(file) {
-    const size = S.shotSize || 0;      // 0 = 自动判尺寸
+    const size = S.shotSize || 0;
     startImportClock(`${size}×${size}`);
     setGoState(true);
 
     try {
-      let data = null, how = '';
-      if (LOCAL_OCR) {
-        // 先让浏览器画一帧"识别中"，本机识别是同步计算（约 1 秒）。
-        // 只等 setTimeout，不用 rAF —— 后台标签页里 rAF 可能一直不触发
-        await new Promise((r) => setTimeout(r, 30));
-        try {
-          data = await recognizeLocal(file || S.ocrBlob);
-          how = 'local';
-        } catch (e) {
-          S.localFail = e;
-          const urls = serverOcrUrls();
-          if (!urls.length) throw e;
-          setImportStatus(t('ocr.switchServer'), 'busy');
-        }
-        // 本机判定不可靠时（没走外框定位/读得太少），按用户选的档位再对一次格 ——
-        // 他对着游戏看得最准；判定可靠时不覆盖，尺寸对不上会直接提示他去改档位
-        const autoWeak = data && (data.thin === true || !data.debug || !data.debug.grid || data.debug.grid.src !== 'frame');
-        if (autoWeak && data.rows !== size) {
-          try {
-            const d2 = await recognizeLocal(file || S.ocrBlob, size);
-            if (d2 && d2.rows === size && !d2.thin) {
-              d2.note = `已按你选的 ${size}×${size} 重新对格`;
-              data = d2;
-            }
-          } catch (e2) { /* 保持第一次的结果，交给下面的尺寸不一致提示 */ }
-        }
-        if (S.ocrCanceled) return;
-      }
-      if (!data) {
-        data = await recognizeViaServer(S.ocrBlob || file, size || S.rows);
-        how = how || 'server';
-        if (!data) return;    // 被取消
-      }
-      // 尺寸对不上时不硬填，给预览面板让用户微调/重新对格
+      if (!LOCAL_OCR) throw new Error('本机识别引擎未加载，请刷新页面后重试');
+      await new Promise((r) => setTimeout(r, 30));
+      const data = await recognizeLocal(file || S.ocrBlob);
+      if (S.ocrCanceled) return;
+
+      // 尺寸对不上或本机定位较弱时打开预览，交给用户核对，不上传服务器。
       const sizeBad = size && data.rows !== size;
-      // 本机识别：默认直接填盘（自动判尺寸）；只有"认不准"（thin / 定位没走外框 / 尺寸不符）才给预览
-      const needPreview = how === 'local' && data.image && data.debug && data.debug.grid &&
+      const needPreview = data.image && data.debug && data.debug.grid &&
         (data.thin === true || data.debug.grid.src !== 'frame' || sizeBad);
       if (needPreview) {
         stopImportClock();
@@ -3103,40 +2972,22 @@
         openOcrPreview(data);
         return;
       }
-      applyResult(data, how);
+      applyResult(data, 'local');
     } catch (err) {
       stopImportClock();
       const msg = String((err && err.message) || err);
-      const isNetErr = (err && err.netErr) || (err && err.name === 'TypeError') || /Failed to fetch|NetworkError|load failed/i.test(msg);
-      const localFail = LOCAL_OCR && S.localFail === err;
-      setImportStatus(
-        isNetErr
-          ? '连不上识别服务：当前页面可能是静态托管打开的（识别需要服务器）。手动填写不受影响。'
-          : msg.slice(0, 90),
-        'err'
-      );
-      toast(isNetErr ? '连不上识别服务（识别需要服务器版）' : '识别失败，看看弹窗里的提示', 'warn');
-      // 本机识别失败时给一条可操作的出路：重试 / 去服务器版 / 手工填
-      if (localFail) {
-        const svc = OCR_SERVICE || OCR_FALLBACK;
-        openModal(`
-          <div class="modal-head"><h3>本机没能认出棋盘</h3>
-            <button class="modal-close" data-close type="button">✕</button></div>
-          <div class="rules">
-            <section>
-              <p>这次本机识别没定位到棋盘（${msg.slice(0, 60)}）。多半是截图<b>没把棋盘拍全</b>，或者格子太小、图太糊。</p>
-              <ul>
-                <li>截图时<b>把整个棋盘连边框一起截进来</b>（别裁掉四周），尽量用原图不要转发压缩过的图</li>
-                <li>确认上面选的档位和截图一致，然后<b>再识别一次</b></li>
-                <li>也可以点棋盘右下角「截图识别」旁边那个按钮换一张更清晰的图</li>
-              </ul>
-              <p>实在认不出来也没关系：<b>手动把已翻开的数字和钻石填进棋盘</b>，分析结果一样准确。</p>
-              <p class="card-foot">需要时也可以用服务器识别（更慢、要联网）：<a class="btn sm" href="${svc}" target="_blank" rel="noopener">${svc}</a></p>
-            </section>
-          </div>`);
-      }
+      setImportStatus(`本机识别失败：${msg.slice(0, 90)}`, 'err');
+      toast(LANG === 'en' ? 'Local OCR failed; fill the board manually.' : '本机识别失败，请对照截图手动填写。', 'warn');
+      openModal(`
+        <div class="modal-head"><h3>本机没能认出棋盘</h3>
+          <button class="modal-close" data-close type="button">✕</button></div>
+        <div class="rules">
+          <section>
+            <p>本次识别没有上传截图，也没有调用服务器模型。</p>
+            <p>请确认截图包含完整棋盘和边框、图片清晰，然后重试；仍无法识别时可以直接手动填写。</p>
+          </section>
+        </div>`);
     } finally {
-      S.localFail = null;
       setGoState(false);
       const go = $('#btn-ocr-go');
       if (go) go.textContent = S.shotSize ? t('ocr.goN', S.shotSize) : t('ocr.go');
