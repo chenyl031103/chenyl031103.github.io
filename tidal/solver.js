@@ -2591,7 +2591,59 @@
     }
   }
 
-  /** 识别结果预览 + 网格微调（本地识别专用；网格对不齐时不用重截图） */
+  async function recognizeAlternate(file, forceN) {
+    if (!window.TidalAltVision || typeof window.TidalAltVision.recognize !== 'function') {
+      throw new Error('本机增强识别引擎未加载');
+    }
+    const url = URL.createObjectURL(file);
+    try {
+      const img = await new Promise((resolve, reject) => {
+        const im = new Image();
+        im.onload = () => resolve(im);
+        im.onerror = () => reject(new Error('图片打不开（换个格式试试）'));
+        im.src = url;
+      });
+      let w = img.naturalWidth || img.width, h = img.naturalHeight || img.height;
+      const k = Math.min(1, Math.sqrt(4500000 / Math.max(1, w * h)));
+      if (k < 1) { w = Math.max(1, Math.round(w * k)); h = Math.max(1, Math.round(h * k)); }
+      const cv = document.createElement('canvas');
+      cv.width = w; cv.height = h;
+      const cx = cv.getContext('2d', { willReadFrequently: true });
+      cx.imageSmoothingEnabled = true; cx.imageSmoothingQuality = 'high';
+      cx.drawImage(img, 0, 0, w, h);
+      const id = cx.getImageData(0, 0, w, h);
+      const t0 = performance.now();
+      const located = window.TidalAltVision.recognize(id, forceN ? { forceN } : {});
+      // 备选引擎独立负责青色棋盘定位；逐格分类继续走现有成熟分类器，避免重复维护数字/宝石/X规则。
+      let r = located;
+      if (window.TidalVision && typeof window.TidalVision.recognize === 'function' && located.debug && located.debug.grid) {
+        try {
+          r = window.TidalVision.recognize(id, { grid: located.debug.grid });
+          r.debug = Object.assign({}, r.debug, { detector: 'alt-grid', altGrid: located.debug.grid });
+        } catch (e) { r = located; }
+      }
+      r.localMs = Math.round(performance.now() - t0);
+      if (!r.image) r.image = id;
+      r.note = '本机增强识别（独立棋盘定位）';
+      return r;
+    } finally {
+      try { URL.revokeObjectURL(url); } catch (e) {}
+    }
+  }
+
+  function localResultWeak(data, size) {
+    if (!data) return true;
+    const g = data.debug && data.debug.grid;
+    const total = Math.max(1, (data.rows || 0) * (data.cols || 0));
+    return data.thin === true
+      || !g
+      || (g.src !== 'frame')
+      || (size && data.rows !== size)
+      || (typeof data.coverage === 'number' && data.coverage < 0.5)
+      || (Array.isArray(data.unsure) && data.unsure.length > total * 0.35);
+  }
+
+  /** 识别结果预览 + 网格微调（保留供手动工具使用，不作为自动识别兜底） */
   let ocrPrev = null;   // { image: ImageData, grid: {x0,y0,cellX,cellY,n,base}, data }
 
   function ocrPreviewHtml() {
@@ -2950,40 +3002,51 @@
     }
   }
 
-  /** 识别入口：仅使用本机 OCR，不上传截图、不调用服务器模型。 */
+  /** 识别入口：本机主 OCR → 独立本机备选 OCR，不上传截图。 */
   async function recognize(file) {
     const size = S.shotSize || 0;
     startImportClock(`${size}×${size}`);
     setGoState(true);
 
     try {
-      if (!LOCAL_OCR) throw new Error('本机识别引擎未加载，请刷新页面后重试');
+      if (!LOCAL_OCR) throw new Error('本机主识别引擎未加载');
       await new Promise((r) => setTimeout(r, 30));
-      const data = await recognizeLocal(file || S.ocrBlob);
-      if (S.ocrCanceled) return;
+      const source = file || S.ocrBlob;
+      let data = null;
+      let how = 'local';
+      let firstError = null;
+      try { data = await recognizeLocal(source); } catch (e) { firstError = e; }
 
-      // 尺寸对不上或本机定位较弱时打开预览，交给用户核对，不上传服务器。
-      const sizeBad = size && data.rows !== size;
-      const needPreview = data.image && data.debug && data.debug.grid &&
-        (data.thin === true || data.debug.grid.src !== 'frame' || sizeBad);
-      if (needPreview) {
-        stopImportClock();
-        setImportStatus(t('ocr.previewTitle'), '');
-        openOcrPreview(data);
-        return;
+      if (S.ocrCanceled) return;
+      if (localResultWeak(data, size)) {
+        try {
+          setImportStatus('本机主识别不可靠，正在使用增强识别…', 'busy');
+          data = await recognizeAlternate(source, size || 0);
+          how = 'alternate';
+        } catch (altError) {
+          const why = altError && altError.message ? altError.message : (firstError && firstError.message) || '无法定位棋盘';
+          throw new Error(`本机识别失败：${why}`);
+        }
       }
-      applyResult(data, 'local');
+      if (S.ocrCanceled) return;
+      const rows = data.rows || size;
+      const total = Math.max(1, (data.rows || 0) * (data.cols || 0));
+      const altWeak = data.thin === true || (typeof data.coverage === 'number' && data.coverage < 0.5) ||
+        (Array.isArray(data.unsure) && data.unsure.length > total * 0.35) || (size && data.rows !== size);
+      if (altWeak) throw new Error('本机增强识别可信度不足，请手动填写');
+      applyResult(data, how);
+      if (how === 'alternate') setImportStatus(`本机增强识别完成（${rows}×${rows}），请核对识别结果`, '');
     } catch (err) {
       stopImportClock();
       const msg = String((err && err.message) || err);
-      setImportStatus(`本机识别失败：${msg.slice(0, 90)}`, 'err');
-      toast(LANG === 'en' ? 'Local OCR failed; fill the board manually.' : '本机识别失败，请对照截图手动填写。', 'warn');
+      setImportStatus(msg.slice(0, 120), 'err');
+      toast(LANG === 'en' ? 'Both local OCR engines failed; fill the board manually.' : '两套本机识别都失败，请手动填写棋盘。', 'warn');
       openModal(`
-        <div class="modal-head"><h3>本机没能认出棋盘</h3>
+        <div class="modal-head"><h3>本机识别失败</h3>
           <button class="modal-close" data-close type="button">✕</button></div>
         <div class="rules">
           <section>
-            <p>本次识别没有上传截图，也没有调用服务器模型。</p>
+            <p>主识别和增强识别都在本机运行，没有上传截图。</p>
             <p>请确认截图包含完整棋盘和边框、图片清晰，然后重试；仍无法识别时可以直接手动填写。</p>
           </section>
         </div>`);
