@@ -565,10 +565,14 @@
 
     const knownCount = knownGem.reduce((a, b) => a + b, 0);
     let pick = null;
-    if (certainGems.length) {
-      pick = { ...certainGems[0], type: 'gem' };
-    } else if (certainSafe.length) {
-      pick = { ...certainSafe[0], type: 'safe' };
+    // 已经标了 × 的格子不再作为建议目标：玩家自己已经判过它，推荐它没有意义
+    //（标错的情况下它也可能出现在 knownGem/knownSafe 里）
+    const fresh = (arr) => arr.filter((x) => !markedX[x.i]);
+    const freshGems = fresh(certainGems), freshSafe = fresh(certainSafe);
+    if (freshGems.length) {
+      pick = { ...freshGems[0], type: 'gem' };
+    } else if (freshSafe.length) {
+      pick = { ...freshSafe[0], type: 'safe' };
     } else if (undecided.length) {
       const hi = undecided[undecided.length - 1], lo = undecided[0];
       pick = { ...hi, type: 'guess', alt: lo };

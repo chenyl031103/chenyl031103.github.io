@@ -80,7 +80,7 @@
       'advice.safe': function (p, why) { return '没有确定钻石：先翻开 ' + p + '（安全，能扩线索）'; },
       'advice.needClue': '还没有数字线索：先把翻开的数字和钻石填进来。',
       'advice.gamble': function (hi, hp, why, lo) { return '没把握：赌一把翻 ' + hi + '（含钻 ' + hp + '%），或稳一点翻 ' + lo; },
-      'advice.dig': function (hi, hp, why, safe) { return '没有确定钻石：想挖就点 ' + hi + '（含钻 ' + hp + '%），或稳一点翻 ' + safe; },
+      'advice.dig': function (hi, hp, why, safe) { return '没有确定钻石：先翻 ' + safe + '（安全，能扩线索）；想挖就点 ' + hi + '（含钻 ' + hp + '%）'; },
       'advice.safeSuffix': function (p, q) { return p + '（' + q + '%）'; },
       'advice.dash': '—',
       'gb.left': '剩余',
@@ -218,7 +218,7 @@
       'advice.safe': function (p, why) { return 'No certain gem: open ' + p + ' (safe, expands clues)'; },
       'advice.needClue': 'No clues yet: fill in the revealed numbers and gems.',
       'advice.gamble': function (hi, hp, why, lo) { return 'Not sure: gamble ' + hi + ' (' + hp + '% gem), or play safe ' + lo; },
-      'advice.dig': function (hi, hp, why, safe) { return 'No certain gem: dig ' + hi + ' (' + hp + '% gem), or play safe ' + safe; },
+      'advice.dig': function (hi, hp, why, safe) { return 'No certain gem: open ' + safe + ' first (safe, expands clues); or dig ' + hi + ' (' + hp + '% gem)'; },
       'advice.safeSuffix': function (p, q) { return p + ' (' + q + '%)'; },
       'advice.dash': '—',
       'gb.left': 'Mines left',
@@ -752,14 +752,10 @@
    *   ④ 概率全为 0 / 盘上没线索 → 返回 -1（空盘由调用方退回"棋盘中心"）。
    * 另外：只挑"还没填过"的格子（数字 / 宝石 / × 都已定，不该再被选中/闪烁）。
    */
-  function pickHotCell(res) {
+  /** 未确定格里含钻概率最高的那格（并列时优先周围未翻开格多的，再优先靠中心） */
+  function maxProbCell(res) {
     if (!res) return -1;
-    const isHidden = (r, c) => !!(S.grid[r] && S.grid[r][c] === -1);
-    if (res.pick && res.pick.type === 'gem' && res.pick.i != null) {
-      const r0 = (res.pick.i / S.cols) | 0, c0 = res.pick.i % S.cols;
-      if (isHidden(r0, c0)) return res.pick.i;
-    }
-    const und = (res.undecided || []).filter((u) => isHidden(u.r, u.c));
+    const und = (res.undecided || []).filter((u) => !!(S.grid[u.r] && S.grid[u.r][u.c] === -1));
     if (!und.length) return -1;
     let maxP = 0;
     for (const u of und) if (u.p > maxP) maxP = u.p;
@@ -782,10 +778,22 @@
       const o3 = openedCount(u.r, u.c, 1);
       const o5 = openedCount(u.r, u.c, 2);
       const score = o3 * 1000 + o5 * 10 - (Math.abs(u.r - Math.round(midR)) + Math.abs(u.c - Math.round(midC)));
-      if (score > bestScore) { bestScore = score; best = u.i; }
+      if (bestScore < score) { bestScore = score; best = u.i; }
     }
     if (best >= 0) return best;
     return cands[cands.length - 1].i;
+  }
+
+  /** 闪烁格：跟着「建议条」走 —— ① 必定钻石 ② 必定安全（线索最多）③ 才退到最高含钻概率。
+      以前不管建议是什么都闪最高概率，会出现"建议条说稳一点翻 A、闪烁却指着一个赌点"的矛盾。 */
+  function pickHotCell(res) {
+    if (!res) return -1;
+    const p = res.pick;
+    if (p && p.i != null && (p.type === 'gem' || p.type === 'safe')) {
+      const r0 = (p.i / S.cols) | 0, c0 = p.i % S.cols;
+      if (S.grid[r0] && S.grid[r0][c0] === -1) return p.i;   // 还没翻开才闪
+    }
+    return maxProbCell(res);
   }
 
   // 盘上有没有数字线索（没有任何数字时求解器给不出建议，只能提示"第一手点哪"）
@@ -890,7 +898,7 @@
       return { kind: 'gem', text: t('advice.gem', coord(pick.r, pick.c), pick.why || t('advice.gemTail')) };
     }
     if (pick.type === 'safe') {
-      const hiIdx = pickHotCell(res);
+      const hiIdx = maxProbCell(res);
       const hi = hiIdx >= 0 ? (res.undecided || []).find((u) => u.i === hiIdx) : null;
       if (hi && hi.p > 0) {
         const o3 = openAround3(hi.r, hi.c);
@@ -900,7 +908,7 @@
       return { kind: 'safe', text: t('advice.safe', coord(pick.r, pick.c), pick.why || t('advice.gemTail')) };
     }
     // 赌的目标要和金色闪烁用同一格（并列时优先"未打开 3×3 的正中心"）
-    const hiIdx = pickHotCell(res);
+    const hiIdx = maxProbCell(res);
     const hi = (hiIdx >= 0 && (res.undecided || []).find((u) => u.i === hiIdx)) || pick;
     // 注意比下标、别比对象（pick 是展开出来的新对象，引用永远不会相等）
     const lo = (hi.i === pick.i) ? (pick.alt || (res.undecided || [])[0]) : pick;
