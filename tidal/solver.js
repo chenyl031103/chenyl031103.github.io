@@ -934,8 +934,9 @@
     const lo = (hi.i === pick.i) ? (pick.alt || (res.undecided || [])[0]) : pick;
     const o3 = openAround3(hi.r, hi.c);
     const why = o3 >= 6 ? t('advice.open3', o3) : '';
-    // 概率到了"值得直接挖"的门限：不再说"赌一把"，免得让人以为只是碰运气
-    const digP = typeof res.digThreshold === 'number' ? res.digThreshold : 0.65;
+    // 概率到了这条线就不说"赌一把"（只是措辞；选格的策略始终是挖最高概率，
+    // 见 solver-core 里的对局模拟结论：先翻安全格平均要多花 78% 的票）
+    const digP = 0.60;
     if (hi && hi.p >= digP) {
       return { kind: 'gem', text: t('advice.digHigh', coord(hi.r, hi.c), Math.round(hi.p * 100), why) };
     }
