@@ -2631,16 +2631,42 @@
     }
   }
 
+  function countReadDigits(data) {
+    const cells = (data && data.cells) || [];
+    let n = 0;
+    for (const row of cells) {
+      for (const v of row) if (typeof v === 'number' && v >= 0 && v <= 8) n++;
+    }
+    return n;
+  }
+
+  /** 结果可信度：只看结构 + "已翻开的格子里读出多少数字"。
+      不能拿"填了几格 / 全盘格数"当判据 —— 中后期盘中一大半格子本来就没翻开
+      （实测正常残局只有 30%~50% 有内容），那样会把正确的识别判成失败。
+      vision.js 的 openedCount 是"判为已翻开、送去读数字"的格子数（钻石/× 不算），
+      正确方向上读出的数字应当基本等于它；读不出来才说明分类器没看懂这张图。 */
+  function resultWeakness(data, size) {
+    if (!data) return ['没有识别结果'];
+    const g = data.debug && data.debug.grid;
+    const total = Math.max(1, (data.rows || 0) * (data.cols || 0));
+    const why = [];
+    if (data.thin === true && data.unopened !== true) why.push('读到的内容太少');
+    if (!g) why.push('没有定位到棋盘');
+    if (size && data.rows !== size) why.push(`识别出来是 ${data.rows}×${data.cols}，和所选尺寸不符`);
+    if (Array.isArray(data.unsure) && data.unsure.length > total * 0.35) why.push('需要核对的格子太多');
+    const opened = typeof data.openedCount === 'number' ? data.openedCount : null;
+    const digits = countReadDigits(data);
+    if (opened != null && opened >= 4 && digits < opened * 0.8) {
+      why.push(`已翻开的 ${opened} 格里只认出 ${digits} 个数字`);
+    }
+    return why;
+  }
+
   function localResultWeak(data, size) {
     if (!data) return true;
     const g = data.debug && data.debug.grid;
-    const total = Math.max(1, (data.rows || 0) * (data.cols || 0));
-    return data.thin === true
-      || !g
-      || (g.src !== 'frame')
-      || (size && data.rows !== size)
-      || (typeof data.coverage === 'number' && data.coverage < 0.5)
-      || (Array.isArray(data.unsure) && data.unsure.length > total * 0.35);
+    // 网格是兜底方式（不是边框）定位的，交给增强识别复核一遍更稳
+    return resultWeakness(data, size).length > 0 || !!(g && g.src !== 'frame');
   }
 
   /** 识别结果预览 + 网格微调（保留供手动工具使用，不作为自动识别兜底） */
@@ -2970,6 +2996,25 @@
           </section>
         </div>`);
     } else if (bad) {
+      // 不信任玩家 × 标记后矛盾消失 → 是 × 标错了，不是识别读错。
+      // 这种情况如果还提示"多半是尺寸选错"，会让人以为识别失败，去反复重拍。
+      const byMarks = S.resultNoMarks && !S.resultNoMarks.conflicts.length && !S.resultNoMarks.impossible;
+      if (byMarks) {
+        setImportStatus(`识别完成，但有 ${bad} 处矛盾 —— 多半是某格 × 标错了，不影响识别结果。`, '');
+        toast(`识别完成：盘面已填好，但可能有一格 × 标错了`, 'warn');
+        openModal(`
+          <div class="modal-head">
+            <h3>盘面填好了，但 × 标记可能有误</h3>
+            <button class="modal-close" data-close type="button">✕</button>
+          </div>
+          <div class="rules">
+            <section>
+              <p>识别已经把 ${rows}×${rows} 的盘面填好了。不过<b>把 × 当作"确定没有钻石"之后，有 ${bad} 处数字对不上</b>；忽略这些 × 就完全一致 —— 所以多半是<b>某个 × 标错了</b>，不是识别读错。</p>
+              <p>建议：在棋盘上逐个核对 × 标记（具体位置在「使用说明 → 当前分析 → 盘面自检」里列着），改掉那个标错的 × 后分析会自动更新。</p>
+            </section>
+          </div>`);
+        return;
+      }
       const sizeLabel = rows + '×' + rows;
       setImportStatus(`识别完成，但有 ${bad} 处数字自相矛盾 —— 多半是地图尺寸选错了，请核对后重新识别。`, 'err');
       openModal(`
@@ -3030,10 +3075,8 @@
       }
       if (S.ocrCanceled) return;
       const rows = data.rows || size;
-      const total = Math.max(1, (data.rows || 0) * (data.cols || 0));
-      const altWeak = data.thin === true || (typeof data.coverage === 'number' && data.coverage < 0.5) ||
-        (Array.isArray(data.unsure) && data.unsure.length > total * 0.35) || (size && data.rows !== size);
-      if (altWeak) throw new Error('本机增强识别可信度不足，请手动填写');
+      const altWhy = resultWeakness(data, size);
+      if (altWhy.length) throw new Error(`本机增强识别可信度不足（${altWhy[0]}），请手动填写`);
       applyResult(data, how);
       if (how === 'alternate') setImportStatus(`本机增强识别完成（${rows}×${rows}），请核对识别结果`, '');
     } catch (err) {

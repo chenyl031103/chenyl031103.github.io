@@ -271,19 +271,28 @@
 
   function classifyCell(id, grid, r, c) {
     const cell = cellPixels(id, grid, r, c);
-    let gold = 0, blue = 0, bright = 0, total = cell.points.length;
+    let gold = 0, blue = 0, bright = 0, white = 0, total = cell.points.length;
     for (const [rr, gg, bb] of cell.points) {
       if (rr > 140 && gg > 70 && gg < rr * 0.98 && bb < gg * 0.70) gold++;
       if (bb > rr * 1.45 && bb > gg * 1.08 && gg > 25 && rr < 135) blue++;
-      if (lum(rr, gg, bb) > 160 && rr > 125 && gg > 125 && bb > 125) bright++;
+      const L = lum(rr, gg, bb);
+      if (L > 160 && rr > 125 && gg > 125 && bb > 125) {
+        bright++;
+        // 数字和 × 是近白色笔画；未翻开格的亮蓝高光饱和度很高（实测 max-min 常在 50 以上），
+        // 不能算笔画，否则拿高光去套模板会稳定误读成 1
+        if (Math.max(rr, gg, bb) - Math.min(rr, gg, bb) <= 45) white++;
+      }
     }
-    const goldFrac = gold / total, blueFrac = blue / total, brightFrac = bright / total;
+    const goldFrac = gold / total, blueFrac = blue / total;
+    const brightFrac = bright / total, whiteFrac = white / total;
     if (goldFrac > 0.11) return { value: 9, confidence: 0.96 };
     const d1 = diagCoverage(cell, false), d2 = diagCoverage(cell, true);
-    // 压缩后的浅蓝 X 对角线会断裂，使用较宽容的双对角线阈值；白色数字通常只有单条主笔画，另一条覆盖率仍很低。
-    if (brightFrac > 0.018 && Math.min(d1, d2) >= 0.24) return { value: 10, confidence: 0.86 };
-    if (blueFrac > 0.30 && brightFrac < 0.018) return { value: -1, confidence: 0.94 };
-    if (brightFrac < 0.008) return { value: -1, confidence: 0.45, unsure: true };
+    // × 的两条对角线都亮（实测两条都 ≥0.55）；数字只有个别笔画压到对角线（实测 ≤0.47）。
+    // 压缩后的浅蓝 X 对角线会断裂，这里已经比数字宽出一档，不必再放宽。
+    if (brightFrac > 0.05 && Math.min(d1, d2) >= 0.50) return { value: 10, confidence: 0.86 };
+    // 没有近白笔画 = 未翻开的蓝格（实测未翻开格 whiteFrac ≤0.02，数字/× ≥0.06）
+    if (whiteFrac < 0.03 && blueFrac > 0.30) return { value: -1, confidence: 0.94 };
+    if (whiteFrac < 0.008) return { value: -1, confidence: 0.45, unsure: true };
     const mask = makeMask(cell), ts = buildTemplates();
     let best = null, second = null;
     for (const t of ts) {
