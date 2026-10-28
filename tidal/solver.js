@@ -599,6 +599,8 @@
     const gameHintOn = !!(S.game && S.game.kind !== 'mine' && S.game.hint && !S.game.over);
     const res = S.game ? (gameHintOn ? S.result : null) : S.result;
     const conflictSet = new Set(((res && res.conflicts) || []).map((x) => x.i));
+    // 可能标错的 ×：直接在棋盘上圈出来，别只写在提示里
+    const blameSet = new Set(S.marksAtFault && Array.isArray(S.faultCells) ? S.faultCells.map((x) => x.i) : []);
     const hasClue = boardHasClue();
     const showProb = hasClue && parseFloat(getComputedStyle(el.board).getPropertyValue('--cell')) >= 26;
     // 概率画在"没有数字线索的格子"上（未翻开且不是数字/钻石/×）：概率本身就只是这些格子的性质
@@ -695,6 +697,14 @@
           }
           if (hot === i && v === -1) cls += ' pick';   // 推荐框 = 闪烁格 = 选中框目标（同一格）；只画在还没填的格子上
           if (S.cursor === i) cls += ' cursor';
+        }
+        // 可能标错的 ×：红框呼吸高亮 + 角标 ?，让玩家一眼看到
+        if (blameSet.has(i)) {
+          cls += ' say-blame';
+          if (!badge) badge = '?';
+          node.title = LANG === 'en' ? 'This × may be wrong' : '这个 × 可能标错了';
+        } else if (node.title === '这个 × 可能标错了' || node.title === 'This × may be wrong') {
+          node.removeAttribute('title');
         }
 
         if (node.className !== cls) node.className = cls;
@@ -877,9 +887,8 @@
       const named = (b.culprits.length ? b.culprits : b.cands.slice(0, 2));
       const list = named.map((x) => `${coord(x.r, x.c)}（不信任 × 时含钻 ${Math.round((x.p || 0) * 100)}%）`).join('、');
       S.faultCells = named;
-      S.faultShort = b.culprits.length
-        ? `${coord(b.culprits[0].r, b.culprits[0].c)}${b.culprits.length > 1 ? '等' : ''}`
-        : `最可疑的 ${coord(b.cands[0].r, b.cands[0].c)}`;
+      const where = named.slice(0, 2).map((x) => coord(x.r, x.c)).join('、') + (named.length > 2 ? ' 等' : '');
+      S.faultShort = b.culprits.length ? `${where} 的 × 标错了` : `${where} 的 × 最可疑`;
       faults.push(b.culprits.length
         ? `${list} 标错了 —— 去掉${b.culprits.length > 1 ? '其中任一个' : '它'}矛盾就消失，已暂时不把 × 当依据`
         : `× 里有标错的，${list} 最可疑，已暂时不把 × 当依据`);
@@ -1031,7 +1040,7 @@
     const faultCount = S.marksAtFault ? (S.marksAtFaultCount || 1) : res.conflicts.length;
     const errText = marksAtFault
       ? (faultCount
-          ? `${faultCount} 处矛盾：${S.faultShort || '有 ×'} 的 × 标错了，已改按「不把 × 当依据」分析（详见使用说明）`
+          ? `${faultCount} 处矛盾：${S.faultShort || '有 × 标错了'}，已改按「不把 × 当依据」分析（详见使用说明）`
           : '钻石总数对不上：多半有 × 标错了（详见使用说明）')
       : (res.impossible
           ? '盘面与钻石总数矛盾'
@@ -3098,8 +3107,8 @@
       if (byMarks) {
         const n = S.marksAtFault ? (S.marksAtFaultCount || 1) : bad;
         const blame = (S.faultCells || []).map((x) => `${coord(x.r, x.c)}（不信任 × 时含钻 ${Math.round((x.p || 0) * 100)}%）`).join('、');
-        const who = S.faultShort || '某格 ×';
-        setImportStatus(`识别完成，但把 × 当依据会自相矛盾（${n} 处）—— ${who} 可能标错了，已改按不信任 × 分析。`, '');
+        const who = S.faultShort || '某格 × 标错了';
+        setImportStatus(`识别完成，但把 × 当依据会自相矛盾（${n} 处）—— ${who}，已改按不信任 × 分析。`, '');
         openModal(`
           <div class="modal-head">
             <h3>盘面填好了，但 × 标记可能有误</h3>
