@@ -812,6 +812,35 @@
     return false;
   }
 
+  /** × 标错时定位到具体格子：先按"不信任 ×"时的含钻概率排序，再逐个验证"去掉这个 × 矛盾是否消失"。
+      只在已经确认「× 里有错」时调用，最多试 3 个，结果按盘面签名缓存（避免每次编辑都重算）。 */
+  function blameWrongMarks(base) {
+    const sig = S.grid.map((row) => row.join('')).join('/');
+    if (S.blameSig === sig && S.blame) return S.blame;
+    const noMarks = S.resultNoMarks;
+    const cands = [];
+    for (let r = 0; r < S.rows; r++) {
+      for (let c = 0; c < S.cols; c++) {
+        if (S.grid[r][c] !== 'X') continue;
+        const p = noMarks && noMarks.probs ? noMarks.probs[r * S.cols + c] : null;
+        cands.push({ r, c, i: r * S.cols + c, p: typeof p === 'number' ? p : 0 });
+      }
+    }
+    cands.sort((a, b) => b.p - a.p);
+    const culprits = [];
+    for (const x of cands.slice(0, 3)) {
+      const g = S.grid.map((row) => row.slice());
+      g[x.r][x.c] = -1;                       // 假装这个 × 没标
+      try {
+        const rr = window.TidalSolver.solve(Object.assign({}, base, { cells: g, trustMarks: true }));
+        if (!rr.conflicts.length && !rr.impossible) culprits.push(x);   // 去掉它就自洽了 → 就是它
+      } catch (e) { /* 解算失败就当没验证 */ }
+    }
+    S.blameSig = sig;
+    S.blame = { cands, culprits };
+    return S.blame;
+  }
+
   function analyze() {
     // 游戏模式下不显示工具结论（不然等于直接给答案）
     if (S.game) { updateGameBar(); return; }
@@ -844,7 +873,19 @@
     // 所以发现时主动提示一次；同样的错误只提示一次，改掉后自动重新武装。
     const faults = [];
     if (S.marksAtFault) {
-      faults.push(`有 ${S.marksAtFaultCount || 1} 处矛盾：你标的 × 里有错的，已暂时不把 × 当依据`);
+      const b = blameWrongMarks(base);
+      const named = (b.culprits.length ? b.culprits : b.cands.slice(0, 2));
+      const list = named.map((x) => `${coord(x.r, x.c)}（不信任 × 时含钻 ${Math.round((x.p || 0) * 100)}%）`).join('、');
+      S.faultCells = named;
+      S.faultShort = b.culprits.length
+        ? `${coord(b.culprits[0].r, b.culprits[0].c)}${b.culprits.length > 1 ? '等' : ''}`
+        : `最可疑的 ${coord(b.cands[0].r, b.cands[0].c)}`;
+      faults.push(b.culprits.length
+        ? `${list} 标错了 —— 去掉${b.culprits.length > 1 ? '其中任一个' : '它'}矛盾就消失，已暂时不把 × 当依据`
+        : `× 里有标错的，${list} 最可疑，已暂时不把 × 当依据`);
+    } else {
+      S.faultCells = null;
+      S.faultShort = '';
     }
     for (const x of (res.markWrong || []).slice(0, 2)) faults.push(`${coord(x.r, x.c)} 标的 × 其实是钻石`);
     for (const x of (res.gemWrong || []).slice(0, 2)) faults.push(`${coord(x.r, x.c)} 标的钻石其实安全`);
@@ -990,7 +1031,7 @@
     const faultCount = S.marksAtFault ? (S.marksAtFaultCount || 1) : res.conflicts.length;
     const errText = marksAtFault
       ? (faultCount
-          ? `${faultCount} 处矛盾：× 里有标错的，已改按「不把 × 当依据」分析（详见使用说明）`
+          ? `${faultCount} 处矛盾：${S.faultShort || '有 ×'} 的 × 标错了，已改按「不把 × 当依据」分析（详见使用说明）`
           : '钻石总数对不上：多半有 × 标错了（详见使用说明）')
       : (res.impossible
           ? '盘面与钻石总数矛盾'
@@ -1052,6 +1093,10 @@
               你的 × 里至少有一个标错了：把 × 当作「确定没有钻石」会推出下面这些矛盾，所以当前盘面结论
               <b>没有把 × 当作依据</b>（更保守，但不会被错标带偏）：
               </div>${coordChips(mine, 'c-warn', 10)}`;
+        if (S.faultCells && S.faultCells.length) {
+          m += `<div class="block-title">最可能标错的 ×（去掉它就自洽）</div>` +
+            `<div class="advice-why">${S.faultCells.map((x) => `${coord(x.r, x.c)}（不信任 × 时含钻 ${Math.round((x.p || 0) * 100)}%）`).join('、')}</div>`;
+        }
       }
       // ② 数字证明不了的 ×（不信任时仍是候选）——标错了结论就会偏
       const unsupported = [];
@@ -3052,8 +3097,9 @@
         || (S.resultNoMarks && !S.resultNoMarks.conflicts.length && !S.resultNoMarks.impossible);
       if (byMarks) {
         const n = S.marksAtFault ? (S.marksAtFaultCount || 1) : bad;
-        setImportStatus(`识别完成，但把 × 当依据会自相矛盾（${n} 处）—— 多半是某格 × 标错了，已改按不信任 × 分析。`, '');
-        toast(`识别完成：盘面已填好，但可能有一格 × 标错了`, 'warn');
+        const blame = (S.faultCells || []).map((x) => `${coord(x.r, x.c)}（不信任 × 时含钻 ${Math.round((x.p || 0) * 100)}%）`).join('、');
+        const who = S.faultShort || '某格 ×';
+        setImportStatus(`识别完成，但把 × 当依据会自相矛盾（${n} 处）—— ${who} 可能标错了，已改按不信任 × 分析。`, '');
         openModal(`
           <div class="modal-head">
             <h3>盘面填好了，但 × 标记可能有误</h3>
@@ -3061,8 +3107,9 @@
           </div>
           <div class="rules">
             <section>
-              <p>识别已经把 ${rows}×${rows} 的盘面填好了。不过<b>把 × 当作"确定没有钻石"之后，有 ${n} 处数字对不上</b>；不把 × 当依据就完全一致 —— 所以多半是<b>某个 × 标错了</b>，不是识别读错。</p>
-              <p>为了不被错标带偏，当前棋盘的结论已经改为<b>不把 × 当作依据</b>，会比原来保守一些。核对 × 标记（位置在「使用说明 → 当前分析」里列着）后改掉那个错标即可。</p>
+              <p>识别已经把 ${rows}×${rows} 的盘面填好了。不过<b>把 × 当作"确定没有钻石"之后，有 ${n} 处数字对不上</b>；不把 × 当依据就完全一致 —— 所以多半是 × 标错了，不是识别读错。</p>
+              ${blame ? `<p>最可能标错的 ×：<b>${blame}</b> —— 去掉${(S.faultCells || []).length > 1 ? '其中任一个' : '它'}矛盾就消失。</p>` : ''}
+              <p>为了不被错标带偏，当前棋盘的结论已经改为<b>不把 × 当作依据</b>，会比原来保守一些。改掉那个错标后结论会自动更新。</p>
             </section>
           </div>`);
         return;
