@@ -461,6 +461,19 @@ main {
   box-shadow: 0 0 0 3px rgba(224, 85, 85, 0.22), 0 0 12px rgba(224, 85, 85, 0.45);
 }
 
+/* 可能标错的 ×（让玩家一眼看到是哪一格）：加粗红框 + 呼吸外圈 + 角标 ? */
+.cell.say-blame {
+  outline: 3px solid var(--danger);
+  outline-offset: -2px;
+  z-index: 6;
+  animation: blamePulse 1.1s ease-in-out infinite;
+}
+@keyframes blamePulse {
+  0%, 100% { box-shadow: 0 0 0 2px rgba(224, 85, 85, 0.18); }
+  50% { box-shadow: 0 0 0 7px rgba(224, 85, 85, 0.5); }
+}
+.cell.say-blame[data-badge]::after { background: var(--danger); color: var(--ink-on-warn); }
+
 .cell[data-badge]::after {
   content: attr(data-badge);
   position: absolute;
