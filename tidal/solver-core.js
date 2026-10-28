@@ -569,8 +569,15 @@
     //（标错的情况下它也可能出现在 knownGem/knownSafe 里）
     const fresh = (arr) => arr.filter((x) => !markedX[x.i]);
     const freshGems = fresh(certainGems), freshSafe = fresh(certainSafe);
+    // 挖 or 先扩线索：含钻概率够高才值得直接翻，否则先翻必定安全的格子拿线索。
+    // 阈值 65% 折合 1.54 票/宝石；低于它就先去翻安全格，通常比赌一把更省票。
+    const DIG_P = 0.65;
+    const topP = undecided.length ? undecided[undecided.length - 1].p : 0;
     if (freshGems.length) {
       pick = { ...freshGems[0], type: 'gem' };
+    } else if (undecided.length && topP >= DIG_P) {
+      const hi = undecided[undecided.length - 1], lo = undecided[0];
+      pick = { ...hi, type: 'guess', alt: lo };
     } else if (freshSafe.length) {
       pick = { ...freshSafe[0], type: 'safe' };
     } else if (undecided.length) {
@@ -592,6 +599,7 @@
         hiddenCells: hiddenLeft,
       },
       certainGems, certainSafe, undecided, pick,
+      digThreshold: DIG_P,   // 含钻概率到这条线才直接挖，否则建议先翻安全格扩线索
       probs,
       knownGem, knownSafe, markedX, givenGem, clue,
       markWrong, markRisky, gemWrong, contradict,

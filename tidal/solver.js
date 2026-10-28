@@ -81,6 +81,7 @@
       'advice.needClue': '还没有数字线索：先把翻开的数字和钻石填进来。',
       'advice.gamble': function (hi, hp, why, lo) { return '没把握：赌一把翻 ' + hi + '（含钻 ' + hp + '%），或稳一点翻 ' + lo; },
       'advice.dig': function (hi, hp, why, safe) { return '没有确定钻石：先翻 ' + safe + '（安全，能扩线索）；想挖就点 ' + hi + '（含钻 ' + hp + '%）'; },
+      'advice.digHigh': function (p, hp, why) { return '没有确定钻石：直接挖 ' + p + '（含钻 ' + hp + '%），这个概率值得翻' + (why || ''); },
       'advice.safeSuffix': function (p, q) { return p + '（' + q + '%）'; },
       'advice.dash': '—',
       'gb.left': '剩余',
@@ -219,6 +220,7 @@
       'advice.needClue': 'No clues yet: fill in the revealed numbers and gems.',
       'advice.gamble': function (hi, hp, why, lo) { return 'Not sure: gamble ' + hi + ' (' + hp + '% gem), or play safe ' + lo; },
       'advice.dig': function (hi, hp, why, safe) { return 'No certain gem: open ' + safe + ' first (safe, expands clues); or dig ' + hi + ' (' + hp + '% gem)'; },
+      'advice.digHigh': function (p, hp, why) { return 'No certain gem: dig ' + p + ' (' + hp + '% gem) — high enough to be worth it' + (why || ''); },
       'advice.safeSuffix': function (p, q) { return p + ' (' + q + '%)'; },
       'advice.dash': '—',
       'gb.left': 'Mines left',
@@ -596,6 +598,7 @@
     // 例外：潮汐秘境 + 开了「自动提示」——这时就是要显示概率与推荐格
     const gameHintOn = !!(S.game && S.game.kind !== 'mine' && S.game.hint && !S.game.over);
     const res = S.game ? (gameHintOn ? S.result : null) : S.result;
+    const conflictSet = new Set(((res && res.conflicts) || []).map((x) => x.i));
     const hasClue = boardHasClue();
     const showProb = hasClue && parseFloat(getComputedStyle(el.board).getPropertyValue('--cell')) >= 26;
     // 概率画在"没有数字线索的格子"上（未翻开且不是数字/钻石/×）：概率本身就只是这些格子的性质
@@ -649,6 +652,8 @@
           cls += ' is-open';
           cls += ' n' + v; text = String(v);      // 0 也显示（灰色，最不显眼）
         }
+        // 数字和周围对不上的线索格：红框标出来，免得只写在顶栏里没人注意
+        if (conflictSet.has(i)) cls += ' say-conflict';
         if (i === hot && v === -1) {      // 闪烁的推荐格只落在还没填的格子上
           cls += ' is-hot';
           // 闪烁颜色跟着"这一格现在的概率档位"走：高=红、中=黄、低=蓝（和格子里的百分比标签同色系）
@@ -835,6 +840,21 @@
     S.marksAtFaultCount = S.marksAtFault ? resTrust.conflicts.length : 0;
     const res = S.marksAtFault ? S.resultNoMarks : resTrust;
     S.result = res;
+    // 玩家自己判错（× 标在钻石上、钻石标在安全格上、数字互相矛盾）会连带把其他格子的结论带偏，
+    // 所以发现时主动提示一次；同样的错误只提示一次，改掉后自动重新武装。
+    const faults = [];
+    if (S.marksAtFault) {
+      faults.push(`有 ${S.marksAtFaultCount || 1} 处矛盾：你标的 × 里有错的，已暂时不把 × 当依据`);
+    }
+    for (const x of (res.markWrong || []).slice(0, 2)) faults.push(`${coord(x.r, x.c)} 标的 × 其实是钻石`);
+    for (const x of (res.gemWrong || []).slice(0, 2)) faults.push(`${coord(x.r, x.c)} 标的钻石其实安全`);
+    if (!S.marksAtFault) {
+      for (const x of (res.conflicts || []).slice(0, 1)) faults.push(`${coord(x.r, x.c)} 的数字和周围对不上`);
+    }
+    const faultSig = faults.join('|');
+    S.analyzeCount = (S.analyzeCount || 0) + 1;
+    if (faultSig && faultSig !== S.faultSig && S.analyzeCount > 1) toast(faults[0], 'warn');
+    S.faultSig = faultSig;
     paint();
     renderPanels(res);
     updateUndoBtn();
@@ -914,6 +934,11 @@
     const lo = (hi.i === pick.i) ? (pick.alt || (res.undecided || [])[0]) : pick;
     const o3 = openAround3(hi.r, hi.c);
     const why = o3 >= 6 ? t('advice.open3', o3) : '';
+    // 概率到了"值得直接挖"的门限：不再说"赌一把"，免得让人以为只是碰运气
+    const digP = typeof res.digThreshold === 'number' ? res.digThreshold : 0.65;
+    if (hi && hi.p >= digP) {
+      return { kind: 'gem', text: t('advice.digHigh', coord(hi.r, hi.c), Math.round(hi.p * 100), why) };
+    }
     return {
       kind: 'warn',
       text: t('advice.gamble', coord(hi.r, hi.c), Math.round(hi.p * 100), why,
