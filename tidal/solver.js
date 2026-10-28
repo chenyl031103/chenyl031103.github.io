@@ -809,14 +809,23 @@
       gemTotal: Number.isFinite(S.gemTotal) ? S.gemTotal : null,
     };
     // 主结论：把玩家的 × 当作「确定没有钻石」一起推理
-    const res = window.TidalSolver.solve(Object.assign({}, base, { trustMarks: true }));
+    const resTrust = window.TidalSolver.solve(Object.assign({}, base, { trustMarks: true }));
     // 再算一遍「不信任 ×」，用来发现标错的 × 和数字证明不了的 ×；
     // 盘上没有 × 标记时两次结果完全相同，直接复用省一半计算
     const hasMarks = (() => {
       for (let r = 0; r < S.rows; r++) for (let c = 0; c < S.cols; c++) if (S.grid[r][c] === 'X') return true;
       return false;
     })();
-    S.resultNoMarks = hasMarks ? window.TidalSolver.solve(Object.assign({}, base, { trustMarks: false })) : res;
+    S.resultNoMarks = hasMarks ? window.TidalSolver.solve(Object.assign({}, base, { trustMarks: false })) : resTrust;
+    S.resultTrusted = resTrust;
+    // 把 × 当依据会推出矛盾、完全不看 × 却自洽 → 至少有一个 × 标错了。
+    // 这时不能继续用「信任 ×」的结果来画棋盘：一个错标足以把数字已经证明是安全的格子
+    // 显示成「必定钻石」。改用不看 × 的结果，结论更保守，但不会被错标带偏。
+    S.marksAtFault = !!(hasMarks
+      && (resTrust.conflicts.length > 0 || resTrust.impossible)
+      && !S.resultNoMarks.conflicts.length && !S.resultNoMarks.impossible);
+    S.marksAtFaultCount = S.marksAtFault ? resTrust.conflicts.length : 0;
+    const res = S.marksAtFault ? S.resultNoMarks : resTrust;
     S.result = res;
     paint();
     renderPanels(res);
@@ -942,10 +951,12 @@
     /* 错误提示 */
     // × 被当成依据后，矛盾多半来自标错的 ×（不信任 × 就没有矛盾）
     const noMarks = S.resultNoMarks;
-    const marksAtFault = (res.conflicts.length > 0 || res.impossible) && noMarks && !noMarks.conflicts.length && !noMarks.impossible;
+    const marksAtFault = S.marksAtFault === true
+      || ((res.conflicts.length > 0 || res.impossible) && noMarks && !noMarks.conflicts.length && !noMarks.impossible);
+    const faultCount = S.marksAtFault ? (S.marksAtFaultCount || 1) : res.conflicts.length;
     const errText = marksAtFault
-      ? (res.conflicts.length
-          ? `${res.conflicts.length} 处矛盾：多半有 × 标错了（详见使用说明）`
+      ? (faultCount
+          ? `${faultCount} 处矛盾：× 里有标错的，已改按「不把 × 当依据」分析（详见使用说明）`
           : '钻石总数对不上：多半有 × 标错了（详见使用说明）')
       : (res.impossible
           ? '盘面与钻石总数矛盾'
@@ -998,12 +1009,15 @@
     } else {
       let m = '';
       // ① 标错的：信任 × 会出现矛盾，而不信任就没有 → 说明 × 里有错的
-      const badByMarks = (res.conflicts.length > 0 || res.impossible) && noM && !noM.conflicts.length && !noM.impossible;
+      const badByMarks = S.marksAtFault === true
+        || ((res.conflicts.length > 0 || res.impossible) && noM && !noM.conflicts.length && !noM.impossible);
       if (badByMarks) {
+        const mine = (S.marksAtFault && S.resultTrusted ? S.resultTrusted.conflicts : res.conflicts) || [];
         m += `<div class="advice-lead"><span class="tag tag-warn">有 × 标错了</span></div>
               <div class="advice-why" style="margin:6px 0 8px">
-              你的 × 已被当成「确定没有钻石」参与推理；但如果因此出现下面这些矛盾，说明<span style="color:var(--warn-ink)">其中至少有一个 × 标错了</span>：
-              </div>${coordChips(res.conflicts, 'c-warn', 10)}`;
+              你的 × 里至少有一个标错了：把 × 当作「确定没有钻石」会推出下面这些矛盾，所以当前盘面结论
+              <b>没有把 × 当作依据</b>（更保守，但不会被错标带偏）：
+              </div>${coordChips(mine, 'c-warn', 10)}`;
       }
       // ② 数字证明不了的 ×（不信任时仍是候选）——标错了结论就会偏
       const unsupported = [];
@@ -2995,12 +3009,16 @@
             <p>建议：<b>用清晰的整屏截图重试</b>${how === 'local' ? '（棋盘四周的边框要拍全）' : ''}；还是不行就对照截图手工填写 —— 手工填的盘面分析结果一样准确。</p>
           </section>
         </div>`);
-    } else if (bad) {
+    } else if (S.marksAtFault || bad) {
       // 不信任玩家 × 标记后矛盾消失 → 是 × 标错了，不是识别读错。
       // 这种情况如果还提示"多半是尺寸选错"，会让人以为识别失败，去反复重拍。
-      const byMarks = S.resultNoMarks && !S.resultNoMarks.conflicts.length && !S.resultNoMarks.impossible;
+      // 注意：S.marksAtFault 时 analyze() 已经把展示用的结果换成"不信任 ×"的那份，
+      // 所以这里的矛盾数要用 S.marksAtFaultCount。
+      const byMarks = S.marksAtFault === true
+        || (S.resultNoMarks && !S.resultNoMarks.conflicts.length && !S.resultNoMarks.impossible);
       if (byMarks) {
-        setImportStatus(`识别完成，但有 ${bad} 处矛盾 —— 多半是某格 × 标错了，不影响识别结果。`, '');
+        const n = S.marksAtFault ? (S.marksAtFaultCount || 1) : bad;
+        setImportStatus(`识别完成，但把 × 当依据会自相矛盾（${n} 处）—— 多半是某格 × 标错了，已改按不信任 × 分析。`, '');
         toast(`识别完成：盘面已填好，但可能有一格 × 标错了`, 'warn');
         openModal(`
           <div class="modal-head">
@@ -3009,8 +3027,8 @@
           </div>
           <div class="rules">
             <section>
-              <p>识别已经把 ${rows}×${rows} 的盘面填好了。不过<b>把 × 当作"确定没有钻石"之后，有 ${bad} 处数字对不上</b>；忽略这些 × 就完全一致 —— 所以多半是<b>某个 × 标错了</b>，不是识别读错。</p>
-              <p>建议：在棋盘上逐个核对 × 标记（具体位置在「使用说明 → 当前分析 → 盘面自检」里列着），改掉那个标错的 × 后分析会自动更新。</p>
+              <p>识别已经把 ${rows}×${rows} 的盘面填好了。不过<b>把 × 当作"确定没有钻石"之后，有 ${n} 处数字对不上</b>；不把 × 当依据就完全一致 —— 所以多半是<b>某个 × 标错了</b>，不是识别读错。</p>
+              <p>为了不被错标带偏，当前棋盘的结论已经改为<b>不把 × 当作依据</b>，会比原来保守一些。核对 × 标记（位置在「使用说明 → 当前分析」里列着）后改掉那个错标即可。</p>
             </section>
           </div>`);
         return;
