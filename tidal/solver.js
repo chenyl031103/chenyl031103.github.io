@@ -3160,6 +3160,7 @@
     const size = S.shotSize || 0;
     startImportClock(`${size}×${size}`);
     setGoState(true);
+    const diag = [];            // 失败时给用户看的诊断：卡在哪一步、为什么
 
     try {
       if (!LOCAL_OCR) throw new Error('本机主识别引擎未加载');
@@ -3168,23 +3169,32 @@
       let data = null;
       let how = 'local';
       let firstError = null;
-      try { data = await recognizeLocal(source); } catch (e) { firstError = e; }
+      try { data = await recognizeLocal(source); }
+      catch (e) { firstError = e; diag.push(`主识别：${(e && e.message) || e}`); }
 
       if (S.ocrCanceled) return;
       if (localResultWeak(data, size)) {
+        const firstWhy = resultWeakness(data, size);
+        const g = data && data.debug && data.debug.grid;
+        diag.push(firstWhy.length
+          ? `主识别：${firstWhy.join('、')}`
+          : `主识别：网格来源是 ${g ? g.src : '未知'}（不是边框定位）`);
         try {
           setImportStatus('本机主识别不可靠，正在使用增强识别…', 'busy');
           data = await recognizeAlternate(source, size || 0);
           how = 'alternate';
         } catch (altError) {
-          const why = altError && altError.message ? altError.message : (firstError && firstError.message) || '无法定位棋盘';
-          throw new Error(`本机识别失败：${why}`);
+          diag.push(`增强识别：${(altError && altError.message) || altError}`);
+          throw new Error(`本机识别失败：${(altError && altError.message) || (firstError && firstError.message) || '无法定位棋盘'}`);
         }
       }
       if (S.ocrCanceled) return;
       const rows = data.rows || size;
       const altWhy = resultWeakness(data, size);
-      if (altWhy.length) throw new Error(`本机增强识别可信度不足（${altWhy[0]}），请手动填写`);
+      if (altWhy.length) {
+        diag.push(`最终结果：${altWhy.join('、')}`);
+        throw new Error(`本机增强识别可信度不足（${altWhy[0]}），请手动填写`);
+      }
       applyResult(data, how);
       if (how === 'alternate') setImportStatus(`本机增强识别完成（${rows}×${rows}），请核对识别结果`, '');
     } catch (err) {
@@ -3199,6 +3209,7 @@
           <section>
             <p>主识别和增强识别都在本机运行，没有上传截图。</p>
             <p>请确认截图包含完整棋盘和边框、图片清晰，然后重试；仍无法识别时可以直接手动填写。</p>
+            ${diag.length ? `<p style="font-size:12px;color:var(--text-muted);margin-top:10px">诊断（反馈时把这行截图给作者）：${diag.join('；')}</p>` : ''}
           </section>
         </div>`);
     } finally {
