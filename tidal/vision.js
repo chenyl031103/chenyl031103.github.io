@@ -1617,7 +1617,11 @@
     // 全盘"底色亮度" Otsu 分「未翻开/已翻开」：
     // 用四角底色而不是整格平均——整格平均会因为"白字/钻石格"很亮而把阈值抬高，
     // 把亮蓝的未翻开格误判成已翻开（实测会把纹样认成 8）。
-    const lums = cells.map(c => (c.bgLum != null ? c.bgLum : c.meanLum));
+    // 宝钻格必须排除：橙色底比未翻开的亮蓝格还亮，混进亮簇会把 Otsu 阈值顶到
+    // 100 以上；网格只要偏 20px，整盘亮蓝格就会被判成"已翻开"（实测 36 → 107）。
+    const splitCells = cells.filter(c => !(c.orangeFrac > CFG.ORANGE_FRAC_MIN));
+    const splitFrom = splitCells.length >= 6 ? splitCells : cells;
+    const lums = splitFrom.map(c => (c.bgLum != null ? c.bgLum : c.meanLum));
     const sp = otsuSplit(lums);
     const separable = sp.sep > CFG.OTSUSPLIT_SEP_MIN && sp.nB > 0 && sp.nD > 0;
 
