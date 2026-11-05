@@ -1539,9 +1539,58 @@
     return { deg, r, score, img, solid: orientSolid(r) };
   }
 
+  /* ---------- 网格微调兜底（只在结果不可信时触发） ----------
+     外部传入的网格（增强识别定位的网格、手动微调网格）可能因为浏览器解码/缩放
+     差十几二十像素；这时数字会读不全，但颜色/宝钻/X 仍大致正确。只在 weak 时
+     在 ±0.22 格范围内试几个小偏移，挑"读出数字 / 已翻开格"比例最高的一份。
+     正常图片第一次就过，不会多花时间；只有原本要失败的图会慢 1~2 秒。 */
+  function readDigitCount(r) {
+    let n = 0;
+    for (const row of (r && r.cells) || []) {
+      for (const v of row) if (typeof v === 'number' && v >= 0 && v <= 8) n++;
+    }
+    return n;
+  }
+  function ocrResultScore(r) {
+    const digits = readDigitCount(r);
+    const opened = r.openedCount || 0;
+    const ratio = opened ? digits / opened : 0;
+    return ratio * 100 + digits * 0.5 - ((r.unsure && r.unsure.length) || 0) * 1.5;
+  }
+  function ocrResultWeak(r) {
+    const opened = r.openedCount || 0;
+    return opened >= 4 && readDigitCount(r) < opened * 0.8;
+  }
+  function recognizeWithRefine(input, opts) {
+    const base = recognizeOnce(input, opts);
+    if (!ocrResultWeak(base)) return base;
+    const g = opts.grid;
+    const tries = [
+      { dx: 0, dy: -0.22 * g.cellY }, { dx: 0, dy: 0.22 * g.cellY },
+      { dx: 0, dy: -0.11 * g.cellY }, { dx: 0, dy: 0.11 * g.cellY },
+      { dx: -0.15 * g.cellX, dy: 0 }, { dx: 0.15 * g.cellX, dy: 0 },
+    ];
+    let best = base, bestScore = ocrResultScore(base);
+    for (const t of tries) {
+      let r;
+      try {
+        r = recognizeOnce(input, {
+          grid: { x0: g.x0 + t.dx, y0: g.y0 + t.dy, cellX: g.cellX, cellY: g.cellY, n: g.n },
+        });
+      } catch (e) { continue; }
+      const score = ocrResultScore(r);
+      if (score > bestScore) { best = r; bestScore = score; }
+      if (!ocrResultWeak(r) && best === r) break;
+    }
+    if (best !== base) {
+      best.note = (best.note ? best.note + '；' : '') + '已微调网格复核';
+    }
+    return best;
+  }
+
   function recognize(input, opts) {
     opts = opts || {};
-    if (opts.grid) return recognizeOnce(input, opts);   // 手动微调路径：网格已定，不再试探方向
+    if (opts.grid) return opts.refine ? recognizeWithRefine(input, opts) : recognizeOnce(input, opts);   // 手动微调路径：网格已定，不再试探方向
     const raw = toImageData(input);
     let first = null, solidBest = null;
     for (const deg of [0, 90, 180, 270]) {

@@ -329,6 +329,7 @@ main {
   background: var(--bg-primary);
   width: 100vw;
   height: 100vh;
+  height: 100dvh;
   padding: 10px;
   overflow: auto;
   gap: 10px;
@@ -357,6 +358,8 @@ main {
 .board-scroll {
   padding: 14px 14px 46px;   /* 底部留出空间给"格子大小"浮层，不遮格子 */
   overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;  /* 纵向滚动条出现/消失时不让可用宽度跳一下 */
   scrollbar-width: thin;
   scrollbar-color: var(--scroll-thumb) transparent;
 }

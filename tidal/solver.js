@@ -445,7 +445,7 @@
 
   /* ---------- 棋盘尺寸自适应 ---------- */
   function fitBoard() {
-    const cols = S.cols, rows = S.rows;
+    const cols = S.cols;
     const gap = cols > 10 ? 5 : 6;
     // 手动模式：用户点过「格子大小 −/+」，固定尺寸（棋盘放不下就滚动），不再自动缩放
     if (S.manualCell) {   // 手动调过格子大小（含全屏下点 −/＋）：固定尺寸，不自动缩放
@@ -458,43 +458,29 @@
     }
     const cs = getComputedStyle(el.boardScroll);
     const padX = (parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.paddingRight) || 0);
-    const padY = (parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.paddingBottom) || 0);
 
     const availW = Math.max(180, el.boardScroll.clientWidth - padX - 2);
     let cell = Math.floor((availW - gap * (cols - 1)) / cols);
 
-    const rect = el.boardScroll.getBoundingClientRect();
-    // 下方留给建议条 + 结论条，取值条浮在格子旁边（fixed 定位，不占文档流）
-    const pal = document.querySelector('.palette');
-    const below = (pal ? pal.offsetHeight + 10 : 0) +          // 笔刷栏（手机上会换成两行）
-                  (el.advice ? el.advice.offsetHeight : 30) +
-                  (document.querySelector('#rec-row') && !document.querySelector('#rec-row').hidden
-                    ? document.querySelector('#rec-row').offsetHeight : 0) +
-                  (document.querySelector('.verdict-bar') ? document.querySelector('.verdict-bar').offsetHeight : 48) +
-                  (document.querySelector('.footer') ? document.querySelector('.footer').offsetHeight : 0) + 96;
-    // 可用高度：以棋盘容器（#board-scroll）的实际高度为准 —— 最准，不会白白留空白
-    const byBox = el.boardScroll.clientHeight ? el.boardScroll.clientHeight - padY : 0;
-    const byCalc = window.innerHeight - rect.top - below - padY;
-    const availH = Math.max(160, Math.max(window.innerHeight * 0.5, Math.max(byBox, byCalc)));
-    const byH = Math.floor((availH - gap * (rows - 1)) / rows);
-    if (byH > 0) cell = Math.min(cell, byH);
-
-    // 默认就让整盘完整放下（手机也一样）：宁可格子小一点，也不出现横向滚动。
-    // 想放大就用右下角「格子大小 ＋」——手动模式保持尺寸，放不下时才滚动。
-    const minCell = cols >= 24 ? 22 : (window.innerWidth <= 640 ? 16 : 34);   // 手机上"整盘放下"优先，桌面维持原来的 34px 下限
+    // 尺寸只由「可用宽度」决定：不再看 palette/建议条/结论条/页脚的高度，也不看
+    // window.innerHeight。手机地址栏收起、识别后建议条变高，都不会让棋盘重新缩放——
+    // 这是参考站「视图稳定」的关键；页面放不下时纵向滚动，而不是把棋盘缩小。
+    // 52px 是稳定与可读性的折中；想更大用右下角「格子大小 +」进入手动模式。
+    const maxCell = 52;
+    const minCell = cols >= 24 ? 22 : (window.innerWidth <= 640 ? 16 : 34);
     const applyCell = (v) => {
       el.board.style.setProperty('--gap', gap + 'px');
       el.board.style.setProperty('--cell', v + 'px');
       el.board.style.setProperty('--font', Math.round(v * 0.54) + 'px');
     };
-    cell = clamp(cell, minCell, 78);
+    cell = clamp(cell, minCell, maxCell);
     applyCell(cell);
     // 自纠：算完之后若仍出现横向滚动（常见于纵向滚动条刚出现、可用宽度又少了十几像素），
     // 按多出来的宽度再缩一次（最多两轮）——手机端保证整盘放得下
     for (let k = 0; k < 2; k++) {
       const over = el.boardScroll.scrollWidth - el.boardScroll.clientWidth;
       if (over <= 1) break;
-      const next = clamp(cell - (Math.floor(over / cols) + 1), minCell, 78);
+      const next = clamp(cell - (Math.floor(over / cols) + 1), minCell, maxCell);
       if (next === cell) break;
       cell = next;
       applyCell(cell);
@@ -2768,7 +2754,7 @@
       let r = located;
       if (window.TidalVision && typeof window.TidalVision.recognize === 'function' && located.debug && located.debug.grid) {
         try {
-          r = window.TidalVision.recognize(id, { grid: located.debug.grid });
+          r = window.TidalVision.recognize(id, { grid: located.debug.grid, refine: true });
           r.debug = Object.assign({}, r.debug, { detector: 'alt-grid', altGrid: located.debug.grid });
         } catch (e) { r = located; }
       }
