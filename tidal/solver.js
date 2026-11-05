@@ -36,6 +36,7 @@
       'tools.auto': '自动',
       'tools.auto.tip': '恢复自动适配屏幕',
       'tools.fs': '全屏',
+      'tools.fsExit': '退出全屏',
       'tools.fs.tip': '整个工具区全屏（手机上格子更大好点）',
       'chip.left': '剩余宝石',
       'chip.ticketsUnit': '票',
@@ -175,6 +176,7 @@
       'tools.auto': 'Auto',
       'tools.auto.tip': 'Back to auto-fit',
       'tools.fs': 'Fullscreen',
+      'tools.fsExit': 'Exit fullscreen',
       'tools.fs.tip': 'Fullscreen the whole tool area',
       'chip.left': 'Gems left',
       'chip.ticketsUnit': 'tickets',
@@ -1791,19 +1793,65 @@
       el.cellAuto.classList.toggle('is-on', !S.manualCell);
       el.cellAuto.onclick = () => setManualCell(0);
     }
+    /* 全屏：优先原生 Fullscreen API；安卓 WebView 不支持元素级全屏时，
+       用 .stage.is-fs（CSS 固定定位）兜底，功能和原生全屏一致。 */
+    function fsStage() { return el.stage || document.querySelector('.stage'); }
+    function fsNativeEl() {
+      return document.fullscreenElement || document.webkitFullscreenElement || null;
+    }
+    function setFsLabel(on) {
+      if (!el.boardFs) return;
+      const key = on ? 'tools.fsExit' : 'tools.fs';
+      el.boardFs.classList.toggle('is-on', on);
+      const span = el.boardFs.querySelector('[data-i18n]');
+      if (span) {
+        span.setAttribute('data-i18n', key);
+        span.textContent = t(key);
+      } else {
+        el.boardFs.textContent = t(key);
+      }
+    }
+    function syncFsUi() {
+      const stage = fsStage();
+      const on = !!fsNativeEl() || !!(stage && stage.classList.contains('is-fs'));
+      setFsLabel(on);
+      setTimeout(() => { fitBoard(); paint(); if (S.awaiting >= 0) positionRevealBar(); }, 80);
+    }
     if (el.boardFs) el.boardFs.onclick = () => {
-      // 全屏整个工具栏+棋盘区域（含笔刷栏、取值卡、提示弹窗都在里面，全屏下功能完整）
-      const stage = el.stage || document.querySelector('.stage');
-      if (!document.fullscreenElement) {
-        if (stage && stage.requestFullscreen) stage.requestFullscreen().catch(() => showToast('当前浏览器不支持全屏'));
-      } else if (document.exitFullscreen) {
-        document.exitFullscreen();
+      const stage = fsStage();
+      if (fsNativeEl()) {
+        if (document.exitFullscreen) document.exitFullscreen();
+        else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+        return;
+      }
+      if (!stage) return;
+      if (stage.classList.contains('is-fs')) {
+        stage.classList.remove('is-fs');
+        syncFsUi();
+        return;
+      }
+      const req = stage.requestFullscreen || stage.webkitRequestFullscreen;
+      if (!req) {
+        stage.classList.add('is-fs');
+        syncFsUi();
+        return;
+      }
+      let ret = null;
+      try { ret = req.call(stage); } catch (e) { ret = null; }
+      if (ret && typeof ret.catch === 'function') {
+        ret.catch(() => { stage.classList.add('is-fs'); syncFsUi(); });
+      } else if (!ret) {
+        // 老实现不返回 Promise：先按 CSS 全屏处理；真进了原生全屏时 change 事件会去掉 is-fs
+        stage.classList.add('is-fs');
+        syncFsUi();
       }
     };
-    document.addEventListener('fullscreenchange', () => {
-      const on = !!document.fullscreenElement;
-      if (el.boardFs) el.boardFs.textContent = on ? '退出全屏' : '全屏';
-      setTimeout(() => { fitBoard(); paint(); if (S.awaiting >= 0) positionRevealBar(); }, 80);
+    ['fullscreenchange', 'webkitfullscreenchange'].forEach((ev) => {
+      document.addEventListener(ev, () => {
+        const stage = fsStage();
+        if (fsNativeEl() && stage) stage.classList.remove('is-fs');
+        syncFsUi();
+      });
     });
   }
 

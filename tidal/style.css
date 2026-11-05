@@ -322,8 +322,10 @@ main {
 .bb-btn:hover { border-color: var(--accent); color: var(--accent); }
 .bb-btn.is-on { border-color: var(--accent); color: var(--accent); font-weight: 700; }
 /* 全屏：整个工具区（地图栏 + 笔刷栏 + 棋盘 + 提示）铺满屏幕，
-   全屏下也能改格子、也能弹取值卡；棋盘占满剩余高度，格子按屏幕重新适配 */
-.stage:fullscreen {
+   全屏下也能改格子、也能弹取值卡；棋盘占满剩余高度，格子按屏幕重新适配。
+   .is-fs 是不支持原生 Fullscreen API 时的兜底（安卓 WebView 走这条路）。 */
+.stage:fullscreen,
+.stage.is-fs {
   background: var(--bg-primary);
   width: 100vw;
   height: 100vh;
@@ -331,15 +333,23 @@ main {
   overflow: auto;
   gap: 10px;
 }
+.stage.is-fs {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+}
 /* 全屏里不需要"相关网址"这些外部链接，保留功能部分 */
-.stage:fullscreen .site-links { display: none; }
-.stage:fullscreen .board-shell {
+.stage:fullscreen .site-links,
+.stage.is-fs .site-links { display: none; }
+.stage:fullscreen .board-shell,
+.stage.is-fs .board-shell {
   flex: 1 1 auto;
   min-height: 0;
   display: flex;
   flex-direction: column;
 }
-.stage:fullscreen .board-scroll {
+.stage:fullscreen .board-scroll,
+.stage.is-fs .board-scroll {
   flex: 1;
   display: grid;
   place-items: center;
